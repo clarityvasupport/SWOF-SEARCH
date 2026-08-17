@@ -1,0 +1,4891 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Work Order Management Dashboard</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: "#eff6ff",
+                100: "#dbeafe",
+                200: "#bfdbfe",
+                500: "#3b82f6",
+                600: "#2563eb",
+                700: "#1d4ed8",
+                800: "#1e40af",
+              },
+            },
+            boxShadow: {
+              soft: "0 10px 30px rgba(15,23,42,.07)",
+              drawer: "-12px 0 40px rgba(15,23,42,.14)",
+            },
+          },
+        },
+      };
+    </script>
+
+    <style>
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 transparent;
+      }
+      body {
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      }
+      .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .modal-backdrop {
+        transition: opacity 0.2s ease;
+      }
+      .drawer {
+        transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .toast {
+        animation: toastIn 0.22s ease-out;
+      }
+      @keyframes toastIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .dropzone.drag {
+        border-color: #2563eb;
+        background: #eff6ff;
+      }
+      .pulse-dot {
+        animation: pulseDot 1.8s infinite;
+      }
+      @keyframes pulseDot {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.25);
+        }
+        50% {
+          box-shadow: 0 0 0 7px rgba(37, 99, 235, 0);
+        }
+      }
+      .status-dropdown-trigger {
+        cursor: pointer;
+        appearance: none;
+        background: transparent;
+        border: none;
+        font: inherit;
+        padding: 4px 18px 4px 12px;
+        border-radius: 999px;
+        font-weight: 700;
+        font-size: 10px;
+        border: 1px solid transparent;
+        outline: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='6'%3E%3Cpath d='M0 0l4 6 4-6z' fill='%2364758b'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 4px center;
+        background-size: 8px 6px;
+        min-width: 70px;
+      }
+      .status-dropdown-trigger:focus {
+        ring: 2px solid #3b82f6;
+      }
+      .status-dropdown-trigger option {
+        background: white;
+        color: #1e293b;
+      }
+      .field-label-sm {
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: #64748b;
+        margin-bottom: 2px;
+        display: block;
+      }
+      .field-input-sm {
+        width: 100%;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 0.4rem 0.6rem;
+        font-size: 0.75rem;
+        background: #fff;
+        outline: none;
+      }
+      .field-input-sm:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+      }
+      .field-input {
+        width: 100%;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.65rem;
+        padding: 0.65rem 0.75rem;
+        font-size: 0.875rem;
+        background: #fff;
+        outline: none;
+      }
+      .field-input:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+      }
+      .field-label {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 800;
+        color: #475569;
+        margin-bottom: 0.4rem;
+      }
+      .detail-box-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      @media (max-width: 480px) {
+        .detail-box-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .drawer-custom-fields-list .custom-field-item {
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 8px 12px;
+        border: 1px solid #e2e8f0;
+        font-size: 0.75rem;
+      }
+      .drawer-custom-fields-list .custom-field-item strong {
+        color: #475569;
+        font-weight: 700;
+        display: inline-block;
+        min-width: 80px;
+      }
+      .edit-scroll {
+        overflow-y: auto;
+        max-height: calc(94vh - 140px);
+      }
+      .edit-scroll::-webkit-scrollbar {
+        width: 4px;
+      }
+      .edit-scroll::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 8px;
+      }
+      .drawer-custom-field-row,
+      .edit-custom-field-row {
+        display: grid;
+        grid-template-columns: 1fr 1.8fr 32px;
+        gap: 8px;
+        align-items: center;
+      }
+      .drawer-custom-field-row .field-remove-btn,
+      .edit-custom-field-row .field-remove-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: none;
+        background: transparent;
+        color: #ef4444;
+        font-size: 16px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .drawer-custom-field-row .field-remove-btn:hover,
+      .edit-custom-field-row .field-remove-btn:hover {
+        background: #fef2f2;
+      }
+      .add-field-btn {
+        font-size: 11px;
+        font-weight: 700;
+        color: #3b82f6;
+        background: #eff6ff;
+        border: 1px dashed #bfdbfe;
+        border-radius: 10px;
+        padding: 8px 14px;
+        width: 100%;
+        text-align: center;
+        transition: all 0.15s;
+        cursor: pointer;
+      }
+      .add-field-btn:hover {
+        background: #dbeafe;
+        border-color: #60a5fa;
+      }
+      .drawer-add-field-section,
+      .edit-add-field-section {
+        border-top: 1px solid #e2e8f0;
+        margin-top: 12px;
+        padding-top: 12px;
+      }
+      .delete-btn-danger {
+        transition: all 0.15s;
+      }
+      .delete-btn-danger:hover {
+        background: #fef2f2;
+        border-color: #fca5a5;
+      }
+    </style>
+  </head>
+
+  <body class="bg-slate-50 text-slate-800 min-h-screen">
+    <!-- ========================= TOP BAR ========================= -->
+    <header
+      class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200"
+    >
+      <div
+        class="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4"
+      >
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <div
+              class="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center shadow-sm"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"
+                />
+              </svg>
+            </div>
+            <h1 class="font-bold text-slate-900 truncate">Work Orders</h1>
+            <span
+              id="storageBadge"
+              class="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold"
+            >
+              <span
+                class="w-1.5 h-1.5 rounded-full bg-emerald-500 pulse-dot"
+              ></span>
+              LOCAL MODE
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-0.5 hidden sm:block">
+            Interactive frontend prototype — ready for backend integration
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button
+            id="dashboardUndoBtn"
+            type="button"
+            class="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Undo last dashboard change"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-width="2"
+                stroke-linecap="round"
+                d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-2"
+              />
+            </svg>
+            Undo <span id="undoCount" class="text-xs text-slate-400"></span>
+          </button>
+          <button
+            id="importTopBtn"
+            type="button"
+            class="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-600"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-width="1.8"
+                stroke-linecap="round"
+                d="M12 3v12m0-12 4 4m-4-4L8 7M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"
+              />
+            </svg>
+            Import Data
+          </button>
+          <button
+            id="newOrderBtn"
+            type="button"
+            class="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold shadow-sm"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-width="2"
+                stroke-linecap="round"
+                d="M12 5v14M5 12h14"
+              />
+            </svg>
+            <span class="hidden sm:inline">New Work Order</span
+            ><span class="sm:hidden">New</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-none mx-auto px-5 lg:px-6 py-4">
+      <div
+        class="grid grid-cols-1 xl:grid-cols-[182px_minmax(0,1fr)] gap-5 items-start"
+      >
+        <!-- ========================= LEFT NAV ========================= -->
+        <aside class="hidden xl:block sticky top-[82px]">
+          <nav class="space-y-1 text-sm">
+            <button
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-brand-50 text-brand-700 font-semibold text-left"
+              data-nav-page="dashboard"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M3 12l9-9 9 9M5 10v10h14V10M9 20v-6h6v6"
+                />
+              </svg>
+              Dashboard
+            </button>
+            <button
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 text-slate-600 text-left"
+              data-nav-page="all-orders"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"
+                />
+              </svg>
+              All Work Orders
+            </button>
+            <button
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 text-slate-600 text-left"
+              data-nav-page="calendar"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z"
+                />
+              </svg>
+              Calendar
+            </button>
+            <button
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 text-slate-600 text-left"
+              data-nav-page="reports"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M5 4h10l4 4v12H5V4Zm10 0v5h4M8 13h8M8 16h6"
+                />
+              </svg>
+              Reports
+            </button>
+            <button
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 text-slate-600 text-left"
+              data-nav-page="analytics"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M4 19V9m5 10V5m5 14v-7m5 7V3"
+                />
+              </svg>
+              Analytics
+            </button>
+            <button
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 text-slate-600 text-left"
+              data-nav-page="activity"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  d="M12 8v4l3 2M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"
+                />
+              </svg>
+              Activity Log
+            </button>
+          </nav>
+
+          <div class="my-4 border-t border-slate-200"></div>
+          <div class="px-3 mb-2 flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-700">Admin</span>
+            <span class="text-slate-400">⌃</span>
+          </div>
+          <nav class="space-y-1 text-sm">
+            <button
+              id="importSideBtn"
+              data-nav-page="data-import"
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 text-slate-600 text-left"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  d="M12 3v12m0-12 4 4m-4-4-4 4M5 14v5h14v-5"
+                />
+              </svg>
+              Data Import
+            </button>
+            <button
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 text-slate-600 text-left"
+              data-nav-page="users"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  d="M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7-3a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm0 12v-1a4 4 0 0 0-2.5-3.7"
+                />
+              </svg>
+              Users
+            </button>
+            <button
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-100 text-slate-600 text-left"
+              data-nav-page="settings"
+            >
+              <svg
+                class="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.4-6.4-1.4 1.4M7 17l-1.4 1.4m12.8 0L17 17M7 7 5.6 5.6M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"
+                />
+              </svg>
+              Settings
+            </button>
+          </nav>
+
+          <section
+            class="mt-5 bg-white border border-slate-200 rounded-xl shadow-sm p-4"
+          >
+            <div class="flex items-center gap-2 mb-4">
+              <svg
+                class="w-4 h-4 text-brand-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  d="M4 19V9m5 10V5m5 14v-7m5 7V3"
+                />
+              </svg>
+              <span class="text-xs font-bold text-slate-700">Summary</span>
+            </div>
+            <div class="space-y-2.5 text-xs">
+              <div class="flex justify-between">
+                <span
+                  class="text-slate-600 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-blue-500 before:rounded-full before:mr-2"
+                  >Open</span
+                ><strong id="sideOpen">0</strong>
+              </div>
+              <div class="flex justify-between">
+                <span
+                  class="text-slate-600 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-amber-500 before:rounded-full before:mr-2"
+                  >In Progress</span
+                ><strong id="sideProgress">0</strong>
+              </div>
+              <div class="flex justify-between">
+                <span
+                  class="text-slate-600 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-violet-500 before:rounded-full before:mr-2"
+                  >On Hold</span
+                ><strong id="sideHold">0</strong>
+              </div>
+              <div class="flex justify-between">
+                <span
+                  class="text-slate-600 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-emerald-500 before:rounded-full before:mr-2"
+                  >Completed</span
+                ><strong id="sideCompleted">0</strong>
+              </div>
+              <div class="flex justify-between">
+                <span
+                  class="text-slate-600 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-red-500 before:rounded-full before:mr-2"
+                  >Overdue</span
+                ><strong id="sideOverdue">0</strong>
+              </div>
+              <div class="flex justify-between">
+                <span
+                  class="text-slate-600 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-slate-400 before:rounded-full before:mr-2"
+                  >Cancelled</span
+                ><strong id="sideCancelled">0</strong>
+              </div>
+            </div>
+            <div class="border-t border-slate-100 mt-4 pt-3">
+              <p class="text-[11px] text-slate-400">Total Work Orders</p>
+              <p
+                id="sideTotal"
+                class="text-2xl font-black text-slate-800 leading-tight"
+              >
+                0
+              </p>
+              <p class="text-[10px] text-slate-400 mt-1">
+                Last updated: <span id="sideUpdated">Just now</span>
+              </p>
+            </div>
+          </section>
+        </aside>
+
+        <!-- ========================= MAIN WORKSPACE ========================= -->
+        <div class="min-w-0">
+          <div class="hidden">
+            <span id="statTotal">0</span><span id="statOpen">0</span
+            ><span id="statProgress">0</span><span id="statCompleted">0</span
+            ><span id="statOverdue">0</span>
+          </div>
+
+          <!-- FILTER BAR -->
+          <section
+            class="bg-white border border-slate-200 rounded-xl shadow-sm p-3 mb-4"
+          >
+            <div
+              class="grid grid-cols-1 lg:grid-cols-[minmax(280px,1fr)_140px_140px_170px_auto_auto] gap-2.5 items-center"
+            >
+              <div class="relative min-w-0">
+                <svg
+                  class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    d="m20 20-4.5-4.5m2-5.5a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+                  />
+                </svg>
+                <input
+                  id="searchInput"
+                  type="search"
+                  placeholder="Search work order, title, location, person, category..."
+                  class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                />
+              </div>
+              <select
+                id="statusFilter"
+                class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+              ></select>
+              <select
+                id="priorityFilter"
+                class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+              ></select>
+              <select
+                id="sortSelect"
+                class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+              >
+                <option value="created_desc">Newest Created</option>
+                <option value="created_asc">Oldest Created</option>
+                <option value="due_asc">Due Soonest</option>
+                <option value="title_asc">Title A–Z</option>
+              </select>
+              <button
+                id="clearFiltersBtn"
+                type="button"
+                class="px-3 py-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-sm font-semibold text-slate-600"
+              >
+                Clear
+              </button>
+              <button
+                id="refreshBtn"
+                type="button"
+                class="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-600"
+                title="Reload saved data and refresh the dashboard"
+              >
+                <svg
+                  id="refreshIcon"
+                  class="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    d="M20 11a8 8 0 0 0-15.3-3M4 5v4h4M4 13a8 8 0 0 0 15.3 3M20 19v-4h-4"
+                  /></svg
+                ><span>Refresh</span>
+              </button>
+            </div>
+          </section>
+
+          <div
+            id="dashboardContentGrid"
+            class="grid grid-cols-1 gap-6 items-start"
+          >
+            <!-- WORK ORDERS -->
+            <section
+              class="min-w-0 bg-white border border-slate-200 rounded-xl shadow-sm p-4"
+            >
+              <div
+                class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4"
+              >
+                <div>
+                  <h2 class="text-base font-black text-slate-800">
+                    Work Orders
+                  </h2>
+                  <p id="resultCount" class="text-xs text-slate-400 mt-1"></p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button
+                    id="prevPageBtn"
+                    type="button"
+                    class="px-2.5 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    ← Prev
+                  </button>
+                  <span
+                    id="pageInfo"
+                    class="min-w-[125px] text-center text-xs font-bold text-slate-500"
+                    >Page 1 • 0 of 0</span
+                  >
+                  <button
+                    id="nextPageBtn"
+                    type="button"
+                    class="px-2.5 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Next →
+                  </button>
+                  <button
+                    id="mobileUndoBtn"
+                    type="button"
+                    class="sm:hidden inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 disabled:opacity-40"
+                    disabled
+                  >
+                    ↶ Undo
+                  </button>
+                </div>
+              </div>
+
+              <div
+                id="workOrderGrid"
+                class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+              ></div>
+              <div
+                id="emptyState"
+                class="hidden bg-white border border-dashed border-slate-300 rounded-xl py-16 text-center"
+              >
+                <div class="text-3xl mb-2">⌕</div>
+                <h3 class="font-bold text-slate-700">No work orders found</h3>
+                <p class="text-xs text-slate-400 mt-1">
+                  Try clearing the filters or importing your data.
+                </p>
+              </div>
+
+              <div
+                class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-100 mt-5 pt-4"
+              >
+                <p id="bottomResultCount" class="text-xs text-slate-400"></p>
+                <div class="flex items-center gap-2 text-xs text-slate-500">
+                  <span id="bottomPageInfo">Page 1 of 1</span><span>•</span
+                  ><span>200 per page</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- ADMIN IMPORT LAUNCHER -->
+            <section
+              id="adminImportSection"
+              class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5"
+            >
+              <div class="flex items-start gap-3">
+                <div
+                  class="w-10 h-10 rounded-xl bg-violet-50 text-violet-700 flex items-center justify-center shrink-0"
+                >
+                  <svg
+                    class="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M12 16V4m0 0 4 4m-4-4L8 8M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"
+                    />
+                  </svg>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <h2 class="font-black text-slate-800">Admin Data Import</h2>
+                    <span
+                      class="inline-flex items-center px-2 py-1 rounded-full bg-violet-50 text-violet-700 text-[9px] font-black"
+                      >PRE-BACKEND</span
+                    >
+                  </div>
+                  <p class="text-xs text-slate-400 mt-2 leading-5">
+                    Import Excel, CSV or pasted tables. Review the mapping and
+                    see the work-order cards that will be created before
+                    anything is saved.
+                  </p>
+                  <button
+                    id="openImportModalBtn"
+                    type="button"
+                    class="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold"
+                  >
+                    <svg
+                      class="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        d="M12 3v12m0-12 4 4m-4-4L8 7M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"
+                      />
+                    </svg>
+                    Open Import Center
+                  </button>
+                </div>
+              </div>
+              <div
+                class="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/70 p-3"
+              >
+                <p class="text-xs font-bold text-emerald-700">
+                  Safe import workflow
+                </p>
+                <p class="text-[10px] leading-4 text-emerald-700/70 mt-1">
+                  Read → Auto-map → Preview actual cards → Confirm Import →
+                  Dashboard refreshes immediately.
+                </p>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ========================= IMPORT CENTER MODAL ========================= -->
+    <div id="importModal" class="fixed inset-0 z-[70] hidden">
+      <div
+        id="importModalBackdrop"
+        class="absolute inset-0 bg-slate-950/55 backdrop-blur-sm"
+      ></div>
+      <div class="relative h-full flex items-center justify-center p-3 sm:p-6">
+        <div
+          class="w-full max-w-7xl max-h-[94vh] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        >
+          <div
+            class="shrink-0 px-5 sm:px-7 py-4 border-b border-slate-200 flex items-center justify-between gap-4"
+          >
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <h2 class="text-lg sm:text-xl font-black text-slate-900">
+                  Admin Data Import Center
+                </h2>
+                <span
+                  class="inline-flex items-center px-2 py-1 rounded-full bg-violet-50 text-violet-700 text-[9px] font-black"
+                  >PRE-BACKEND</span
+                >
+              </div>
+              <p class="text-xs text-slate-400 mt-1">
+                Nothing is imported until you press
+                <strong>Confirm Import</strong>.
+              </p>
+            </div>
+            <button
+              id="closeImportModalBtn"
+              type="button"
+              class="w-10 h-10 rounded-xl hover:bg-slate-100 text-slate-500 flex items-center justify-center text-xl"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto">
+            <div
+              class="p-5 sm:p-7 grid grid-cols-1 lg:grid-cols-[360px_minmax(0,1fr)] gap-6"
+            >
+              <div class="space-y-5">
+                <section class="rounded-2xl border border-slate-200 p-4">
+                  <div class="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                      <h3 class="font-black text-slate-800">1. Choose data</h3>
+                      <p class="text-[11px] text-slate-400 mt-1">
+                        Excel, CSV, TSV or paste rows.
+                      </p>
+                    </div>
+                    <span
+                      id="importSourceBadge"
+                      class="text-[10px] font-bold text-slate-400"
+                      >No data loaded</span
+                    >
+                  </div>
+
+                  <div
+                    id="importDropzone"
+                    class="dropzone border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:border-brand-400 hover:bg-slate-50 transition cursor-pointer"
+                  >
+                    <input
+                      id="importFileInput"
+                      type="file"
+                      accept=".xlsx,.xls,.csv,.tsv"
+                      class="hidden"
+                    />
+                    <svg
+                      class="w-10 h-10 mx-auto text-slate-400 mb-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-width="1.7"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M12 16V4m0 0 4 4m-4-4L8 8M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"
+                      />
+                    </svg>
+                    <p class="text-sm font-bold text-slate-700">
+                      Drop file here or browse
+                    </p>
+                    <p class="text-[11px] text-slate-400 mt-1">
+                      .xlsx · .xls · .csv · .tsv
+                    </p>
+                    <p
+                      id="importFileName"
+                      class="text-xs text-brand-600 font-bold mt-2"
+                    ></p>
+                  </div>
+
+                  <div
+                    class="flex items-center gap-3 text-[10px] text-slate-400 font-bold my-4"
+                  >
+                    <span class="h-px bg-slate-200 flex-1"></span>OR<span
+                      class="h-px bg-slate-200 flex-1"
+                    ></span>
+                  </div>
+
+                  <textarea
+                    id="importPasteData"
+                    rows="8"
+                    placeholder="Paste your Excel/CSV table here. The first row is treated as headers."
+                    class="w-full rounded-xl border border-slate-200 p-3 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                  ></textarea>
+                  <button
+                    id="importReadPasteBtn"
+                    type="button"
+                    class="mt-2 w-full px-3 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold"
+                  >
+                    Read Pasted Data
+                  </button>
+                </section>
+
+                <section
+                  class="rounded-2xl border border-blue-100 bg-blue-50/60 p-4"
+                >
+                  <h3 class="font-black text-slate-800">2. Confirm mapping</h3>
+                  <p
+                    id="importMappingSummary"
+                    class="text-[11px] text-slate-500 mt-1"
+                  >
+                    Load a file to begin.
+                  </p>
+                  <div class="mt-3 flex items-center gap-2">
+                    <span
+                      id="importReadyBadge"
+                      class="inline-flex items-center px-2 py-1 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black"
+                      >WAITING</span
+                    >
+                    <span
+                      id="importRowCount"
+                      class="text-[10px] text-slate-400"
+                    ></span>
+                  </div>
+                </section>
+              </div>
+
+              <div class="min-w-0 space-y-5">
+                <section
+                  id="importMappingArea"
+                  class="hidden rounded-2xl border border-slate-200 p-4"
+                >
+                  <div class="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                      <h3 class="font-black text-slate-800">
+                        Automatic column mapping
+                      </h3>
+                      <p class="text-[11px] text-slate-400 mt-1">
+                        Mappings are based on header names and the contents of
+                        the columns. You can override any mapping.
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    id="importMappingGrid"
+                    class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3"
+                  ></div>
+                  <div
+                    id="importCustomMappingArea"
+                    class="mt-5 pt-5 border-t border-slate-200"
+                  ></div>
+                </section>
+
+                <section
+                  id="importPreviewArea"
+                  class="hidden rounded-2xl border border-slate-200 overflow-hidden"
+                >
+                  <div
+                    class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3"
+                  >
+                    <div>
+                      <h3 class="font-black text-slate-800">
+                        3. Preview before importing
+                      </h3>
+                      <p class="text-[11px] text-slate-400 mt-1">
+                        This is how the imported records will appear on the
+                        dashboard.
+                      </p>
+                    </div>
+                    <span
+                      id="importPreviewCount"
+                      class="text-[10px] font-bold text-slate-400"
+                    ></span>
+                  </div>
+
+                  <div class="p-4">
+                    <div
+                      id="projectedCards"
+                      class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+                    ></div>
+                    <div
+                      class="mt-5 border border-slate-200 rounded-xl overflow-hidden"
+                    >
+                      <div
+                        class="px-3 py-2 bg-white border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-wide"
+                      >
+                        Mapped data preview
+                      </div>
+                      <div class="overflow-x-auto max-h-72">
+                        <table class="min-w-[900px] w-full text-[10px]">
+                          <thead
+                            id="importPreviewHead"
+                            class="bg-slate-50"
+                          ></thead>
+                          <tbody id="importPreviewBody"></tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section
+                  id="importEmptyPreview"
+                  class="rounded-2xl border border-dashed border-slate-300 p-10 text-center"
+                >
+                  <div
+                    class="w-12 h-12 mx-auto rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 text-xl"
+                  >
+                    ↑
+                  </div>
+                  <h3 class="font-black text-slate-700 mt-3">
+                    Your preview will appear here
+                  </h3>
+                  <p class="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                    Upload or paste a table. You will see the automatic mapping
+                    and actual Work Order card previews before importing.
+                  </p>
+                </section>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="shrink-0 border-t border-slate-200 bg-white px-5 sm:px-7 py-4 flex flex-col sm:flex-row items-center justify-between gap-3"
+          >
+            <button
+              id="importClearBtn"
+              type="button"
+              class="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-sm font-bold text-slate-600"
+            >
+              Clear Import
+            </button>
+            <div class="flex gap-2 w-full sm:w-auto">
+              <button
+                id="closeImportBottomBtn"
+                type="button"
+                class="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-sm font-bold text-slate-600"
+              >
+                Cancel
+              </button>
+              <button
+                id="confirmImportBtn"
+                type="button"
+                disabled
+                class="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-black disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Confirm Import
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================= SECTION PAGES ========================= -->
+    <div
+      id="sectionPage"
+      class="hidden fixed left-0 xl:left-[207px] right-0 top-[72px] bottom-0 z-[35] bg-slate-50 overflow-y-auto"
+    >
+      <div class="max-w-[1500px] mx-auto px-5 lg:px-8 py-6">
+        <div class="flex items-center justify-between gap-4 mb-6">
+          <div>
+            <button
+              id="sectionBackBtn"
+              type="button"
+              class="text-xs font-bold text-brand-600 hover:text-brand-700 mb-2"
+            >
+              ← Back to Dashboard
+            </button>
+            <h2
+              id="sectionPageTitle"
+              class="text-2xl font-black text-slate-900"
+            ></h2>
+            <p id="sectionPageSub" class="text-sm text-slate-400 mt-1"></p>
+          </div>
+          <button
+            id="sectionRefreshBtn"
+            type="button"
+            class="px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-bold text-slate-600"
+          >
+            ↻ Refresh
+          </button>
+        </div>
+        <div id="sectionPageBody"></div>
+      </div>
+    </div>
+
+    <!-- ========================= DRAWER ========================= -->
+    <div
+      id="drawerBackdrop"
+      class="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-[2px] opacity-0 pointer-events-none modal-backdrop"
+    ></div>
+
+    <aside
+      id="detailDrawer"
+      class="drawer fixed top-0 right-0 z-50 h-full w-full sm:max-w-xl bg-white shadow-drawer translate-x-full flex flex-col"
+    >
+      <div
+        class="flex-shrink-0 px-5 py-4 border-b border-slate-200 flex items-start justify-between gap-3"
+      >
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span
+              id="drawerStatusBadge"
+              class="px-2.5 py-1 rounded-full text-[11px] font-bold border"
+            ></span>
+            <span
+              id="drawerNumber"
+              class="text-xs text-slate-400 font-semibold"
+            ></span>
+          </div>
+          <h2
+            id="drawerTitle"
+            class="text-xl font-black text-slate-900 mt-2 truncate"
+          ></h2>
+          <p id="drawerCreatedText" class="text-xs text-slate-400 mt-1"></p>
+        </div>
+        <button
+          id="closeDrawerBtn"
+          type="button"
+          class="w-9 h-9 shrink-0 rounded-lg hover:bg-slate-100 text-slate-500 flex items-center justify-center"
+        >
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-width="2"
+              stroke-linecap="round"
+              d="m6 18 12-12M6 6l12 12"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <div id="drawerBody" class="flex-1 overflow-y-auto p-5 space-y-6"></div>
+
+      <div class="flex-shrink-0 border-t border-slate-200 p-4 bg-white">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <button
+            id="drawerEditBtn"
+            type="button"
+            class="px-3 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold"
+          >
+            Edit
+          </button>
+          <select
+            id="drawerStatusSelect"
+            class="px-3 py-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold bg-white cursor-pointer"
+          >
+            <option>Open</option>
+            <option>In Progress</option>
+            <option>On Hold</option>
+            <option>Completed</option>
+            <option>Overdue</option>
+            <option>Cancelled</option>
+          </select>
+          <button
+            id="drawerDuplicateBtn"
+            type="button"
+            class="px-3 py-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold"
+          >
+            Duplicate
+          </button>
+          <button
+            id="drawerDeleteBtn"
+            type="button"
+            class="px-3 py-2.5 rounded-lg border border-red-300 hover:bg-red-50 text-red-600 text-xs font-bold delete-btn-danger"
+          >
+            Delete
+          </button>
+        </div>
+        <div class="mt-2 flex items-center justify-between">
+          <button
+            id="drawerUndoBtn"
+            type="button"
+            class="text-xs font-bold text-slate-500 hover:text-brand-600 disabled:opacity-30"
+            disabled
+          >
+            ↶ Undo last change
+          </button>
+          <button
+            id="drawerCloseBottomBtn"
+            type="button"
+            class="text-xs font-bold text-slate-400 hover:text-slate-700"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ========================= EDIT MODAL ========================= -->
+    <div id="editModal" class="fixed inset-0 z-[60] hidden">
+      <div
+        id="editModalBackdrop"
+        class="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
+      ></div>
+      <div
+        class="relative min-h-full flex items-center justify-center p-3 sm:p-6"
+      >
+        <div
+          class="w-full max-w-4xl max-h-[94vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        >
+          <div
+            class="px-5 py-4 border-b border-slate-200 flex items-center justify-between shrink-0"
+          >
+            <div>
+              <h2 id="editModalTitle" class="font-black text-slate-900">
+                Edit Work Order
+              </h2>
+              <p id="editModalSub" class="text-xs text-slate-400 mt-1"></p>
+            </div>
+            <button
+              id="closeEditModalBtn"
+              type="button"
+              class="w-9 h-9 rounded-lg hover:bg-slate-100 text-slate-500 flex items-center justify-center"
+            >
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  d="m6 18 12-12M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <form id="editForm" class="p-5 space-y-5 overflow-y-auto edit-scroll">
+            <input id="formId" type="hidden" />
+
+            <div class="grid sm:grid-cols-2 gap-4">
+              <div class="sm:col-span-2">
+                <label class="field-label">Title</label>
+                <input id="formTitle" required class="field-input" />
+              </div>
+
+              <div>
+                <label class="field-label">Status</label>
+                <select id="formStatus" class="field-input">
+                  <option>Open</option>
+                  <option>In Progress</option>
+                  <option>On Hold</option>
+                  <option>Completed</option>
+                  <option>Overdue</option>
+                  <option>Cancelled</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="field-label">Priority</label>
+                <select id="formPriority" class="field-input">
+                  <option>Critical</option>
+                  <option>High</option>
+                  <option>Medium</option>
+                  <option>Low</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="field-label">Category</label>
+                <input id="formCategory" class="field-input" />
+              </div>
+
+              <div>
+                <label class="field-label">Location</label>
+                <input id="formLocation" class="field-input" />
+              </div>
+
+              <div>
+                <label class="field-label">Assigned To</label>
+                <select id="formAssignee" class="field-input"></select>
+                <p class="text-[10px] text-slate-400 mt-1">
+                  Manage available assignees from Admin → Users.
+                </p>
+              </div>
+
+              <div>
+                <label class="field-label">Due Date</label>
+                <input id="formDueDate" type="date" class="field-input" />
+              </div>
+
+              <div>
+                <label class="field-label">Created Date</label>
+                <input id="formCreated" type="date" class="field-input" />
+              </div>
+
+              <div>
+                <label class="field-label">Contact / Requester</label>
+                <input id="formRequester" class="field-input" />
+              </div>
+
+              <div>
+                <label class="field-label">Date Transmitted</label>
+                <input
+                  id="formDateTransmitted"
+                  type="date"
+                  class="field-input"
+                />
+              </div>
+
+              <!-- CARD DISPLAY CONFIG -->
+              <div
+                class="sm:col-span-2 rounded-xl border border-brand-100 bg-brand-50/50 p-4"
+              >
+                <div class="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <label class="field-label mb-0">Card Display</label>
+                    <p class="text-[10px] text-slate-400">
+                      Control what the center card calls and displays instead of
+                      being locked to Due Date.
+                    </p>
+                  </div>
+                </div>
+                <div class="grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="field-label">Card Date Source</label>
+                    <select id="cardDateSource" class="field-input"></select>
+                    <p class="text-[10px] text-slate-400 mt-0.5">
+                      Choose a field to show as the main date on the card.
+                    </p>
+                  </div>
+                  <div>
+                    <label class="field-label">Card Date Label</label>
+                    <input
+                      id="cardDateLabel"
+                      class="field-input"
+                      placeholder="e.g. Date Transmitted"
+                    />
+                    <p class="text-[10px] text-slate-400 mt-0.5">
+                      Custom label displayed next to the card date.
+                    </p>
+                  </div>
+                </div>
+                <div class="mt-3">
+                  <label class="field-label">Extra Card Fields</label>
+                  <div
+                    id="cardExtraFieldChoices"
+                    class="grid sm:grid-cols-2 gap-2"
+                  ></div>
+                </div>
+              </div>
+
+              <!-- ====== CUSTOM FIELDS (EDIT MODAL) ====== -->
+              <div
+                class="sm:col-span-2 rounded-xl border border-slate-200 p-4 bg-slate-50/60"
+              >
+                <div class="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <label class="field-label mb-0">Custom Fields</label>
+                    <p class="text-[10px] text-slate-400">
+                      Add or edit custom fields. Values can come from imported
+                      headers or typed manually.
+                    </p>
+                  </div>
+                  <button
+                    id="addEditCustomFieldBtn"
+                    type="button"
+                    class="px-3 py-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-[10px] font-black"
+                  >
+                    + Add Field
+                  </button>
+                </div>
+                <div id="editCustomFields" class="space-y-3"></div>
+              </div>
+
+              <div class="sm:col-span-2">
+                <label class="field-label">Description</label>
+                <textarea
+                  id="formDescription"
+                  rows="4"
+                  class="field-input"
+                ></textarea>
+              </div>
+            </div>
+
+            <div
+              class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-200"
+            >
+              <button
+                id="modalUndoBtn"
+                type="button"
+                class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-30"
+                disabled
+              >
+                ↶ Undo
+              </button>
+              <div class="flex flex-wrap gap-2 sm:ml-auto">
+                <button
+                  id="deleteFromEditBtn"
+                  type="button"
+                  class="px-4 py-2.5 rounded-lg border border-red-300 hover:bg-red-50 text-sm font-bold text-red-600 delete-btn-danger"
+                >
+                  Delete Work Order
+                </button>
+                <button
+                  id="cancelEditBtn"
+                  type="button"
+                  class="px-4 py-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-sm font-bold text-slate-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  class="px-5 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================= STATUS MODAL ========================= -->
+    <div id="statusModal" class="fixed inset-0 z-[65] hidden">
+      <div
+        id="statusModalBackdrop"
+        class="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
+      ></div>
+      <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl p-5">
+          <div class="flex items-start justify-between">
+            <div>
+              <h2 class="font-black text-slate-900">Change Status</h2>
+              <p id="statusModalText" class="text-xs text-slate-400 mt-1"></p>
+            </div>
+            <button
+              id="closeStatusModalBtn"
+              type="button"
+              class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500"
+            >
+              ✕
+            </button>
+          </div>
+          <div class="mt-5">
+            <label class="field-label">New Status</label>
+            <select id="statusModalSelect" class="field-input">
+              <option>Open</option>
+              <option>In Progress</option>
+              <option>On Hold</option>
+              <option>Completed</option>
+              <option>Overdue</option>
+              <option>Cancelled</option>
+            </select>
+          </div>
+          <div class="flex justify-end gap-2 mt-5">
+            <button
+              id="cancelStatusBtn"
+              type="button"
+              class="px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-bold text-slate-600"
+            >
+              Cancel
+            </button>
+            <button
+              id="confirmStatusBtn"
+              type="button"
+              class="px-4 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold"
+            >
+              Confirm Change
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================= TOASTS ========================= -->
+    <div
+      id="toastStack"
+      class="fixed right-4 bottom-4 z-[100] space-y-2 w-[min(380px,calc(100vw-2rem))]"
+    ></div>
+
+    <script>
+      // =========================================================
+      // WORK ORDER APP — ENHANCED WITH WORKING DELETE & FIELD EDIT
+      // =========================================================
+
+      const STORAGE_KEY = "wo_dashboard_v3";
+      const HISTORY_KEY = "wo_dashboard_history_v3";
+      const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
+      const USERS_KEY = "wo_users_v1";
+      const IMPORTED_HEADERS_KEY = "wo_imported_headers_v1";
+
+      const seedOrders = [
+        {
+          id: "WO-2026-001",
+          title: "Air Conditioning Not Cooling",
+          description:
+            "The air conditioning unit in the conference room is running but is not producing sufficient cooling. Inspect the unit, filters, drain and refrigerant level.",
+          status: "In Progress",
+          priority: "High",
+          category: "HVAC",
+          location: "Conference Room",
+          assignee: "Juan Dela Cruz",
+          requester: "Facilities Admin",
+          created: "2026-08-15",
+          dueDate: "2026-08-18",
+          dateTransmitted: "",
+          customFields: [
+            { label: "Unit Model", value: "AC-2200", _sourceHeader: "" },
+            { label: "Serial Number", value: "SN-8821-X", _sourceHeader: "" },
+          ],
+          activity: [
+            { date: "2026-08-15 08:30", text: "Work order created" },
+            { date: "2026-08-15 09:15", text: "Assigned to Juan Dela Cruz" },
+          ],
+        },
+        {
+          id: "WO-2026-002",
+          title: "Leaking Faucet",
+          description:
+            "Water is continuously dripping from the faucet underneath the pantry sink. Inspect the fixture and replace defective components.",
+          status: "Open",
+          priority: "Medium",
+          category: "Plumbing",
+          location: "Pantry Area",
+          assignee: "Maria Santos",
+          requester: "Admin Office",
+          created: "2026-08-14",
+          dueDate: "2026-08-20",
+          dateTransmitted: "",
+          customFields: [],
+          activity: [{ date: "2026-08-14 10:10", text: "Work order created" }],
+        },
+        {
+          id: "WO-2026-003",
+          title: "Replace Damaged Light",
+          description:
+            "One ceiling light fixture is damaged and intermittently flickering. Replace the fixture and verify proper operation.",
+          status: "Completed",
+          priority: "Low",
+          category: "Electrical",
+          location: "Reception Area",
+          assignee: "Carlo Reyes",
+          requester: "Reception",
+          created: "2026-08-12",
+          dueDate: "2026-08-14",
+          dateTransmitted: "",
+          customFields: [],
+          activity: [
+            { date: "2026-08-12 08:00", text: "Work order created" },
+            { date: "2026-08-14 15:40", text: "Marked Completed" },
+          ],
+        },
+        {
+          id: "WO-2026-004",
+          title: "Broken Door Lock",
+          description:
+            "The main office door lock is difficult to operate and occasionally fails to engage. Inspect and repair or replace the lock mechanism.",
+          status: "Overdue",
+          priority: "Critical",
+          category: "Carpentry",
+          location: "Main Office",
+          assignee: "Pedro Garcia",
+          requester: "Branch Manager",
+          created: "2026-08-10",
+          dueDate: "2026-08-13",
+          dateTransmitted: "",
+          customFields: [],
+          activity: [
+            { date: "2026-08-10 09:00", text: "Work order created" },
+            { date: "2026-08-14 08:00", text: "Automatically flagged Overdue" },
+          ],
+        },
+        {
+          id: "WO-2026-005",
+          title: "Ceiling Tile Replacement",
+          description:
+            "Several ceiling tiles have water stains and visible damage. Replace damaged tiles and inspect the area for possible water intrusion.",
+          status: "Open",
+          priority: "Medium",
+          category: "Civil",
+          location: "Hallway",
+          assignee: "Ramon Cruz",
+          requester: "Facilities",
+          created: "2026-08-14",
+          dueDate: "2026-08-22",
+          dateTransmitted: "",
+          customFields: [],
+          activity: [{ date: "2026-08-14 13:20", text: "Work order created" }],
+        },
+        {
+          id: "WO-2026-006",
+          title: "Electrical Outlet Inspection",
+          description:
+            "Inspect the electrical outlet near the workstation because it is intermittently losing power.",
+          status: "In Progress",
+          priority: "High",
+          category: "Electrical",
+          location: "Admin Office",
+          assignee: "Daniel Lim",
+          requester: "Admin",
+          created: "2026-08-13",
+          dueDate: "2026-08-17",
+          dateTransmitted: "",
+          customFields: [],
+          activity: [
+            { date: "2026-08-13 11:00", text: "Work order created" },
+            { date: "2026-08-13 11:30", text: "Assigned to Daniel Lim" },
+          ],
+        },
+      ];
+
+      let orders = loadOrders();
+      let history = loadHistory();
+      let selectedId = null;
+      let editingId = null;
+      let importRows = [];
+      let importHeaders = [];
+      let importMapping = {};
+      let importSourceName = "";
+      let currentPage = 1;
+      const PAGE_SIZE = 200;
+      let displayConfig = loadDisplayConfig();
+      let users = loadUsers();
+      let importCustomMappings = [];
+      let importedHeaders = loadImportedHeaders();
+
+      function loadImportedHeaders() {
+        try {
+          return JSON.parse(localStorage.getItem(IMPORTED_HEADERS_KEY) || "[]");
+        } catch {
+          return [];
+        }
+      }
+
+      function saveImportedHeaders() {
+        localStorage.setItem(
+          IMPORTED_HEADERS_KEY,
+          JSON.stringify(importedHeaders)
+        );
+      }
+
+      function loadDisplayConfig() {
+        try {
+          return {
+            cardDateSource: "dueDate",
+            cardDateLabel: "Due Date",
+            cardExtraFields: [],
+            ...JSON.parse(localStorage.getItem(DISPLAY_CONFIG_KEY) || "{}"),
+          };
+        } catch {
+          return {
+            cardDateSource: "dueDate",
+            cardDateLabel: "Due Date",
+            cardExtraFields: [],
+          };
+        }
+      }
+
+      function saveDisplayConfig() {
+        localStorage.setItem(DISPLAY_CONFIG_KEY, JSON.stringify(displayConfig));
+      }
+
+      function loadUsers() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(USERS_KEY) || "null");
+          if (Array.isArray(saved) && saved.length) return saved;
+        } catch {}
+        const names = [
+          ...new Set(
+            orders
+              .map((o) => String(o.assignee || "").trim())
+              .filter((n) => n && n !== "Unassigned")
+          ),
+        ];
+        return names.map((name, i) => ({
+          id: `USR-${i + 1}`,
+          name,
+          active: true,
+        }));
+      }
+
+      function saveUsers() {
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
+      }
+
+      function allKnownCustomLabels() {
+        return [
+          ...new Set(
+            orders.flatMap((o) =>
+              (Array.isArray(o.customFields) ? o.customFields : [])
+                .map((f) => String(f.label || "").trim())
+                .filter(Boolean)
+            )
+          ),
+        ];
+      }
+
+      function customFieldValue(o, label) {
+        const f = (o.customFields || []).find(
+          (x) => String(x.label || "") === String(label || "")
+        );
+        return f ? String(f.value ?? "") : "";
+      }
+
+      function allAvailableHeaders(o) {
+        const std = [
+          "id",
+          "title",
+          "status",
+          "priority",
+          "category",
+          "location",
+          "assignee",
+          "requester",
+          "created",
+          "dueDate",
+        ];
+        const custom = (o.customFields || [])
+          .map((f) => String(f.label || "").trim())
+          .filter(Boolean);
+        const imported = o._importHeaders || [];
+        return [
+          ...new Set([...std, ...custom, ...imported, ...importedHeaders]),
+        ];
+      }
+
+      function displayValue(o, source) {
+        if (!source) return "";
+        if (source === "id") return o.id;
+        if (source === "title") return o.title;
+        if (source === "status") return o.status;
+        if (source === "priority") return o.priority;
+        if (source === "category") return o.category;
+        if (source === "location") return o.location;
+        if (source === "assignee") return o.assignee;
+        if (source === "requester") return o.requester;
+        if (source === "created") return o.created;
+        if (source === "dueDate") return o.dueDate;
+        const val = customFieldValue(o, source);
+        if (val) return val;
+        if (o._rawData && o._rawData[source] !== undefined)
+          return o._rawData[source];
+        return "";
+      }
+
+      function fieldOptions(selected = "", o) {
+        const std = [
+          ["dueDate", "Due Date"],
+          ["created", "Created Date"],
+          ["status", "Status"],
+          ["priority", "Priority"],
+          ["category", "Category"],
+          ["location", "Location"],
+          ["assignee", "Assigned To"],
+          ["requester", "Requester"],
+        ];
+        const custom = allKnownCustomLabels();
+        const imported = importedHeaders.length
+          ? importedHeaders
+          : o && o._importHeaders
+          ? o._importHeaders
+          : [];
+        const allOpts = [...std];
+        custom.forEach((l) => allOpts.push([l, l + " (Custom)"]));
+        imported.forEach((h) => {
+          if (!allOpts.some((x) => x[0] === h))
+            allOpts.push([h, h + " (Imported)"]);
+        });
+        return allOpts
+          .map(
+            ([v, l]) =>
+              `<option value="${esc(v)}" ${
+                selected === v ? "selected" : ""
+              }>${esc(l)}</option>`
+          )
+          .join("");
+      }
+
+      const FIELD_DEFS = {
+        id: [
+          "id",
+          "work order",
+          "work order no",
+          "work order number",
+          "wo",
+          "wo no",
+          "wo number",
+          "ticket",
+          "ticket no",
+          "request no",
+          "request number",
+          "job no",
+          "job number",
+          "reference",
+        ],
+        title: [
+          "title",
+          "subject",
+          "work order title",
+          "job title",
+          "request",
+          "request title",
+          "issue",
+          "problem",
+          "task",
+          "summary",
+        ],
+        description: [
+          "description",
+          "details",
+          "detail",
+          "remarks",
+          "remark",
+          "notes",
+          "note",
+          "scope",
+          "work description",
+          "problem description",
+        ],
+        status: [
+          "status",
+          "state",
+          "work order status",
+          "wo status",
+          "stage",
+          "progress",
+        ],
+        priority: [
+          "priority",
+          "urgency",
+          "severity",
+          "criticality",
+          "importance",
+        ],
+        category: [
+          "category",
+          "type",
+          "work type",
+          "request type",
+          "discipline",
+          "trade",
+          "classification",
+        ],
+        location: [
+          "location",
+          "site",
+          "area",
+          "room",
+          "building",
+          "branch",
+          "facility",
+          "place",
+          "work location",
+        ],
+        assignee: [
+          "assigned to",
+          "assigned",
+          "assignee",
+          "technician",
+          "technician name",
+          "assigned user",
+          "responsible",
+          "owner",
+          "person assigned",
+          "staff",
+        ],
+        requester: [
+          "requester",
+          "requested by",
+          "requestor",
+          "reported by",
+          "created by",
+          "submitted by",
+          "requested user",
+        ],
+        created: [
+          "created",
+          "created date",
+          "date created",
+          "date opened",
+          "opened",
+          "open date",
+          "request date",
+          "submitted date",
+          "creation date",
+        ],
+        dueDate: [
+          "due",
+          "due date",
+          "target date",
+          "deadline",
+          "date due",
+          "completion date",
+          "target completion",
+          "required by",
+        ],
+      };
+
+      function loadOrders() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? JSON.parse(raw) : structuredClone(seedOrders);
+        } catch {
+          return structuredClone(seedOrders);
+        }
+      }
+
+      function saveOrders() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+      }
+
+      function loadHistory() {
+        try {
+          return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+        } catch {
+          return [];
+        }
+      }
+
+      function saveHistory() {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-50)));
+      }
+
+      function snapshot() {
+        return structuredClone(orders);
+      }
+
+      function pushHistory(label) {
+        history.push({ label, data: snapshot(), at: new Date().toISOString() });
+        if (history.length > 50) history.shift();
+        saveHistory();
+        updateUndoButtons();
+      }
+
+      function undoLast() {
+        if (!history.length) return;
+        const last = history.pop();
+        orders = last.data;
+        saveOrders();
+        saveHistory();
+        render();
+        if (selectedId) {
+          if (orders.some((o) => o.id === selectedId)) renderDrawer(selectedId);
+          else closeDrawer();
+        }
+        toast("Undone: " + last.label, "success");
+        updateUndoButtons();
+      }
+
+      function nowDate() {
+        return new Date().toISOString().slice(0, 10);
+      }
+
+      function nowStamp() {
+        const d = new Date();
+        return d.toISOString().slice(0, 16).replace("T", " ");
+      }
+
+      function formatDate(v) {
+        if (!v) return "—";
+        const d = new Date(v + (String(v).length <= 10 ? "T00:00:00" : ""));
+        if (isNaN(d)) return String(v);
+        return d.toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        });
+      }
+
+      function initials(name = "Unassigned") {
+        const a = String(name || "Unassigned")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean);
+        if (!a.length) return "UN";
+        if (a.length === 1) return a[0].slice(0, 2).toUpperCase();
+        return a
+          .slice(0, 2)
+          .map((x) => x[0])
+          .join("")
+          .toUpperCase();
+      }
+
+      function esc(v = "") {
+        return String(v).replace(
+          /[&<>"']/g,
+          (m) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#039;",
+            }[m])
+        );
+      }
+
+      function normalize(v = "") {
+        return String(v)
+          .toLowerCase()
+          .trim()
+          .replace(/[\u2013\u2014]/g, "-")
+          .replace(/[^a-z0-9]+/g, " ")
+          .trim();
+      }
+
+      function statusClass(s) {
+        return (
+          {
+            Open: "bg-blue-50 text-blue-700 border-blue-100",
+            "In Progress": "bg-amber-50 text-amber-700 border-amber-100",
+            "On Hold": "bg-violet-50 text-violet-700 border-violet-100",
+            Completed: "bg-emerald-50 text-emerald-700 border-emerald-100",
+            Overdue: "bg-red-50 text-red-700 border-red-100",
+            Cancelled: "bg-slate-100 text-slate-500 border-slate-200",
+          }[s] || "bg-slate-50 text-slate-600 border-slate-200"
+        );
+      }
+
+      function priorityClass(p) {
+        return (
+          {
+            Critical: "bg-red-50 text-red-700",
+            High: "bg-orange-50 text-orange-700",
+            Medium: "bg-amber-50 text-amber-700",
+            Low: "bg-emerald-50 text-emerald-700",
+          }[p] || "bg-slate-50 text-slate-600"
+        );
+      }
+
+      function priorityRank(p) {
+        return { Critical: 0, High: 1, Medium: 2, Low: 3 }[p] ?? 9;
+      }
+
+      function nextId() {
+        const nums = orders.map((o) => {
+          const m = String(o.id || "").match(/(\d+)$/);
+          return m ? Number(m[1]) : 0;
+        });
+        return `WO-${new Date().getFullYear()}-${String(
+          Math.max(0, ...nums) + 1
+        ).padStart(3, "0")}`;
+      }
+
+      function getFilteredOrders() {
+        const q = normalize(document.getElementById("searchInput").value || "");
+        const st = document.getElementById("statusFilter").value || "all";
+        const pr = document.getElementById("priorityFilter").value || "all";
+        const sort =
+          document.getElementById("sortSelect").value || "created_desc";
+
+        let list = orders.filter((o) => {
+          const hay = normalize(
+            [
+              o.id,
+              o.title,
+              o.description,
+              o.category,
+              o.location,
+              o.assignee,
+              o.requester,
+              o.status,
+              o.priority,
+            ].join(" ")
+          );
+          return (
+            (!q || hay.includes(q)) &&
+            (st === "all" || o.status === st) &&
+            (pr === "all" || o.priority === pr)
+          );
+        });
+
+        const timeOf = (v) => {
+          if (!v) return 0;
+          const t = Date.parse(
+            String(v).length <= 10 ? String(v) + "T00:00:00" : String(v)
+          );
+          return Number.isNaN(t) ? 0 : t;
+        };
+        list.sort((a, b) => {
+          if (sort === "created_asc")
+            return timeOf(a.created) - timeOf(b.created);
+          if (sort === "due_asc")
+            return (
+              timeOf(a.dueDate || "9999-12-31") -
+              timeOf(b.dueDate || "9999-12-31")
+            );
+          if (sort === "title_asc")
+            return (
+              String(a.title).localeCompare(String(b.title)) ||
+              timeOf(b.created) - timeOf(a.created)
+            );
+          if (sort === "priority")
+            return (
+              priorityRank(a.priority) - priorityRank(b.priority) ||
+              timeOf(b.created) - timeOf(a.created)
+            );
+          if (sort === "status")
+            return (
+              String(a.status).localeCompare(String(b.status)) ||
+              timeOf(b.created) - timeOf(a.created)
+            );
+          return timeOf(b.created) - timeOf(a.created);
+        });
+        return list;
+      }
+
+      function initializeDashboardFilters() {
+        const status = document.getElementById("statusFilter");
+        const priority = document.getElementById("priorityFilter");
+        const sort = document.getElementById("sortSelect");
+        if (status && !status.options.length) {
+          status.innerHTML = `<option value="all">All Status</option><option value="Open">Open</option><option value="In Progress">In Progress</option><option value="On Hold">On Hold</option><option value="Completed">Completed</option><option value="Overdue">Overdue</option><option value="Cancelled">Cancelled</option>`;
+        }
+        if (priority && !priority.options.length) {
+          priority.innerHTML = `<option value="all">All Priority</option><option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option>`;
+        }
+        if (sort && !sort.value) sort.value = "created_desc";
+        if (status && !status.value) status.value = "all";
+        if (priority && !priority.value) priority.value = "all";
+      }
+
+      function render() {
+        initializeDashboardFilters();
+        orders = orders.filter(Boolean).map((o, i) => ({
+          ...o,
+          id: String(o.id ?? `WO-${i + 1}`).trim() || `WO-${i + 1}`,
+          title:
+            String(o.title ?? "Untitled Work Order").trim() ||
+            "Untitled Work Order",
+          description: String(o.description ?? "").trim(),
+          status: normalizeStatus(o.status || "Open"),
+          priority: normalizePriority(o.priority || "Medium"),
+          category: String(o.category ?? "General").trim() || "General",
+          location: String(o.location ?? "").trim(),
+          assignee: String(o.assignee ?? "Unassigned").trim() || "Unassigned",
+          requester: String(o.requester ?? "").trim(),
+          created: parseDateValue(o.created) || nowDate(),
+          dueDate: parseDateValue(o.dueDate),
+          activity: Array.isArray(o.activity) ? o.activity : [],
+          customFields: Array.isArray(o.customFields) ? o.customFields : [],
+          dateTransmitted: String(o.dateTransmitted ?? ""),
+          _importHeaders: Array.isArray(o._importHeaders)
+            ? o._importHeaders
+            : [],
+          _rawData: o._rawData || {},
+        }));
+
+        const list = getFilteredOrders();
+        const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+        currentPage = Math.min(Math.max(1, currentPage), totalPages);
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const pageItems = list.slice(start, start + PAGE_SIZE);
+        const grid = document.getElementById("workOrderGrid");
+
+        let html = "";
+        for (const item of pageItems) {
+          try {
+            html += cardHTML(item);
+          } catch (err) {
+            console.error("Card render error:", item, err);
+            html += `<article class="bg-white border border-red-200 rounded-2xl p-5"><p class="text-xs font-bold text-red-600">Unable to render this Work Order</p><p class="text-xs text-slate-500 mt-1">${esc(
+              String(item.id || "Unknown ID")
+            )}</p></article>`;
+          }
+        }
+        grid.innerHTML = html;
+
+        document
+          .getElementById("emptyState")
+          .classList.toggle("hidden", list.length !== 0);
+        document.getElementById("resultCount").textContent = list.length
+          ? `Showing ${start + 1}–${Math.min(
+              start + PAGE_SIZE,
+              list.length
+            )} of ${list.length} filtered work orders • ${orders.length} total`
+          : `0 of ${orders.length} work orders`;
+        document.getElementById(
+          "pageInfo"
+        ).textContent = `Page ${currentPage} • ${pageItems.length} of ${list.length}`;
+        document.getElementById("prevPageBtn").disabled = currentPage <= 1;
+        document.getElementById("nextPageBtn").disabled =
+          currentPage >= totalPages;
+
+        document.getElementById("statTotal").textContent = orders.length;
+        document.getElementById("statOpen").textContent = orders.filter(
+          (o) => o.status === "Open"
+        ).length;
+        document.getElementById("statProgress").textContent = orders.filter(
+          (o) => o.status === "In Progress"
+        ).length;
+        document.getElementById("statCompleted").textContent = orders.filter(
+          (o) => o.status === "Completed"
+        ).length;
+        document.getElementById("statOverdue").textContent = orders.filter(
+          (o) => o.status === "Overdue"
+        ).length;
+
+        const counts = {
+          Open: 0,
+          "In Progress": 0,
+          "On Hold": 0,
+          Completed: 0,
+          Overdue: 0,
+          Cancelled: 0,
+        };
+        orders.forEach((o) => {
+          if (counts[o.status] !== undefined) counts[o.status]++;
+        });
+        document.getElementById("sideOpen").textContent = counts.Open;
+        document.getElementById("sideProgress").textContent =
+          counts["In Progress"];
+        document.getElementById("sideHold").textContent = counts["On Hold"];
+        document.getElementById("sideCompleted").textContent = counts.Completed;
+        document.getElementById("sideOverdue").textContent = counts.Overdue;
+        document.getElementById("sideCancelled").textContent = counts.Cancelled;
+        document.getElementById("sideTotal").textContent = orders.length;
+        document.getElementById("sideUpdated").textContent = "Just now";
+        document.getElementById("bottomResultCount").textContent = list.length
+          ? `Showing ${start + 1}–${Math.min(
+              start + PAGE_SIZE,
+              list.length
+            )} of ${list.length} work orders`
+          : "0 work orders";
+        document.getElementById(
+          "bottomPageInfo"
+        ).textContent = `Page ${currentPage} of ${totalPages}`;
+
+        grid.querySelectorAll("[data-open]").forEach((el) => {
+          el.addEventListener("click", () => openDrawer(el.dataset.open));
+        });
+        grid.querySelectorAll("[data-status-select]").forEach((el) => {
+          el.addEventListener("change", function (e) {
+            e.stopPropagation();
+            const id = this.dataset.statusSelect;
+            const val = this.value;
+            changeStatusDirect(id, val);
+          });
+        });
+        grid.querySelectorAll("[data-edit]").forEach((el) => {
+          el.addEventListener("click", (e) => {
+            e.stopPropagation();
+            openEdit(el.dataset.edit);
+          });
+        });
+        updateUndoButtons();
+      }
+
+      function changeStatusDirect(id, newStatus) {
+        const o = orders.find((x) => x.id === id);
+        if (!o) return;
+        if (o.status === newStatus) return;
+        pushHistory("status change for " + id);
+        const prev = o.status;
+        o.status = newStatus;
+        o.activity = o.activity || [];
+        o.activity.push({
+          date: nowStamp(),
+          text: `Status changed from ${prev} to ${newStatus}`,
+        });
+        saveOrders();
+        render();
+        if (selectedId === id) renderDrawer(id);
+        toast(`Status changed to ${newStatus}.`, "success");
+      }
+
+      function cardHTML(o) {
+        const cardDateSource = displayConfig.cardDateSource || "dueDate";
+        const cardDateRaw = displayValue(o, cardDateSource);
+        const due = cardDateRaw ? formatDate(cardDateRaw) : "—";
+        const cardDateLabel = displayConfig.cardDateLabel || "Due Date";
+        const created = formatDate(o.created);
+        const overdue =
+          o.dueDate &&
+          o.status !== "Completed" &&
+          o.status !== "Cancelled" &&
+          o.dueDate < nowDate();
+        const statusOpts = [
+          "Open",
+          "In Progress",
+          "On Hold",
+          "Completed",
+          "Overdue",
+          "Cancelled",
+        ];
+
+        return `
+        <article data-open="${esc(
+          o.id
+        )}" class="group bg-white border border-slate-200 rounded-2xl p-5 cursor-pointer shadow-sm hover:shadow-soft hover:-translate-y-0.5 hover:border-brand-200 transition-all">
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-[11px] font-bold text-slate-400">${esc(
+                  o.id
+                )}</span>
+                <span class="w-1 h-1 rounded-full bg-slate-300"></span>
+                <span class="text-[11px] text-slate-400">${esc(
+                  o.category || "General"
+                )}</span>
+              </div>
+              <h3 class="font-black text-slate-900 group-hover:text-brand-600 transition truncate">${esc(
+                o.title || "Untitled Work Order"
+              )}</h3>
+            </div>
+            <div class="status-dropdown-wrap shrink-0" onclick="event.stopPropagation();">
+              <select data-status-select="${esc(
+                o.id
+              )}" class="status-dropdown-trigger ${statusClass(
+          o.status
+        ).replace("border-", "")}" style="${statusClass(o.status)
+          .split(" ")
+          .map((c) => (c.startsWith("bg-") ? `background-color:${c};` : ""))
+          .join("")}">
+                ${statusOpts
+                  .map(
+                    (s) =>
+                      `<option value="${s}" ${
+                        o.status === s ? "selected" : ""
+                      }>${s}</option>`
+                  )
+                  .join("")}
+              </select>
+            </div>
+          </div>
+
+          <p class="mt-3 text-sm leading-5 text-slate-500 line-clamp-2">${esc(
+            o.description || "No description provided."
+          )}</p>
+
+          <div class="mt-4 grid grid-cols-2 gap-2 text-xs">
+            <div class="bg-slate-50 rounded-lg p-2.5">
+              <p class="text-slate-400">Location</p><p class="font-bold text-slate-700 mt-0.5 truncate">${esc(
+                o.location || "—"
+              )}</p>
+            </div>
+            <div class="bg-slate-50 rounded-lg p-2.5">
+              <p class="text-slate-400">${esc(
+                cardDateLabel
+              )}</p><p class="font-bold ${
+          overdue ? "text-red-600" : "text-slate-700"
+        } mt-0.5">${esc(due)}</p>
+            </div>
+          </div>
+
+          ${
+            displayConfig.cardExtraFields?.length
+              ? `<div class="mt-2 grid grid-cols-2 gap-2">${displayConfig.cardExtraFields
+                  .slice(0, 2)
+                  .map((label) => {
+                    const v = displayValue(o, label);
+                    return `<div class="bg-slate-50 rounded-lg p-2.5"><p class="text-slate-400 truncate">${esc(
+                      label
+                    )}</p><p class="font-bold text-slate-700 mt-0.5 truncate">${esc(
+                      v || "—"
+                    )}</p></div>`;
+                  })
+                  .join("")}</div>`
+              : ""
+          }
+
+          <div class="mt-3 flex items-center gap-2 text-[11px] text-slate-400">
+            <span>Created ${esc(created)}</span>
+            ${
+              o.requester
+                ? `<span>•</span><span class="truncate">By ${esc(
+                    o.requester
+                  )}</span>`
+                : ""
+            }
+          </div>
+
+          <div class="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2 min-w-0">
+              <div class="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-black shrink-0">${esc(
+                initials(o.assignee)
+              )}</div>
+              <div class="min-w-0">
+                <p class="text-xs font-bold text-slate-700 truncate">${esc(
+                  o.assignee || "Unassigned"
+                )}</p>
+                <p class="text-[10px] text-slate-400">Assigned user</p>
+              </div>
+            </div>
+            <span class="px-2 py-1 rounded-md text-[10px] font-bold ${priorityClass(
+              o.priority
+            )}">${esc(o.priority || "Medium")}</span>
+          </div>
+
+          <div class="mt-3 flex items-center justify-between">
+            <span class="text-[11px] font-bold text-brand-600 opacity-0 group-hover:opacity-100 transition">View details →</span>
+            <span class="text-[10px] text-slate-300">${
+              o.activity?.length || 0
+            } activity</span>
+          </div>
+        </article>`;
+      }
+
+      // ========================= DRAWER =========================
+      function openDrawer(id) {
+        if (!orders.some((o) => o.id === id)) return;
+        selectedId = id;
+        renderDrawer(id);
+        document
+          .getElementById("detailDrawer")
+          .classList.remove("translate-x-full");
+        const b = document.getElementById("drawerBackdrop");
+        b.classList.remove("opacity-0", "pointer-events-none");
+        document.body.classList.add("overflow-hidden");
+      }
+
+      function closeDrawer() {
+        selectedId = null;
+        document
+          .getElementById("detailDrawer")
+          .classList.add("translate-x-full");
+        document
+          .getElementById("drawerBackdrop")
+          .classList.add("opacity-0", "pointer-events-none");
+        document.body.classList.remove("overflow-hidden");
+      }
+
+      function renderDrawer(id) {
+        const o = orders.find((x) => x.id === id);
+        if (!o) {
+          closeDrawer();
+          return;
+        }
+
+        const badge = document.getElementById("drawerStatusBadge");
+        badge.textContent = o.status;
+        badge.className = `px-2.5 py-1 rounded-full text-[11px] font-bold border ${statusClass(
+          o.status
+        )}`;
+        document.getElementById("drawerNumber").textContent = o.id;
+        document.getElementById("drawerTitle").textContent =
+          o.title || "Untitled";
+        document.getElementById(
+          "drawerCreatedText"
+        ).textContent = `Created ${formatDate(o.created)}${
+          o.requester ? " • Requested by " + o.requester : ""
+        }`;
+        const drawerStatus = document.getElementById("drawerStatusSelect");
+        if (drawerStatus) drawerStatus.value = o.status;
+
+        const activity = (o.activity || [])
+          .slice()
+          .reverse()
+          .map(
+            (a) =>
+              `<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-brand-500 mt-1.5 shrink-0"></div><div><p class="text-sm text-slate-700">${esc(
+                a.text
+              )}</p><p class="text-[11px] text-slate-400 mt-0.5">${esc(
+                a.date
+              )}</p></div></div>`
+          )
+          .join("");
+
+        // Build custom fields display for drawer
+        const customFieldsDisplay = (o.customFields || [])
+          .filter((f) => f.label && f.value)
+          .map(
+            (f) =>
+              `<div class="custom-field-item"><strong>${esc(
+                f.label
+              )}</strong> <span>${esc(f.value)}</span></div>`
+          )
+          .join("");
+
+        // Standard details
+        const stdDetails = `
+            <section>
+              <h3 class="text-sm font-black text-slate-900 mb-3">Work Order Details</h3>
+              <div class="detail-box-grid">
+                ${detailBox("Category", o.category)}${detailBox(
+          "Location",
+          o.location
+        )}
+                ${detailBox("Created", formatDate(o.created))}${detailBox(
+          displayConfig.cardDateLabel || "Due Date",
+          formatDate(displayValue(o, displayConfig.cardDateSource || "dueDate"))
+        )}
+                ${detailBox("Requester", o.requester)}${detailBox(
+          "Assigned To",
+          o.assignee
+        )}
+                ${detailBox(
+                  "Date Transmitted",
+                  formatDate(
+                    customFieldValue(o, "Date Transmitted") || o.dateTransmitted
+                  )
+                )}
+                ${(o.customFields || [])
+                  .filter((f) => f.label && f.label !== "Date Transmitted")
+                  .map((f) => detailBox(f.label, f.value))
+                  .join("")}
+              </div>
+            </section>
+          `;
+
+        // All available headers for dropdowns
+        const allHeaders = allAvailableHeaders(o);
+        const headerOpts = allHeaders
+          .map((h) => `<option value="${esc(h)}">${esc(h)}</option>`)
+          .join("");
+
+        // Custom fields editor in drawer
+        const drawerFieldsHTML = `
+            <section class="drawer-add-field-section">
+              <div class="flex items-center justify-between mb-2">
+                <h4 class="text-xs font-black text-slate-700">Custom Fields</h4>
+                <button type="button" id="drawerAddFieldBtn" class="add-field-btn">+ Add Field</button>
+              </div>
+              <div id="drawerCustomFieldsList" class="drawer-custom-fields-list space-y-1.5 mb-3">
+                ${
+                  customFieldsDisplay ||
+                  '<p class="text-xs text-slate-400">No custom fields yet. Click "Add Field" to add one.</p>'
+                }
+              </div>
+              <div id="drawerCustomFieldsEditor" class="mt-3 space-y-2"></div>
+            </section>
+          `;
+
+        const body = document.getElementById("drawerBody");
+        body.innerHTML = `
+            <div class="space-y-6">
+              <div class="rounded-xl border p-4 ${
+                priorityClass(o.priority)
+                  .replace("text-", "border-")
+                  .split(" ")[0]
+              }">
+                <div class="flex items-center justify-between gap-3">
+                  <div><p class="text-[10px] uppercase tracking-wider font-bold text-slate-400">Priority</p><p class="mt-1 font-black ${
+                    priorityClass(o.priority).split(" ")[1] || "text-slate-700"
+                  }">${esc(o.priority || "Medium")}</p></div>
+                  <span class="px-2.5 py-1 rounded-md text-[10px] font-bold ${priorityClass(
+                    o.priority
+                  )}">${esc(o.priority || "Medium")}</span>
+                </div>
+              </div>
+
+              <section><h3 class="text-sm font-black text-slate-900 mb-2">Description</h3><p class="text-sm leading-6 text-slate-600 whitespace-pre-wrap">${esc(
+                o.description || "No description provided."
+              )}</p></section>
+
+              ${stdDetails}
+
+              <section>
+                <h3 class="text-sm font-black text-slate-900 mb-3">Assigned User</h3>
+                <div class="flex items-center gap-3 p-3 rounded-xl border border-slate-200">
+                  <div class="w-11 h-11 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-black text-sm">${esc(
+                    initials(o.assignee)
+                  )}</div>
+                  <div><p class="text-sm font-bold text-slate-900">${esc(
+                    o.assignee || "Unassigned"
+                  )}</p><p class="text-xs text-slate-400">Assigned technician / responsible user</p></div>
+                </div>
+              </section>
+
+              <section>
+                <h3 class="text-sm font-black text-slate-900 mb-3">Activity</h3>
+                <div class="space-y-4">${
+                  activity ||
+                  '<p class="text-sm text-slate-400">No activity recorded.</p>'
+                }</div>
+              </section>
+
+              ${drawerFieldsHTML}
+            </div>
+          `;
+
+        // Wire up drawer "Add Field"
+        const addBtn = document.getElementById("drawerAddFieldBtn");
+        if (addBtn) {
+          addBtn.addEventListener("click", function () {
+            addDrawerCustomField(o.id);
+          });
+        }
+
+        // Render the custom fields editor
+        renderDrawerCustomFieldsEditor(o);
+        updateUndoButtons();
+      }
+
+      function addDrawerCustomField(orderId) {
+        const o = orders.find((x) => x.id === orderId);
+        if (!o) return;
+        if (!Array.isArray(o.customFields)) o.customFields = [];
+        o.customFields.push({ label: "", value: "", _sourceHeader: "" });
+        renderDrawerCustomFieldsEditor(o);
+        updateDrawerCustomFieldsDisplay(o);
+        // Re-render the drawer to show the new field
+        renderDrawer(orderId);
+        // Focus on the new label input
+        setTimeout(() => {
+          const editor = document.getElementById("drawerCustomFieldsEditor");
+          if (editor) {
+            const inputs = editor.querySelectorAll("input.drawer-field-label");
+            if (inputs.length) inputs[inputs.length - 1].focus();
+          }
+        }, 50);
+        saveOrders();
+        toast("New field added. Fill in the label and value.", "info");
+      }
+
+      function renderDrawerCustomFieldsEditor(o) {
+        const editor = document.getElementById("drawerCustomFieldsEditor");
+        if (!editor) return;
+        const allHeaders = allAvailableHeaders(o);
+        const headerOpts = allHeaders
+          .map((h) => `<option value="${esc(h)}">${esc(h)}</option>`)
+          .join("");
+
+        const fields = o.customFields || [];
+        if (!fields.length) {
+          editor.innerHTML = `<p class="text-xs text-slate-400 italic">No custom fields. Click "Add Field" above.</p>`;
+          return;
+        }
+
+        let html = "";
+        fields.forEach((f, idx) => {
+          const isLast = idx === fields.length - 1;
+          const isEmpty = !f.label && !f.value;
+          if (!isEmpty && !isLast) return;
+          html += `
+              <div class="drawer-custom-field-row" data-field-index="${idx}">
+                <div>
+                  <span class="field-label-sm">Label</span>
+                  <input class="field-input-sm drawer-field-label" data-idx="${idx}" value="${esc(
+            f.label || ""
+          )}" placeholder="e.g. Date Transmitted">
+                </div>
+                <div>
+                  <span class="field-label-sm">Value</span>
+                  <select class="field-input-sm drawer-field-value-select" data-idx="${idx}">
+                    <option value="">— Type custom —</option>
+                    ${headerOpts}
+                  </select>
+                  <input class="field-input-sm drawer-field-value-text mt-1 ${
+                    f._sourceHeader ? "hidden" : ""
+                  }" data-idx="${idx}" placeholder="Custom value..." value="${esc(
+            f.value || ""
+          )}">
+                </div>
+                <button type="button" class="field-remove-btn drawer-field-remove" data-idx="${idx}" title="Remove field">✕</button>
+              </div>
+            `;
+        });
+
+        editor.innerHTML = html;
+
+        // Wire up each row
+        editor.querySelectorAll(".drawer-field-label").forEach((el) => {
+          el.addEventListener("input", function () {
+            const idx = parseInt(this.dataset.idx);
+            if (o.customFields[idx]) o.customFields[idx].label = this.value;
+            saveOrders();
+            updateDrawerCustomFieldsDisplay(o);
+          });
+        });
+
+        editor.querySelectorAll(".drawer-field-value-select").forEach((el) => {
+          el.addEventListener("change", function () {
+            const idx = parseInt(this.dataset.idx);
+            const textInput = this.parentElement.querySelector(
+              ".drawer-field-value-text"
+            );
+            if (this.value) {
+              const val = displayValue(o, this.value);
+              if (o.customFields[idx]) {
+                o.customFields[idx].value = val;
+                o.customFields[idx]._sourceHeader = this.value;
+              }
+              textInput.classList.add("hidden");
+              textInput.value = val || "";
+              updateDrawerCustomFieldsDisplay(o);
+              saveOrders();
+              // Re-render to reflect changes
+              renderDrawerCustomFieldsEditor(o);
+            } else {
+              textInput.classList.remove("hidden");
+              textInput.focus();
+              if (o.customFields[idx]) o.customFields[idx]._sourceHeader = "";
+            }
+          });
+        });
+
+        editor.querySelectorAll(".drawer-field-value-text").forEach((el) => {
+          el.addEventListener("input", function () {
+            const idx = parseInt(this.dataset.idx);
+            if (o.customFields[idx]) {
+              o.customFields[idx].value = this.value;
+              o.customFields[idx]._sourceHeader = "";
+            }
+            saveOrders();
+            updateDrawerCustomFieldsDisplay(o);
+          });
+          // If there's a value and no source header, show the text input
+          const idx = parseInt(el.dataset.idx);
+          if (
+            o.customFields[idx] &&
+            o.customFields[idx].value &&
+            !o.customFields[idx]._sourceHeader
+          ) {
+            el.classList.remove("hidden");
+            const sel = el.parentElement.querySelector(
+              ".drawer-field-value-select"
+            );
+            if (sel) sel.value = "";
+          }
+        });
+
+        editor.querySelectorAll(".drawer-field-remove").forEach((el) => {
+          el.addEventListener("click", function () {
+            const idx = parseInt(this.dataset.idx);
+            if (o.customFields && o.customFields.length > idx) {
+              if (
+                !confirm(
+                  `Remove "${o.customFields[idx].label || "this field"}"?`
+                )
+              )
+                return;
+              o.customFields.splice(idx, 1);
+              saveOrders();
+              renderDrawerCustomFieldsEditor(o);
+              updateDrawerCustomFieldsDisplay(o);
+              toast("Field removed.", "info");
+            }
+          });
+        });
+
+        // Check selects that have a value
+        editor.querySelectorAll(".drawer-field-value-select").forEach((sel) => {
+          if (sel.value) {
+            const txt = sel.parentElement.querySelector(
+              ".drawer-field-value-text"
+            );
+            if (txt) txt.classList.add("hidden");
+          }
+        });
+      }
+
+      function updateDrawerCustomFieldsDisplay(o) {
+        const list = document.getElementById("drawerCustomFieldsList");
+        if (!list) return;
+        const fields = (o.customFields || []).filter((f) => f.label && f.value);
+        if (!fields.length) {
+          list.innerHTML =
+            '<p class="text-xs text-slate-400">No custom fields yet. Click "Add Field" to add one.</p>';
+          return;
+        }
+        list.innerHTML = fields
+          .map(
+            (f) =>
+              `<div class="custom-field-item"><strong>${esc(
+                f.label
+              )}</strong> <span>${esc(f.value)}</span></div>`
+          )
+          .join("");
+      }
+
+      function detailBox(label, value) {
+        return `<div class="bg-slate-50 rounded-lg p-3"><p class="text-[10px] text-slate-400 font-semibold">${esc(
+          label
+        )}</p><p class="mt-1 text-sm font-bold text-slate-700 break-words">${esc(
+          value || "—"
+        )}</p></div>`;
+      }
+
+      // ========================= EDIT MODAL =========================
+      function openEdit(id) {
+        const o = orders.find((x) => x.id === id);
+        if (!o) return;
+        editingId = id;
+        document.getElementById("editModalTitle").textContent = o.id.startsWith(
+          "NEW-"
+        )
+          ? "New Work Order"
+          : "Edit Work Order";
+        document.getElementById("editModalSub").textContent = o.id;
+        document.getElementById("formId").value = o.id;
+        document.getElementById("formTitle").value = o.title || "";
+        document.getElementById("formStatus").value = o.status || "Open";
+        document.getElementById("formPriority").value = o.priority || "Medium";
+        document.getElementById("formCategory").value = o.category || "";
+        document.getElementById("formLocation").value = o.location || "";
+
+        const assigneeSelect = document.getElementById("formAssignee");
+        const names = [
+          ...new Set([
+            "Unassigned",
+            ...users.filter((u) => u.active !== false).map((u) => u.name),
+            ...orders.map((x) => x.assignee || "Unassigned"),
+          ]),
+        ].filter(Boolean);
+        assigneeSelect.innerHTML = names
+          .map((n) => `<option value="${esc(n)}">${esc(n)}</option>`)
+          .join("");
+        assigneeSelect.value = o.assignee || "Unassigned";
+
+        document.getElementById("formDueDate").value = toInputDate(o.dueDate);
+        document.getElementById("formCreated").value = toInputDate(
+          o.created || nowDate()
+        );
+        document.getElementById("formRequester").value = o.requester || "";
+        document.getElementById("formDescription").value = o.description || "";
+        document.getElementById("formDateTransmitted").value = toInputDate(
+          o.dateTransmitted || customFieldValue(o, "Date Transmitted")
+        );
+
+        // Render custom fields in edit modal
+        renderEditCustomFields(o);
+
+        // Card display config
+        const cardSource = document.getElementById("cardDateSource");
+        const allHeaders = allAvailableHeaders(o);
+        const stdOpts = [
+          ["dueDate", "Due Date"],
+          ["created", "Created Date"],
+          ["status", "Status"],
+          ["priority", "Priority"],
+          ["category", "Category"],
+          ["location", "Location"],
+          ["assignee", "Assigned To"],
+          ["requester", "Requester"],
+        ];
+        const allOpts = [...stdOpts];
+        allHeaders.forEach((h) => {
+          if (!allOpts.some((x) => x[0] === h))
+            allOpts.push([h, h + " (Imported)"]);
+        });
+        cardSource.innerHTML = allOpts
+          .map(
+            ([v, l]) =>
+              `<option value="${esc(v)}" ${
+                displayConfig.cardDateSource === v ? "selected" : ""
+              }>${esc(l)}</option>`
+          )
+          .join("");
+        document.getElementById("cardDateLabel").value =
+          displayConfig.cardDateLabel || "Due Date";
+        renderCardExtraChoices(o);
+
+        document.getElementById("editModal").classList.remove("hidden");
+        document.body.classList.add("overflow-hidden");
+        updateUndoButtons();
+      }
+
+      function renderEditCustomFields(o) {
+        const wrap = document.getElementById("editCustomFields");
+        if (!wrap) return;
+        const allHeaders = allAvailableHeaders(o);
+        const headerOpts = allHeaders
+          .map((h) => `<option value="${esc(h)}">${esc(h)}</option>`)
+          .join("");
+        const fields = o.customFields || [];
+
+        if (!fields.length) {
+          wrap.innerHTML = `<p class="text-xs text-slate-400 italic">No custom fields. Click "Add Field" to add one.</p>`;
+          return;
+        }
+
+        let html = "";
+        fields.forEach((f, idx) => {
+          html += `
+              <div class="edit-custom-field-row" data-field-index="${idx}">
+                <div>
+                  <span class="field-label-sm">Label</span>
+                  <input class="field-input-sm edit-field-label" data-idx="${idx}" value="${esc(
+            f.label || ""
+          )}" placeholder="e.g. Date Transmitted">
+                </div>
+                <div>
+                  <span class="field-label-sm">Value</span>
+                  <select class="field-input-sm edit-field-value-select" data-idx="${idx}">
+                    <option value="">— Type custom —</option>
+                    ${headerOpts}
+                  </select>
+                  <input class="field-input-sm edit-field-value-text mt-1 ${
+                    f._sourceHeader ? "hidden" : ""
+                  }" data-idx="${idx}" placeholder="Custom value..." value="${esc(
+            f.value || ""
+          )}">
+                </div>
+                <button type="button" class="field-remove-btn edit-field-remove" data-idx="${idx}" title="Remove field">✕</button>
+              </div>
+            `;
+        });
+
+        wrap.innerHTML = html;
+
+        // Store reference to the fields on the element
+        wrap.dataset.fields = JSON.stringify(fields);
+
+        // Wire up
+        wrap.querySelectorAll(".edit-field-label").forEach((el) => {
+          el.addEventListener("input", function () {
+            const idx = parseInt(this.dataset.idx);
+            const fields2 = getEditCustomFields();
+            if (fields2[idx]) fields2[idx].label = this.value;
+            // Also update the order's fields directly
+            if (editingId) {
+              const o2 = orders.find((x) => x.id === editingId);
+              if (o2 && o2.customFields && o2.customFields[idx]) {
+                o2.customFields[idx].label = this.value;
+              }
+            }
+          });
+        });
+
+        wrap.querySelectorAll(".edit-field-value-select").forEach((el) => {
+          el.addEventListener("change", function () {
+            const idx = parseInt(this.dataset.idx);
+            const textInput = this.parentElement.querySelector(
+              ".edit-field-value-text"
+            );
+            if (this.value) {
+              const o2 = orders.find((x) => x.id === editingId);
+              const val = o2 ? displayValue(o2, this.value) : "";
+              const fields2 = getEditCustomFields();
+              if (fields2[idx]) {
+                fields2[idx].value = val;
+                fields2[idx]._sourceHeader = this.value;
+              }
+              if (o2 && o2.customFields && o2.customFields[idx]) {
+                o2.customFields[idx].value = val;
+                o2.customFields[idx]._sourceHeader = this.value;
+              }
+              textInput.classList.add("hidden");
+              textInput.value = val || "";
+            } else {
+              textInput.classList.remove("hidden");
+              textInput.focus();
+              const fields2 = getEditCustomFields();
+              if (fields2[idx]) fields2[idx]._sourceHeader = "";
+            }
+          });
+        });
+
+        wrap.querySelectorAll(".edit-field-value-text").forEach((el) => {
+          el.addEventListener("input", function () {
+            const idx = parseInt(this.dataset.idx);
+            const fields2 = getEditCustomFields();
+            if (fields2[idx]) {
+              fields2[idx].value = this.value;
+              fields2[idx]._sourceHeader = "";
+            }
+            const o2 = orders.find((x) => x.id === editingId);
+            if (o2 && o2.customFields && o2.customFields[idx]) {
+              o2.customFields[idx].value = this.value;
+              o2.customFields[idx]._sourceHeader = "";
+            }
+          });
+          // Show if needed
+          const idx = parseInt(el.dataset.idx);
+          const fields2 = getEditCustomFields();
+          if (
+            fields2[idx] &&
+            fields2[idx].value &&
+            !fields2[idx]._sourceHeader
+          ) {
+            el.classList.remove("hidden");
+            const sel = el.parentElement.querySelector(
+              ".edit-field-value-select"
+            );
+            if (sel) sel.value = "";
+          }
+        });
+
+        wrap.querySelectorAll(".edit-field-remove").forEach((el) => {
+          el.addEventListener("click", function () {
+            const idx = parseInt(this.dataset.idx);
+            const fields2 = getEditCustomFields();
+            if (fields2.length > idx) {
+              if (!confirm(`Remove "${fields2[idx].label || "this field"}"?`))
+                return;
+              fields2.splice(idx, 1);
+              // Update the order
+              const o2 = orders.find((x) => x.id === editingId);
+              if (o2) o2.customFields = fields2;
+              renderEditCustomFields(o2);
+              toast("Field removed.", "info");
+            }
+          });
+        });
+
+        // Check selects
+        wrap.querySelectorAll(".edit-field-value-select").forEach((sel) => {
+          if (sel.value) {
+            const txt = sel.parentElement.querySelector(
+              ".edit-field-value-text"
+            );
+            if (txt) txt.classList.add("hidden");
+          }
+        });
+      }
+
+      function getEditCustomFields() {
+        const wrap = document.getElementById("editCustomFields");
+        try {
+          return JSON.parse(wrap.dataset.fields || "[]");
+        } catch {
+          return [];
+        }
+      }
+
+      function renderCardExtraChoices(o) {
+        const wrap = document.getElementById("cardExtraFieldChoices");
+        if (!wrap) return;
+        const labels = [
+          "category",
+          "location",
+          "assignee",
+          "requester",
+          ...allKnownCustomLabels(),
+        ];
+        const allHeaders = o ? allAvailableHeaders(o) : [];
+        const unique = [...new Set([...labels, ...allHeaders])];
+        const labelText = {
+          category: "Category",
+          location: "Location",
+          assignee: "Assigned To",
+          requester: "Requester",
+        };
+        wrap.innerHTML = unique
+          .map(
+            (label) =>
+              `<label class="flex items-center gap-2 p-2 rounded-lg bg-white border border-slate-200 text-[10px] font-bold">
+              <input type="checkbox" data-card-extra="${esc(label)}" ${
+                displayConfig.cardExtraFields.includes(label) ? "checked" : ""
+              } class="rounded">
+              <span>${esc(labelText[label] || label)}</span>
+            </label>`
+          )
+          .join("");
+        wrap.querySelectorAll("[data-card-extra]").forEach((cb) =>
+          cb.addEventListener("change", () => {
+            displayConfig.cardExtraFields = [
+              ...wrap.querySelectorAll("[data-card-extra]:checked"),
+            ]
+              .map((x) => x.dataset.cardExtra)
+              .slice(0, 2);
+            saveDisplayConfig();
+          })
+        );
+      }
+
+      // ====== DELETE FUNCTIONS (WORKING) ======
+      function deleteFromEdit() {
+        if (!editingId) return;
+        const o = orders.find((x) => x.id === editingId);
+        if (!o) return;
+        if (
+          !confirm(
+            `⚠️ Delete ${o.id} — "${o.title}"?\n\nThis can be undone immediately using Undo.`
+          )
+        )
+          return;
+        pushHistory("delete " + o.id);
+        orders = orders.filter((x) => x.id !== editingId);
+        saveOrders();
+        render();
+        const deletedId = editingId;
+        editingId = null;
+        document.getElementById("editModal").classList.add("hidden");
+        if (selectedId === deletedId) closeDrawer();
+        else if (!selectedId) document.body.classList.remove("overflow-hidden");
+        toast(`🗑️ ${o.id} deleted. Use Undo to restore it.`, "success");
+      }
+
+      function deleteSelected() {
+        if (!selectedId) return;
+        const o = orders.find((x) => x.id === selectedId);
+        if (!o) return;
+        if (
+          !confirm(
+            `⚠️ Delete ${o.id} — "${o.title}"?\n\nYou can use Undo immediately after deletion.`
+          )
+        )
+          return;
+        pushHistory("delete " + o.id);
+        orders = orders.filter((x) => x.id !== selectedId);
+        saveOrders();
+        render();
+        closeDrawer();
+        toast(`🗑️ ${o.id} deleted. Use Undo to restore it.`, "success");
+      }
+
+      function deleteUserFromList(name) {
+        if (!name) return;
+        if (
+          !confirm(
+            `⚠️ Remove "${name}" from the user list?\n\nWork Orders assigned to them will become Unassigned.`
+          )
+        )
+          return;
+        pushHistory("remove user " + name);
+        users = users.filter((u) => u.name !== name);
+        orders.forEach((o) => {
+          if (o.assignee === name) o.assignee = "Unassigned";
+        });
+        saveUsers();
+        saveOrders();
+        render();
+        // Re-render the users section if it's open
+        if (
+          !document
+            .getElementById("sectionPage")
+            .classList.contains("hidden") &&
+          document.getElementById("sectionPageTitle").textContent === "Users"
+        ) {
+          showSectionPage("users");
+        }
+        toast(
+          `👤 ${name} removed. Affected Work Orders unassigned.`,
+          "success"
+        );
+      }
+
+      function closeEdit() {
+        editingId = null;
+        document.getElementById("editModal").classList.add("hidden");
+        if (!selectedId) document.body.classList.remove("overflow-hidden");
+      }
+
+      function toInputDate(v) {
+        if (!v) return "";
+        const s = String(v);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const d = new Date(s);
+        return isNaN(d) ? "" : d.toISOString().slice(0, 10);
+      }
+
+      function saveForm(e) {
+        e.preventDefault();
+        const id = editingId;
+        const o = orders.find((x) => x.id === id);
+        if (!o) return;
+
+        pushHistory("before editing " + id);
+
+        // Gather custom fields from the edit modal
+        const wrap = document.getElementById("editCustomFields");
+        let customFields = [];
+        try {
+          customFields = JSON.parse(wrap.dataset.fields || "[]");
+        } catch {
+          customFields = [];
+        }
+        // Also read from the inputs directly to capture latest changes
+        const labelInputs = wrap.querySelectorAll(".edit-field-label");
+        const selectInputs = wrap.querySelectorAll(".edit-field-value-select");
+        const textInputs = wrap.querySelectorAll(".edit-field-value-text");
+        const newFields = [];
+        labelInputs.forEach((el, idx) => {
+          const label = el.value.trim();
+          const select = selectInputs[idx];
+          const text = textInputs[idx];
+          let value = "";
+          let sourceHeader = "";
+          if (select && select.value) {
+            const o2 = orders.find((x) => x.id === editingId);
+            value = o2 ? displayValue(o2, select.value) : "";
+            sourceHeader = select.value;
+          } else if (text) {
+            value = text.value.trim();
+          }
+          if (label) {
+            newFields.push({ label, value, _sourceHeader: sourceHeader });
+          }
+        });
+        // If we got fields from the DOM, use those; otherwise fall back to the stored ones
+        if (newFields.length) customFields = newFields;
+
+        const dateTransmitted = document.getElementById(
+          "formDateTransmitted"
+        ).value;
+        const assignee =
+          document.getElementById("formAssignee").value.trim() || "Unassigned";
+
+        Object.assign(o, {
+          title:
+            document.getElementById("formTitle").value.trim() ||
+            "Untitled Work Order",
+          status: document.getElementById("formStatus").value,
+          priority: document.getElementById("formPriority").value,
+          category: document.getElementById("formCategory").value.trim(),
+          location: document.getElementById("formLocation").value.trim(),
+          assignee,
+          dueDate: document.getElementById("formDueDate").value,
+          created:
+            document.getElementById("formCreated").value ||
+            o.created ||
+            nowDate(),
+          requester: document.getElementById("formRequester").value.trim(),
+          description: document.getElementById("formDescription").value.trim(),
+          dateTransmitted: dateTransmitted || "",
+          customFields: customFields.filter((f) => f.label),
+        });
+
+        if (
+          dateTransmitted &&
+          !customFields.some((f) => f.label === "Date Transmitted")
+        ) {
+          o.customFields.push({
+            label: "Date Transmitted",
+            value: dateTransmitted,
+            _sourceHeader: "",
+          });
+        }
+
+        // Save card display config
+        displayConfig.cardDateSource =
+          document.getElementById("cardDateSource").value || "dueDate";
+        displayConfig.cardDateLabel =
+          document.getElementById("cardDateLabel").value.trim() || "Due Date";
+        displayConfig.cardExtraFields = [
+          ...document.querySelectorAll(
+            "#cardExtraFieldChoices [data-card-extra]:checked"
+          ),
+        ]
+          .map((x) => x.dataset.cardExtra)
+          .slice(0, 2);
+        saveDisplayConfig();
+
+        if (
+          assignee !== "Unassigned" &&
+          !users.some((u) => u.name === assignee)
+        ) {
+          users.push({ id: `USR-${Date.now()}`, name: assignee, active: true });
+          saveUsers();
+        }
+        o.activity = o.activity || [];
+        o.activity.push({
+          date: nowStamp(),
+          text: "Work order details edited",
+        });
+        saveOrders();
+        render();
+        closeEdit();
+        if (selectedId === id) renderDrawer(id);
+        toast("✅ Work order saved successfully.", "success");
+      }
+
+      // ========================= NEW ORDER =========================
+      function newOrder() {
+        const o = {
+          id: nextId(),
+          title: "New Work Order",
+          description: "",
+          status: "Open",
+          priority: "Medium",
+          category: "General",
+          location: "",
+          assignee: "Unassigned",
+          requester: "",
+          created: nowDate(),
+          dueDate: "",
+          dateTransmitted: "",
+          customFields: [],
+          activity: [{ date: nowStamp(), text: "Work order created" }],
+          _importHeaders: importedHeaders.slice(),
+          _rawData: {},
+        };
+        pushHistory("before creating " + o.id);
+        orders.unshift(o);
+        saveOrders();
+        render();
+        openEdit(o.id);
+      }
+
+      // ========================= STATUS MODAL =========================
+      function openStatusModal(id = selectedId) {
+        if (!id) return;
+        const o = orders.find((x) => x.id === id);
+        if (!o) return;
+        selectedId = id;
+        document.getElementById(
+          "statusModalText"
+        ).textContent = `${o.id} • ${o.title}`;
+        document.getElementById("statusModalSelect").value = o.status;
+        document.getElementById("statusModal").classList.remove("hidden");
+        document.body.classList.add("overflow-hidden");
+      }
+
+      function closeStatusModal() {
+        document.getElementById("statusModal").classList.add("hidden");
+        if (
+          !selectedId &&
+          document.getElementById("editModal").classList.contains("hidden")
+        )
+          document.body.classList.remove("overflow-hidden");
+      }
+
+      function confirmStatus() {
+        const o = orders.find((x) => x.id === selectedId);
+        if (!o) return;
+        const next = document.getElementById("statusModalSelect").value;
+        if (next === o.status) {
+          closeStatusModal();
+          return;
+        }
+        pushHistory("status change for " + o.id);
+        const previous = o.status;
+        o.status = next;
+        o.activity = o.activity || [];
+        o.activity.push({
+          date: nowStamp(),
+          text: `Status changed from ${previous} to ${next}`,
+        });
+        saveOrders();
+        render();
+        closeStatusModal();
+        if (selectedId) renderDrawer(selectedId);
+        toast(`Status changed to ${next}.`, "success");
+      }
+
+      // ========================= DUPLICATE =========================
+      function duplicateSelected() {
+        if (!selectedId) return;
+        const o = orders.find((x) => x.id === selectedId);
+        if (!o) return;
+        pushHistory("duplicate " + o.id);
+        const copy = structuredClone(o);
+        copy.id = nextId();
+        copy.title = o.title + " (Copy)";
+        copy.status = "Open";
+        copy.created = nowDate();
+        copy.activity = [{ date: nowStamp(), text: `Duplicated from ${o.id}` }];
+        orders.unshift(copy);
+        saveOrders();
+        render();
+        openDrawer(copy.id);
+        toast(`${copy.id} created from ${o.id}.`, "success");
+      }
+
+      // ========================= IMPORT ENGINE =========================
+      function parseDelimited(text) {
+        const lines = text
+          .replace(/\r/g, "")
+          .split("\n")
+          .filter((x) => x.trim());
+        if (!lines.length) return { headers: [], rows: [] };
+        const first = lines[0];
+        let delimiter = "\t";
+        if (first.includes("\t")) delimiter = "\t";
+        else if (first.includes("|")) delimiter = "|";
+        else if (first.includes(",")) delimiter = ",";
+        else delimiter = /\s{2,}/;
+
+        const splitLine = (line) => {
+          if (delimiter instanceof RegExp)
+            return line.split(delimiter).map((x) => x.trim());
+          return parseCSVLine(line, delimiter);
+        };
+        const headers = splitLine(lines[0]);
+        const rows = lines.slice(1).map((line) => {
+          const vals = splitLine(line);
+          const obj = {};
+          headers.forEach((h, i) => (obj[h] = vals[i] ?? ""));
+          return obj;
+        });
+        return { headers, rows };
+      }
+
+      function parseCSVLine(line, delimiter) {
+        const out = [];
+        let cur = "",
+          quote = false;
+        for (let i = 0; i < line.length; i++) {
+          const c = line[i];
+          if (c === '"') {
+            if (quote && line[i + 1] === '"') {
+              cur += '"';
+              i++;
+            } else quote = !quote;
+          } else if (c === delimiter && !quote) {
+            out.push(cur.trim());
+            cur = "";
+          } else cur += c;
+        }
+        out.push(cur.trim());
+        return out;
+      }
+
+      function headerFieldScore(field, header) {
+        const h = normalize(header);
+        const aliases = FIELD_DEFS[field] || [];
+        let best = 0;
+        aliases.forEach((a) => {
+          const n = normalize(a);
+          if (h === n) best = Math.max(best, 120);
+          else if (h.includes(n) || n.includes(h)) best = Math.max(best, 85);
+          else {
+            const ht = new Set(h.split(" ")),
+              nt = n.split(" ");
+            const overlap = nt.filter((x) => ht.has(x)).length;
+            if (overlap) best = Math.max(best, 45 + overlap * 12);
+          }
+        });
+        return best;
+      }
+
+      function inferMapping(headers, rows) {
+        const mapping = {};
+        const used = new Set();
+        const candidates = [];
+        Object.keys(FIELD_DEFS).forEach((field) =>
+          headers.forEach((h, i) => {
+            const score = headerFieldScore(field, h);
+            if (score >= 82) candidates.push({ field, h, i, score });
+          })
+        );
+        candidates.sort((a, b) => b.score - a.score);
+        candidates.forEach((c) => {
+          if (!mapping[c.field] && !used.has(c.i)) {
+            mapping[c.field] = c.h;
+            used.add(c.i);
+          }
+        });
+
+        Object.keys(FIELD_DEFS).forEach((field) => {
+          if (mapping[field]) return;
+          const candidates2 = headers
+            .map((h, i) => ({ h, i, score: contentScore(field, h, rows) }))
+            .sort((a, b) => b.score - a.score);
+          const pick = candidates2.find(
+            (c) => c.score >= (field === "title" ? 38 : 45) && !used.has(c.i)
+          );
+          if (pick) {
+            mapping[field] = pick.h;
+            used.add(pick.i);
+          }
+        });
+
+        if (!mapping.title) {
+          const candidates3 = headers
+            .map((h, i) => {
+              const vals = rows
+                .slice(0, 80)
+                .map((r) => String(r[h] ?? "").trim())
+                .filter(Boolean);
+              const avg = vals.length
+                ? vals.reduce((s, v) => s + v.length, 0) / vals.length
+                : 0;
+              const textRatio = vals.length
+                ? vals.filter((v) => /[A-Za-z]/.test(v)).length / vals.length
+                : 0;
+              const uniqueRatio = vals.length
+                ? new Set(vals).size / vals.length
+                : 0;
+              return {
+                h,
+                i,
+                score:
+                  Math.min(avg, 60) * 0.7 + textRatio * 25 + uniqueRatio * 10,
+              };
+            })
+            .sort((a, b) => b.score - a.score);
+          const pick = candidates3.find((c) => !used.has(c.i));
+          if (pick) {
+            mapping.title = pick.h;
+            used.add(pick.i);
+          }
+        }
+        return mapping;
+      }
+
+      function contentScore(field, header, rows) {
+        const vals = rows
+          .slice(0, 80)
+          .map((r) => String(r[header] ?? "").trim())
+          .filter(Boolean);
+        if (!vals.length) return 0;
+        const ratio = (re) =>
+          vals.filter((v) => re.test(v)).length / vals.length;
+        const avg = vals.reduce((s, v) => s + v.length, 0) / vals.length;
+        const numericRatio =
+          vals.filter((v) => /^-?\d+(?:\.\d+)?$/.test(v)).length / vals.length;
+
+        if (field === "id")
+          return Math.max(
+            ratio(/^(?:WO|W0|JOB|REQ|TKT|SR)[-_# ]?\d+/i) * 90,
+            ratio(/^\d{3,}$/) * 55
+          );
+        if (field === "status")
+          return (
+            ratio(
+              /^(open|new|in progress|progress|ongoing|working|started|on hold|hold|pending|completed|complete|done|closed|resolved|overdue|late|cancelled|canceled)$/i
+            ) * 95
+          );
+        if (field === "priority")
+          return (
+            ratio(
+              /^(critical|urgent|emergency|high|major|medium|normal|low|minor)$/i
+            ) * 95
+          );
+        if (field === "created")
+          return Math.max(
+            ratio(
+              /created|opened|submitted|request date|creation date|date opened/i
+            ) * 70,
+            ratio(/^\d{4}[-\/]\d{1,2}[-\/]\d{1,2}/) * 65,
+            ratio(/^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/) * 60,
+            ratio(/^[A-Za-z]{3,9}\s+\d{1,2}(?:,|\s)/) * 55
+          );
+        if (field === "dueDate")
+          return Math.max(
+            ratio(/due|deadline|target|completion|required by/i) * 75,
+            ratio(/^\d{4}[-\/]\d{1,2}[-\/]\d{1,2}/) * 45,
+            ratio(/^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/) * 40
+          );
+        if (field === "location")
+          return Math.max(
+            ratio(
+              /room|office|branch|site|building|floor|pantry|warehouse|area|facility|store|hallway/i
+            ) * 75,
+            avg >= 4 && avg <= 45 ? 22 : 0
+          );
+        if (field === "assignee")
+          return Math.max(
+            ratio(/^[A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3}$/) * 65,
+            0
+          );
+        if (field === "requester")
+          return ratio(/^[A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3}$/) * 35;
+        if (field === "description")
+          return (
+            (avg >= 25 ? 55 : avg >= 15 ? 40 : 0) +
+            (numericRatio < 0.25 ? 10 : 0)
+          );
+        if (field === "title")
+          return (
+            (avg >= 8 ? 45 : avg >= 4 ? 30 : 0) + (numericRatio < 0.25 ? 12 : 0)
+          );
+        if (field === "category")
+          return (
+            ratio(
+              /hvac|plumbing|electrical|civil|carpentry|mechanical|fire|security|it|network|cleaning|facilities|maintenance/i
+            ) * 80
+          );
+        return 0;
+      }
+
+      function normalizeStatus(v) {
+        const n = normalize(v);
+        if (/progress|ongoing|working|started|in progress/.test(n))
+          return "In Progress";
+        if (/complete|closed|done|resolved|finish/.test(n)) return "Completed";
+        if (/hold|pending/.test(n)) return "On Hold";
+        if (/overdue|late|past due/.test(n)) return "Overdue";
+        if (/cancel/.test(n)) return "Cancelled";
+        return "Open";
+      }
+
+      function normalizePriority(v) {
+        const n = normalize(v);
+        if (/critical|urgent|emergency/.test(n)) return "Critical";
+        if (/high|major/.test(n)) return "High";
+        if (/low|minor/.test(n)) return "Low";
+        return "Medium";
+      }
+
+      function parseDateValue(v) {
+        if (v === null || v === undefined || v === "") return "";
+        if (typeof v === "number" && window.XLSX && XLSX.SSF) {
+          const d = XLSX.SSF.parse_date_code(v);
+          if (d)
+            return `${d.y}-${String(d.m).padStart(2, "0")}-${String(
+              d.d
+            ).padStart(2, "0")}`;
+        }
+        const s = String(v).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const d = new Date(s);
+        if (!isNaN(d)) return d.toISOString().slice(0, 10);
+        const m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+        if (m) {
+          let y = Number(m[3]);
+          if (y < 100) y += 2000;
+          return `${y}-${String(Number(m[1])).padStart(2, "0")}-${String(
+            Number(m[2])
+          ).padStart(2, "0")}`;
+        }
+        return s;
+      }
+
+      function makeMappedOrder(row, i) {
+        const get = (f) => (importMapping[f] ? row[importMapping[f]] : "");
+        const rawId = String(get("id") || "").trim();
+        const id = rawId || `IMPORT-${Date.now()}-${i + 1}`;
+        const rawStatus = String(get("status") || "").trim();
+        const rawPriority = String(get("priority") || "").trim();
+        const mappedSources = new Set(
+          Object.values(importMapping).filter(Boolean)
+        );
+        const customFields = (
+          importCustomMappings.length
+            ? importCustomMappings
+            : importHeaders
+                .filter((h) => !mappedSources.has(h))
+                .map((h) => ({ label: h, source: h }))
+        )
+          .map((f) => ({
+            label: String(f.label || "").trim(),
+            value: String(row[f.source] ?? "").trim(),
+            _sourceHeader: f.source,
+          }))
+          .filter((f) => f.label && f.value);
+
+        const dueDate = parseDateValue(get("dueDate"));
+        return {
+          id,
+          title: String(get("title") || "Untitled Work Order").trim(),
+          description: String(get("description") || "").trim(),
+          status: rawStatus ? normalizeStatus(rawStatus) : "Open",
+          priority: rawPriority ? normalizePriority(rawPriority) : "Medium",
+          category: String(get("category") || "General").trim() || "General",
+          location: String(get("location") || "").trim(),
+          assignee:
+            String(get("assignee") || "Unassigned").trim() || "Unassigned",
+          requester: String(get("requester") || "").trim(),
+          created: parseDateValue(get("created")) || nowDate(),
+          dueDate: dueDate,
+          dateTransmitted: "",
+          customFields,
+          activity: [
+            {
+              date: nowStamp(),
+              text: `Prepared for import from ${
+                importSourceName || "admin data"
+              }`,
+            },
+          ],
+          _importHeaders: importHeaders.slice(),
+          _rawData: { ...row },
+        };
+      }
+
+      function showImportData(headers, rows, source = "pasted data") {
+        importHeaders = headers.map((h, i) =>
+          String(h || `Column ${i + 1}`).trim()
+        );
+        importRows = rows
+          .map((r) => {
+            const o = {};
+            importHeaders.forEach((h) => (o[h] = r[h] ?? ""));
+            return o;
+          })
+          .filter((r) => Object.values(r).some((v) => String(v).trim() !== ""));
+        importSourceName = source;
+        importMapping = inferMapping(importHeaders, importRows);
+        const mappedSources = new Set(
+          Object.values(importMapping).filter(Boolean)
+        );
+        importCustomMappings = importHeaders
+          .filter((h) => !mappedSources.has(h))
+          .map((h) => ({ label: h, source: h }));
+
+        importedHeaders = importHeaders.slice();
+        saveImportedHeaders();
+
+        document.getElementById("importSourceBadge").textContent = source;
+        document.getElementById(
+          "importRowCount"
+        ).textContent = `${importRows.length} rows`;
+        document.getElementById(
+          "importMappingSummary"
+        ).textContent = `Detected ${importHeaders.length} source columns and ${importRows.length} data rows. Review the mapping and projected cards before confirming.`;
+        document.getElementById("importMappingArea").classList.remove("hidden");
+        document.getElementById("importPreviewArea").classList.remove("hidden");
+        document.getElementById("importEmptyPreview").classList.add("hidden");
+        renderImportMapping();
+        renderImportPreview();
+      }
+
+      function renderImportMapping() {
+        const grid = document.getElementById("importMappingGrid");
+        const labels = {
+          id: "Work Order ID",
+          title: "Title",
+          description: "Description",
+          status: "Status",
+          priority: "Priority",
+          category: "Category",
+          location: "Location",
+          assignee: "Assigned To",
+          requester: "Requester",
+          created: "Created Date",
+          dueDate: "Due Date",
+        };
+        grid.innerHTML = Object.keys(FIELD_DEFS)
+          .map((field) => {
+            const mapped = importMapping[field] || "";
+            const required = field === "title";
+            return `<label class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+              <span class="flex items-center justify-between mb-1"><span class="block text-[10px] font-black uppercase tracking-wide text-slate-400">${
+                labels[field]
+              }</span><span class="text-[9px] font-black ${
+              mapped ? "text-emerald-600" : "text-slate-400"
+            }">${mapped ? "MAPPED" : "UNMAPPED"}${
+              required ? " • REQUIRED" : ""
+            }</span></span>
+              <select data-import-map-field="${field}" class="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs font-semibold"><option value="">— Not mapped —</option>${importHeaders
+              .map(
+                (h) =>
+                  `<option value="${esc(h)}" ${
+                    importMapping[field] === h ? "selected" : ""
+                  }>${esc(h)}</option>`
+              )
+              .join("")}</select>
+              ${
+                mapped
+                  ? `<span class="block text-[10px] text-slate-400 mt-1 truncate">Source: ${esc(
+                      mapped
+                    )}</span>`
+                  : ""
+              }
+            </label>`;
+          })
+          .join("");
+
+        grid.querySelectorAll("[data-import-map-field]").forEach((sel) =>
+          sel.addEventListener("change", (e) => {
+            importMapping[e.target.dataset.importMapField] = e.target.value;
+            const mapped = new Set(
+              Object.values(importMapping).filter(Boolean)
+            );
+            importCustomMappings = importCustomMappings.filter(
+              (f) => !mapped.has(f.source)
+            );
+            importHeaders
+              .filter((h) => !mapped.has(h))
+              .forEach((h) => {
+                if (!importCustomMappings.some((f) => f.source === h))
+                  importCustomMappings.push({ label: h, source: h });
+              });
+            renderImportMapping();
+            renderImportPreview();
+          })
+        );
+
+        const wrap = document.getElementById("importCustomMappingArea");
+        if (!wrap) return;
+        wrap.innerHTML = `<div class="flex items-center justify-between gap-3 mb-3"><div><h4 class="text-xs font-black text-slate-700">Additional / custom fields</h4><p class="text-[10px] text-slate-400 mt-1">Anything not mapped above can be renamed and carried into the Work Order drawer.</p></div><button type="button" id="addImportCustomBtn" class="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[10px] font-black">+ Add Field</button></div>
+          <div id="importCustomRows" class="space-y-2"></div>`;
+        const rows = document.getElementById("importCustomRows");
+        importCustomMappings.forEach((f, i) => {
+          rows.insertAdjacentHTML(
+            "beforeend",
+            `<div class="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+                <input data-custom-label="${i}" class="field-input-sm" placeholder="Display label e.g. Date Transmitted" value="${esc(
+              f.label
+            )}">
+                <select data-custom-source="${i}" class="field-input-sm"><option value="">Choose source column</option>${importHeaders
+              .map(
+                (h) =>
+                  `<option value="${esc(h)}" ${
+                    f.source === h ? "selected" : ""
+                  }>${esc(h)}</option>`
+              )
+              .join("")}</select>
+                <button type="button" data-custom-remove="${i}" class="w-9 h-9 rounded-lg text-red-500 hover:bg-red-50 flex items-center justify-center">✕</button>
+              </div>`
+          );
+        });
+        document
+          .getElementById("addImportCustomBtn")
+          .addEventListener("click", () => {
+            importCustomMappings.push({
+              label: "New Field",
+              source:
+                importHeaders.find(
+                  (h) => !importCustomMappings.some((x) => x.source === h)
+                ) || "",
+            });
+            renderImportMapping();
+            renderImportPreview();
+          });
+        rows.querySelectorAll("[data-custom-label]").forEach((el) =>
+          el.addEventListener("input", (e) => {
+            importCustomMappings[+e.target.dataset.customLabel].label =
+              e.target.value;
+            renderImportPreview();
+          })
+        );
+        rows.querySelectorAll("[data-custom-source]").forEach((el) =>
+          el.addEventListener("change", (e) => {
+            importCustomMappings[+e.target.dataset.customSource].source =
+              e.target.value;
+            renderImportPreview();
+          })
+        );
+        rows.querySelectorAll("[data-custom-remove]").forEach((el) =>
+          el.addEventListener("click", (e) => {
+            importCustomMappings.splice(+e.target.dataset.customRemove, 1);
+            renderImportMapping();
+            renderImportPreview();
+          })
+        );
+      }
+
+      function projectedCardHTML(o) {
+        const due = o.dueDate ? formatDate(o.dueDate) : "No due date";
+        const created = formatDate(o.created);
+        const overdue =
+          o.dueDate &&
+          o.status !== "Completed" &&
+          o.status !== "Cancelled" &&
+          o.dueDate < nowDate();
+        return `<article class="bg-white border border-brand-100 rounded-2xl p-4 shadow-sm">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 mb-1"><span class="text-[10px] font-bold text-slate-400">${esc(
+                  o.id
+                )}</span><span class="w-1 h-1 rounded-full bg-slate-300"></span><span class="text-[10px] text-slate-400">${esc(
+          o.category
+        )}</span></div>
+                <h4 class="font-black text-sm text-slate-900 truncate">${esc(
+                  o.title
+                )}</h4>
+              </div>
+              <span class="shrink-0 px-2 py-1 rounded-full border text-[9px] font-bold ${statusClass(
+                o.status
+              )}">${esc(o.status)}</span>
+            </div>
+            <p class="mt-2 text-xs text-slate-500 line-clamp-2">${esc(
+              o.description || "No description provided."
+            )}</p>
+            <div class="grid grid-cols-2 gap-2 mt-3">
+              <div class="bg-slate-50 rounded-lg p-2"><p class="text-[9px] text-slate-400">Location</p><p class="text-[10px] font-bold text-slate-700 truncate">${esc(
+                o.location || "—"
+              )}</p></div>
+              <div class="bg-slate-50 rounded-lg p-2"><p class="text-[9px] text-slate-400">Due</p><p class="text-[10px] font-bold ${
+                overdue ? "text-red-600" : "text-slate-700"
+              }">${esc(due)}</p></div>
+            </div>
+            <div class="mt-2 text-[9px] text-slate-400">Created ${esc(
+              created
+            )}</div>
+            <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 min-w-0"><span class="w-7 h-7 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-[9px] font-black">${esc(
+                initials(o.assignee)
+              )}</span><span class="text-[10px] font-bold text-slate-700 truncate">${esc(
+          o.assignee
+        )}</span></div>
+              <span class="px-2 py-1 rounded-md text-[9px] font-bold ${priorityClass(
+                o.priority
+              )}">${esc(o.priority)}</span>
+            </div>
+          </article>`;
+      }
+
+      function renderImportPreview() {
+        const fields = [
+          "id",
+          "title",
+          "status",
+          "priority",
+          "assignee",
+          "location",
+          "created",
+          "dueDate",
+        ];
+        const labels = {
+          id: "WO ID",
+          title: "Title",
+          status: "Status",
+          priority: "Priority",
+          assignee: "Assigned To",
+          location: "Location",
+          created: "Created",
+          dueDate: "Due",
+        };
+        const missing = ["title"].filter((f) => !importMapping[f]);
+        const badge = document.getElementById("importReadyBadge");
+        const confirm = document.getElementById("confirmImportBtn");
+        if (missing.length) {
+          badge.textContent = `NEEDS MAPPING: ${missing
+            .map((f) => labels[f])
+            .join(", ")}`;
+          badge.className =
+            "inline-flex items-center px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black";
+          confirm.disabled = true;
+        } else {
+          badge.textContent = "✓ READY TO IMPORT";
+          badge.className =
+            "inline-flex items-center px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black";
+          confirm.disabled = !importRows.length;
+        }
+
+        document.getElementById(
+          "importPreviewCount"
+        ).textContent = `Showing first ${Math.min(6, importRows.length)} of ${
+          importRows.length
+        }`;
+        document.getElementById("importPreviewHead").innerHTML = `<tr>${fields
+          .map(
+            (f) =>
+              `<th class="px-3 py-2 text-left font-bold text-slate-500 whitespace-nowrap">${
+                labels[f]
+              }<div class="text-[9px] font-normal text-slate-400">${
+                importMapping[f] ? esc(importMapping[f]) : "—"
+              }</div></th>`
+          )
+          .join("")}</tr>`;
+        const preview = importRows
+          .slice(0, 8)
+          .map((r, i) => makeMappedOrder(r, i));
+        document.getElementById("importPreviewBody").innerHTML = preview
+          .map(
+            (o) =>
+              `<tr class="border-t border-slate-100 hover:bg-slate-50">
+              <td class="px-3 py-2 font-semibold whitespace-nowrap">${esc(
+                o.id
+              )}</td><td class="px-3 py-2 max-w-[260px] truncate">${esc(
+                o.title
+              )}</td>
+              <td class="px-3 py-2"><span class="px-2 py-1 rounded-full border ${statusClass(
+                o.status
+              )}">${esc(o.status)}</span></td>
+              <td class="px-3 py-2">${esc(
+                o.priority
+              )}</td><td class="px-3 py-2 whitespace-nowrap">${esc(
+                o.assignee
+              )}</td>
+              <td class="px-3 py-2 whitespace-nowrap">${esc(
+                o.location
+              )}</td><td class="px-3 py-2 whitespace-nowrap">${esc(
+                formatDate(o.created)
+              )}</td><td class="px-3 py-2 whitespace-nowrap">${esc(
+                formatDate(o.dueDate)
+              )}</td>
+            </tr>`
+          )
+          .join("");
+
+        const projected = importRows
+          .slice(0, 6)
+          .map((r, i) => makeMappedOrder(r, i));
+        document.getElementById("projectedCards").innerHTML = projected.length
+          ? projected.map(projectedCardHTML).join("")
+          : '<p class="text-sm text-slate-400">No rows to preview.</p>';
+      }
+
+      function resetImportCenter() {
+        importRows = [];
+        importHeaders = [];
+        importMapping = {};
+        importCustomMappings = [];
+        importSourceName = "";
+        document.getElementById("importSourceBadge").textContent =
+          "No data loaded";
+        document.getElementById("importFileName").textContent = "";
+        document.getElementById("importRowCount").textContent = "";
+        document.getElementById("importMappingSummary").textContent =
+          "Load a file to begin.";
+        document.getElementById("importMappingArea").classList.add("hidden");
+        document.getElementById("importPreviewArea").classList.add("hidden");
+        document
+          .getElementById("importEmptyPreview")
+          .classList.remove("hidden");
+        document.getElementById("importReadyBadge").textContent = "WAITING";
+        document.getElementById("importReadyBadge").className =
+          "inline-flex items-center px-2 py-1 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black";
+        document.getElementById("confirmImportBtn").disabled = true;
+        document.getElementById("importPasteData").value = "";
+        document.getElementById("importFileInput").value = "";
+      }
+
+      function openImportModal() {
+        document.getElementById("importModal").classList.remove("hidden");
+        document.body.classList.add("overflow-hidden");
+      }
+
+      function closeImportModal() {
+        document.getElementById("importModal").classList.add("hidden");
+        if (
+          document.getElementById("editModal").classList.contains("hidden") &&
+          document.getElementById("statusModal").classList.contains("hidden") &&
+          !selectedId
+        )
+          document.body.classList.remove("overflow-hidden");
+      }
+
+      function applyImport() {
+        if (!importRows.length) {
+          toast("Load a file or paste rows first.", "error");
+          return;
+        }
+        if (!importMapping.title) {
+          toast("Please map the Title column before importing.", "error");
+          return;
+        }
+
+        const incoming = importRows.map(makeMappedOrder);
+        pushHistory(`import ${incoming.length} rows`);
+        const existing = new Map(
+          orders.map((o) => [String(o.id).trim().toLowerCase(), o])
+        );
+        let added = 0,
+          updated = 0;
+
+        incoming.forEach((n) => {
+          const key = String(n.id).trim().toLowerCase();
+          if (existing.has(key)) {
+            const old = existing.get(key);
+            const merged = {
+              ...old,
+              ...n,
+              activity: [
+                ...(old.activity || []),
+                ...(n.activity || []),
+                { date: nowStamp(), text: "Updated by import" },
+              ],
+              _importHeaders: n._importHeaders || [],
+              _rawData: n._rawData || {},
+            };
+            const idx = orders.findIndex(
+              (o) => String(o.id).trim().toLowerCase() === key
+            );
+            if (idx >= 0) orders[idx] = merged;
+            updated++;
+          } else {
+            orders.push(n);
+            added++;
+          }
+        });
+
+        orders = orders.map((o, i) => ({
+          ...o,
+          id: String(o.id ?? `WO-${i + 1}`).trim() || `WO-${i + 1}`,
+          title:
+            String(o.title ?? "Untitled Work Order").trim() ||
+            "Untitled Work Order",
+          description: String(o.description ?? "").trim(),
+          status: normalizeStatus(o.status || "Open"),
+          priority: normalizePriority(o.priority || "Medium"),
+          category: String(o.category ?? "General").trim() || "General",
+          location: String(o.location ?? "").trim(),
+          assignee: String(o.assignee ?? "Unassigned").trim() || "Unassigned",
+          requester: String(o.requester ?? "").trim(),
+          created: parseDateValue(o.created) || nowDate(),
+          dueDate: parseDateValue(o.dueDate),
+          activity: Array.isArray(o.activity) ? o.activity : [],
+          customFields: Array.isArray(o.customFields) ? o.customFields : [],
+          _importHeaders: Array.isArray(o._importHeaders)
+            ? o._importHeaders
+            : [],
+          _rawData: o._rawData || {},
+        }));
+
+        const timeOf = (v) => {
+          const s = String(v || "");
+          const t = Date.parse(s.length <= 10 ? s + "T00:00:00" : s);
+          return Number.isNaN(t) ? 0 : t;
+        };
+        orders.sort((a, b) => timeOf(b.created) - timeOf(a.created));
+
+        saveOrders();
+        orders = loadOrders();
+
+        document.getElementById("searchInput").value = "";
+        initializeDashboardFilters();
+        document.getElementById("statusFilter").value = "all";
+        document.getElementById("priorityFilter").value = "all";
+        document.getElementById("sortSelect").value = "created_desc";
+        currentPage = 1;
+
+        hideSectionPage();
+        closeImportModal();
+        resetImportCenter();
+        render();
+
+        toast(
+          `✅ Import successful: ${added} new, ${updated} updated. ${orders.length} work orders now displayed.`,
+          "success"
+        );
+        setTimeout(() => {
+          const grid = document.getElementById("workOrderGrid");
+          if (grid) grid.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 100);
+      }
+
+      async function handleImportFile(file) {
+        if (!file) return;
+        document.getElementById(
+          "importFileName"
+        ).textContent = `Reading: ${file.name}`;
+        try {
+          const ext = file.name.split(".").pop().toLowerCase();
+          if (["csv", "tsv"].includes(ext)) {
+            const text = await file.text();
+            const parsed = parseDelimited(text);
+            if (!parsed.headers.length || !parsed.rows.length)
+              throw new Error("No rows");
+            showImportData(parsed.headers, parsed.rows, file.name);
+          } else {
+            const data = await file.arrayBuffer();
+            const wb = XLSX.read(data, { type: "array", cellDates: true });
+            if (!wb.SheetNames.length) throw new Error("No sheet");
+            const sheet = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet, {
+              defval: "",
+              raw: false,
+            });
+            const headers = rows.length ? Object.keys(rows[0]) : [];
+            if (!headers.length || !rows.length) throw new Error("No rows");
+            showImportData(headers, rows, file.name);
+          }
+        } catch (err) {
+          console.error(err);
+          toast(
+            "Could not read that file. Please check the Excel/CSV format.",
+            "error"
+          );
+        }
+      }
+
+      // ========================= UI HELPERS =========================
+      function toast(message, type = "info") {
+        const colors = {
+          success: "border-emerald-200 bg-emerald-50 text-emerald-800",
+          error: "border-red-200 bg-red-50 text-red-800",
+          info: "border-slate-200 bg-white text-slate-800",
+        };
+        const el = document.createElement("div");
+        el.className = `toast border rounded-xl shadow-soft px-4 py-3 text-sm font-semibold ${
+          colors[type] || colors.info
+        }`;
+        el.innerHTML = esc(message);
+        document.getElementById("toastStack").appendChild(el);
+        setTimeout(() => el.remove(), 3500);
+      }
+
+      function updateUndoButtons() {
+        const disabled = !history.length;
+        [
+          "dashboardUndoBtn",
+          "mobileUndoBtn",
+          "drawerUndoBtn",
+          "modalUndoBtn",
+        ].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.disabled = disabled;
+        });
+        document
+          .getElementById("dashboardUndoBtn")
+          .classList.toggle("hidden", false);
+        document.getElementById("undoCount").textContent = history.length
+          ? `(${history.length})`
+          : "";
+      }
+
+      // ========================= SECTION PAGES =========================
+      function showSectionPage(page) {
+        if (page === "dashboard") {
+          hideSectionPage();
+          return;
+        }
+        const pageEl = document.getElementById("sectionPage");
+        const body = document.getElementById("sectionPageBody");
+        const title = document.getElementById("sectionPageTitle");
+        const sub = document.getElementById("sectionPageSub");
+        pageEl.classList.remove("hidden");
+        document.body.classList.add("overflow-hidden");
+
+        const statusCounts = {
+          Open: 0,
+          "In Progress": 0,
+          "On Hold": 0,
+          Completed: 0,
+          Overdue: 0,
+          Cancelled: 0,
+        };
+        orders.forEach((o) => {
+          if (statusCounts[o.status] !== undefined) statusCounts[o.status]++;
+        });
+
+        if (page === "all-orders") {
+          title.textContent = "All Work Orders";
+          sub.textContent =
+            "Complete work-order register. Search, filter, edit and manage every record.";
+          body.innerHTML = `<div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                <div class="p-5 border-b border-slate-200">
+                  <div class="flex flex-col lg:flex-row gap-3">
+                    <input id="allOrdersSearch" class="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm" placeholder="Search all work orders..." value="">
+                    <select id="allOrdersStatus" class="rounded-xl border border-slate-200 px-3 py-3 text-sm"><option value="all">All Status</option><option>Open</option><option>In Progress</option><option>On Hold</option><option>Completed</option><option>Overdue</option><option>Cancelled</option></select>
+                    <button id="allOrdersRefresh" class="px-4 py-3 rounded-xl bg-slate-900 text-white text-sm font-bold">↻ Refresh</button>
+                  </div>
+                </div>
+                <div class="overflow-x-auto"><table class="w-full min-w-[1000px] text-xs"><thead class="bg-slate-50"><tr>
+                  <th class="px-4 py-3 text-left">Work Order</th><th class="px-4 py-3 text-left">Title</th><th class="px-4 py-3 text-left">Status</th><th class="px-4 py-3 text-left">Priority</th><th class="px-4 py-3 text-left">Assigned To</th><th class="px-4 py-3 text-left">Location</th><th class="px-4 py-3 text-left">Created</th><th class="px-4 py-3 text-left">Due</th><th class="px-4 py-3 text-right">Action</th>
+                </tr></thead><tbody id="allOrdersBody"></tbody></table></div>
+              </div>`;
+
+          const paint = () => {
+            const q = normalize(
+              document.getElementById("allOrdersSearch").value
+            );
+            const st = document.getElementById("allOrdersStatus").value;
+            const rows = orders
+              .filter(
+                (o) =>
+                  (!q ||
+                    normalize(
+                      [
+                        o.id,
+                        o.title,
+                        o.description,
+                        o.category,
+                        o.location,
+                        o.assignee,
+                      ].join(" ")
+                    ).includes(q)) &&
+                  (st === "all" || o.status === st)
+              )
+              .sort((a, b) =>
+                String(b.created || "").localeCompare(String(a.created || ""))
+              );
+            document.getElementById("allOrdersBody").innerHTML =
+              rows
+                .map(
+                  (o) =>
+                    `<tr class="border-t border-slate-100 hover:bg-slate-50">
+                      <td class="px-4 py-3 font-bold text-brand-600">${esc(
+                        o.id
+                      )}</td><td class="px-4 py-3 font-semibold">${esc(
+                      o.title
+                    )}</td>
+                      <td class="px-4 py-3"><span class="px-2 py-1 rounded-full border ${statusClass(
+                        o.status
+                      )}">${esc(
+                      o.status
+                    )}</span></td><td class="px-4 py-3">${esc(o.priority)}</td>
+                      <td class="px-4 py-3">${esc(
+                        o.assignee
+                      )}</td><td class="px-4 py-3">${esc(
+                      o.location
+                    )}</td><td class="px-4 py-3">${esc(
+                      formatDate(o.created)
+                    )}</td><td class="px-4 py-3">${esc(
+                      formatDate(o.dueDate)
+                    )}</td>
+                      <td class="px-4 py-3 text-right"><button data-all-open="${esc(
+                        o.id
+                      )}" class="px-3 py-1.5 rounded-lg bg-brand-50 text-brand-700 font-bold">Open</button></td>
+                    </tr>`
+                )
+                .join("") ||
+              `<tr><td colspan="9" class="p-12 text-center text-slate-400">No work orders found.</td></tr>`;
+            document
+              .querySelectorAll("[data-all-open]")
+              .forEach((b) =>
+                b.addEventListener("click", () => openDrawer(b.dataset.allOpen))
+              );
+          };
+          document
+            .getElementById("allOrdersSearch")
+            .addEventListener("input", paint);
+          document
+            .getElementById("allOrdersStatus")
+            .addEventListener("change", paint);
+          document
+            .getElementById("allOrdersRefresh")
+            .addEventListener("click", () => {
+              orders = loadOrders();
+              paint();
+              render();
+              toast("All Work Orders refreshed.", "success");
+            });
+          paint();
+          return;
+        }
+
+        if (page === "calendar") {
+          title.textContent = "Calendar";
+          sub.textContent =
+            "Work order due dates and upcoming maintenance activity.";
+          const month = new Date().getMonth(),
+            year = new Date().getFullYear();
+          const days = new Date(year, month + 1, 0).getDate();
+          const events = orders.filter((o) =>
+            String(o.dueDate || "").startsWith(
+              `${year}-${String(month + 1).padStart(2, "0")}`
+            )
+          );
+          body.innerHTML = `<div class="bg-white border border-slate-200 rounded-2xl p-5">
+                <div class="flex items-center justify-between mb-4"><h3 class="font-black">${new Date(
+                  year,
+                  month,
+                  1
+                ).toLocaleDateString(undefined, {
+                  month: "long",
+                  year: "numeric",
+                })}</h3><span class="text-xs text-slate-400">${
+            events.length
+          } due this month</span></div>
+                <div class="grid grid-cols-7 gap-2 text-center text-xs font-bold text-slate-400 mb-2">${[
+                  "Sun",
+                  "Mon",
+                  "Tue",
+                  "Wed",
+                  "Thu",
+                  "Fri",
+                  "Sat",
+                ]
+                  .map((x) => `<div>${x}</div>`)
+                  .join("")}</div>
+                <div class="grid grid-cols-7 gap-2">${Array.from(
+                  { length: new Date(year, month, 1).getDay() },
+                  () => "<div></div>"
+                ).join("")}${Array.from({ length: days }, (_, i) => {
+            const day = i + 1,
+              key = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+                day
+              ).padStart(2, "0")}`,
+              ds = events.filter((o) => o.dueDate === key);
+            return `<button type="button" data-calendar-date="${key}" class="min-h-24 text-left p-2 rounded-xl border ${
+              ds.length
+                ? "border-brand-200 bg-brand-50"
+                : "border-slate-100 bg-slate-50"
+            } hover:border-brand-300"><span class="text-xs font-black text-slate-700">${day}</span>${ds
+              .slice(0, 3)
+              .map(
+                (o) =>
+                  `<span class="block mt-2 text-[10px] font-bold text-slate-600 truncate">${esc(
+                    o.title
+                  )}</span>`
+              )
+              .join("")}${
+              ds.length > 3
+                ? `<span class="text-[9px] text-brand-600">${
+                    ds.length - 3
+                  } more</span>`
+                : ""
+            }</button>`;
+          }).join("")}</div></div>`;
+          body.querySelectorAll("[data-calendar-date]").forEach((b) =>
+            b.addEventListener("click", () => {
+              const ids = orders.filter(
+                (o) => o.dueDate === b.dataset.calendarDate
+              );
+              if (ids[0]) openDrawer(ids[0].id);
+            })
+          );
+        } else if (page === "reports") {
+          title.textContent = "Reports";
+          sub.textContent =
+            "Operational summary based on the current local work-order data.";
+          const rows = Object.entries(statusCounts)
+            .map(
+              ([s, n]) =>
+                `<tr class="border-t border-slate-100"><td class="px-4 py-3 font-semibold">${s}</td><td class="px-4 py-3 text-right">${n}</td><td class="px-4 py-3 text-right">${
+                  orders.length ? ((n / orders.length) * 100).toFixed(1) : 0
+                }%</td></tr>`
+            )
+            .join("");
+          body.innerHTML = `<div class="grid md:grid-cols-3 gap-4 mb-5"><div class="bg-white border rounded-2xl p-5"><p class="text-xs text-slate-400">Total</p><p class="text-3xl font-black mt-1">${
+            orders.length
+          }</p></div><div class="bg-white border rounded-2xl p-5"><p class="text-xs text-slate-400">Open + In Progress</p><p class="text-3xl font-black mt-1">${
+            statusCounts.Open + statusCounts["In Progress"]
+          }</p></div><div class="bg-white border rounded-2xl p-5"><p class="text-xs text-slate-400">Completed</p><p class="text-3xl font-black mt-1">${
+            statusCounts.Completed
+          }</p></div></div>
+              <div class="bg-white border rounded-2xl overflow-hidden"><div class="p-5 font-black">Status Distribution</div><table class="w-full text-sm"><thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left">Status</th><th class="px-4 py-3 text-right">Count</th><th class="px-4 py-3 text-right">Share</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+        } else if (page === "analytics") {
+          title.textContent = "Analytics";
+          sub.textContent =
+            "Simple live indicators from the imported work-order data.";
+          const cats = {};
+          orders.forEach(
+            (o) =>
+              (cats[o.category || "General"] =
+                (cats[o.category || "General"] || 0) + 1)
+          );
+          const max = Math.max(1, ...Object.values(cats));
+          body.innerHTML = `<div class="grid lg:grid-cols-2 gap-5"><div class="bg-white border rounded-2xl p-5"><h3 class="font-black mb-5">Work Orders by Category</h3><div class="space-y-4">${Object.entries(
+            cats
+          )
+            .sort((a, b) => b[1] - a[1])
+            .map(
+              ([k, v]) =>
+                `<div><div class="flex justify-between text-xs font-bold mb-1"><span>${esc(
+                  k
+                )}</span><span>${v}</span></div><div class="h-3 bg-slate-100 rounded-full overflow-hidden"><div class="h-full bg-brand-600 rounded-full" style="width:${Math.max(
+                  4,
+                  (v / max) * 100
+                )}%"></div></div></div>`
+            )
+            .join(
+              ""
+            )}</div></div><div class="bg-white border rounded-2xl p-5"><h3 class="font-black mb-5">Priority Mix</h3><div class="space-y-4">${[
+            "Critical",
+            "High",
+            "Medium",
+            "Low",
+          ]
+            .map((p) => {
+              const n = orders.filter((o) => o.priority === p).length;
+              return `<div class="flex items-center justify-between p-3 rounded-xl bg-slate-50"><span class="font-bold text-sm">${p}</span><span class="font-black">${n}</span></div>`;
+            })
+            .join("")}</div></div></div>`;
+        } else if (page === "activity") {
+          title.textContent = "Activity Log";
+          sub.textContent =
+            "Most recent actions recorded by this frontend prototype.";
+          const acts = orders
+            .flatMap((o) =>
+              (o.activity || []).map((a) => ({
+                ...a,
+                id: o.id,
+                title: o.title,
+              }))
+            )
+            .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+            .slice(0, 100);
+          body.innerHTML = `<div class="bg-white border rounded-2xl divide-y divide-slate-100">${
+            acts.length
+              ? acts
+                  .map(
+                    (a) =>
+                      `<button type="button" data-activity-id="${esc(
+                        a.id
+                      )}" class="w-full text-left p-4 hover:bg-slate-50"><div class="flex gap-3"><span class="w-2 h-2 rounded-full bg-brand-500 mt-2 shrink-0"></span><div><p class="text-sm font-bold text-slate-700">${esc(
+                        a.text
+                      )}</p><p class="text-xs text-slate-400 mt-1">${esc(
+                        a.id
+                      )} · ${esc(a.title)} · ${esc(
+                        a.date
+                      )}</p></div></div></button>`
+                  )
+                  .join("")
+              : '<div class="p-10 text-center text-sm text-slate-400">No activity yet.</div>'
+          }</div>`;
+          body
+            .querySelectorAll("[data-activity-id]")
+            .forEach((b) =>
+              b.addEventListener("click", () =>
+                openDrawer(b.dataset.activityId)
+              )
+            );
+        } else if (page === "users") {
+          title.textContent = "Users";
+          sub.textContent =
+            "Assigned users detected from the current work-order records. Manage assignees here.";
+          const userMap = {};
+          orders.forEach((o) => {
+            const n = o.assignee || "Unassigned";
+            userMap[n] = (userMap[n] || 0) + 1;
+          });
+          const allUsers = [
+            ...new Set([...users.map((u) => u.name), ...Object.keys(userMap)]),
+          ].filter(Boolean);
+          body.innerHTML = `<div class="bg-white border rounded-2xl p-5 mb-5"><div class="flex flex-col sm:flex-row gap-2"><input id="newUserName" class="field-input" placeholder="Add assignee / user name"><button id="addUserBtn" class="px-4 py-2.5 rounded-xl bg-brand-600 text-white font-bold text-sm">+ Add User</button></div></div><div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">${allUsers
+            .map((n) => {
+              const count = userMap[n] || 0;
+              return `<div class="bg-white border rounded-2xl p-5 flex items-center gap-3"><div class="w-11 h-11 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-black">${esc(
+                initials(n)
+              )}</div><div class="min-w-0 flex-1"><p class="font-black truncate">${esc(
+                n
+              )}</p><p class="text-xs text-slate-400">${count} assigned work order${
+                count === 1 ? "" : "s"
+              }</p></div><button data-delete-user="${esc(
+                n
+              )}" class="w-9 h-9 rounded-lg text-red-500 hover:bg-red-50 flex items-center justify-center" title="Delete this user">✕</button></div>`;
+            })
+            .join("")}</div>`;
+          document
+            .getElementById("addUserBtn")
+            .addEventListener("click", () => {
+              const name = document.getElementById("newUserName").value.trim();
+              if (!name) {
+                toast("Enter a user name.", "error");
+                return;
+              }
+              if (
+                users.some((u) => u.name.toLowerCase() === name.toLowerCase())
+              ) {
+                toast("That user already exists.", "error");
+                return;
+              }
+              users.push({ id: `USR-${Date.now()}`, name, active: true });
+              saveUsers();
+              showSectionPage("users");
+              toast(`${name} added.`, "success");
+            });
+          document.querySelectorAll("[data-delete-user]").forEach((btn) =>
+            btn.addEventListener("click", () => {
+              const name = btn.dataset.deleteUser;
+              deleteUserFromList(name);
+            })
+          );
+        } else if (page === "settings") {
+          title.textContent = "Settings";
+          sub.textContent = "Prototype settings and local data controls.";
+          body.innerHTML = `<div class="max-w-3xl space-y-4"><div class="bg-white border rounded-2xl p-5"><h3 class="font-black">Local Data</h3><p class="text-sm text-slate-500 mt-1">Work orders and undo history are stored in this browser until a backend is connected.</p><div class="flex flex-wrap gap-2 mt-4"><button id="settingsRefresh" class="px-4 py-2.5 rounded-xl border font-bold text-sm">Reload Saved Data</button><button id="settingsReset" class="px-4 py-2.5 rounded-xl border border-red-200 text-red-600 font-bold text-sm">Reset Demo Data</button></div></div><div class="bg-white border rounded-2xl p-5"><h3 class="font-black">Import Behavior</h3><p class="text-sm text-slate-500 mt-1">Existing Work Order IDs are updated; new IDs are added. Imported records are sorted newest-created first.</p></div></div>`;
+          document
+            .getElementById("settingsRefresh")
+            .addEventListener("click", () => {
+              orders = loadOrders();
+              render();
+              toast("Saved data reloaded.", "success");
+            });
+          document
+            .getElementById("settingsReset")
+            .addEventListener("click", () => {
+              if (
+                confirm("Reset all local work-order data to the demo records?")
+              ) {
+                pushHistory("before demo reset");
+                orders = structuredClone(seedOrders);
+                saveOrders();
+                render();
+                toast("Demo data restored.", "success");
+              }
+            });
+        }
+      }
+
+      function hideSectionPage() {
+        document.getElementById("sectionPage").classList.add("hidden");
+        document.body.classList.remove("overflow-hidden");
+      }
+
+      // ========================= EVENTS =========================
+      document.getElementById("newOrderBtn").addEventListener("click", () => {
+        hideSectionPage();
+        newOrder();
+      });
+      document.getElementById("prevPageBtn").addEventListener("click", () => {
+        if (currentPage > 1) {
+          currentPage--;
+          render();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      });
+      document.getElementById("nextPageBtn").addEventListener("click", () => {
+        const pages = Math.max(
+          1,
+          Math.ceil(getFilteredOrders().length / PAGE_SIZE)
+        );
+        if (currentPage < pages) {
+          currentPage++;
+          render();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      });
+      document.getElementById("refreshBtn").addEventListener("click", () => {
+        const btn = document.getElementById("refreshBtn"),
+          icon = document.getElementById("refreshIcon");
+        btn.disabled = true;
+        icon.classList.add("animate-spin");
+        setTimeout(() => {
+          try {
+            orders = loadOrders();
+            history = loadHistory();
+            currentPage = 1;
+            render();
+            if (selectedId && orders.some((o) => o.id === selectedId))
+              renderDrawer(selectedId);
+            else if (selectedId) closeDrawer();
+            toast("Dashboard refreshed from saved data.", "success");
+          } finally {
+            btn.disabled = false;
+            icon.classList.remove("animate-spin");
+          }
+        }, 250);
+      });
+
+      document.getElementById("importTopBtn").addEventListener("click", () => {
+        hideSectionPage();
+        openImportModal();
+      });
+      document
+        .getElementById("openImportModalBtn")
+        .addEventListener("click", openImportModal);
+      document
+        .getElementById("closeImportModalBtn")
+        .addEventListener("click", closeImportModal);
+      document
+        .getElementById("closeImportBottomBtn")
+        .addEventListener("click", closeImportModal);
+      document
+        .getElementById("importModalBackdrop")
+        .addEventListener("click", closeImportModal);
+      document
+        .getElementById("importClearBtn")
+        .addEventListener("click", resetImportCenter);
+      document
+        .getElementById("confirmImportBtn")
+        .addEventListener("click", applyImport);
+      document
+        .getElementById("importDropzone")
+        .addEventListener("click", () =>
+          document.getElementById("importFileInput").click()
+        );
+      document
+        .getElementById("importFileInput")
+        .addEventListener("change", (e) => handleImportFile(e.target.files[0]));
+      document
+        .getElementById("importReadPasteBtn")
+        .addEventListener("click", () => {
+          const parsed = parseDelimited(
+            document.getElementById("importPasteData").value
+          );
+          if (!parsed.headers.length || !parsed.rows.length) {
+            toast("No readable rows found in the pasted data.", "error");
+            return;
+          }
+          showImportData(parsed.headers, parsed.rows, "pasted data");
+        });
+      const idz = document.getElementById("importDropzone");
+      ["dragenter", "dragover"].forEach((evt) =>
+        idz.addEventListener(evt, (e) => {
+          e.preventDefault();
+          idz.classList.add("drag");
+        })
+      );
+      ["dragleave", "drop"].forEach((evt) =>
+        idz.addEventListener(evt, (e) => {
+          e.preventDefault();
+          idz.classList.remove("drag");
+        })
+      );
+      idz.addEventListener("drop", (e) =>
+        handleImportFile(e.dataTransfer.files[0])
+      );
+
+      document.querySelectorAll("[data-nav-page]").forEach((btn) =>
+        btn.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          const page = btn.dataset.navPage;
+          document.querySelectorAll("[data-nav-page]").forEach((b) => {
+            b.classList.remove(
+              "bg-brand-50",
+              "text-brand-700",
+              "font-semibold"
+            );
+            if (b.dataset.navPage !== "dashboard")
+              b.classList.add("text-slate-600");
+          });
+          btn.classList.add("bg-brand-50", "text-brand-700", "font-semibold");
+          if (page === "data-import") {
+            hideSectionPage();
+            openImportModal();
+            return;
+          }
+          showSectionPage(page);
+        })
+      );
+
+      document
+        .getElementById("dashboardUndoBtn")
+        .addEventListener("click", undoLast);
+      document
+        .getElementById("mobileUndoBtn")
+        .addEventListener("click", undoLast);
+      document
+        .getElementById("drawerUndoBtn")
+        .addEventListener("click", undoLast);
+      document
+        .getElementById("modalUndoBtn")
+        .addEventListener("click", undoLast);
+
+      ["searchInput", "statusFilter", "priorityFilter", "sortSelect"].forEach(
+        (id) =>
+          document
+            .getElementById(id)
+            .addEventListener(id === "searchInput" ? "input" : "change", () => {
+              currentPage = 1;
+              render();
+            })
+      );
+      document
+        .getElementById("clearFiltersBtn")
+        .addEventListener("click", () => {
+          document.getElementById("searchInput").value = "";
+          initializeDashboardFilters();
+          document.getElementById("statusFilter").value = "all";
+          document.getElementById("priorityFilter").value = "all";
+          document.getElementById("sortSelect").value = "created_desc";
+          currentPage = 1;
+          render();
+        });
+
+      document
+        .getElementById("closeDrawerBtn")
+        .addEventListener("click", closeDrawer);
+      document
+        .getElementById("drawerCloseBottomBtn")
+        .addEventListener("click", closeDrawer);
+      document
+        .getElementById("drawerBackdrop")
+        .addEventListener("click", closeDrawer);
+      document
+        .getElementById("drawerEditBtn")
+        .addEventListener("click", () => selectedId && openEdit(selectedId));
+      document
+        .getElementById("drawerStatusSelect")
+        .addEventListener("change", (e) => {
+          const o = orders.find((x) => x.id === selectedId);
+          if (!o) return;
+          const next = e.target.value;
+          if (next === o.status) return;
+          if (!confirm(`Change ${o.id} status from ${o.status} to ${next}?`)) {
+            e.target.value = o.status;
+            return;
+          }
+          pushHistory("status change for " + o.id);
+          const prev = o.status;
+          o.status = next;
+          o.activity = o.activity || [];
+          o.activity.push({
+            date: nowStamp(),
+            text: `Status changed from ${prev} to ${next}`,
+          });
+          saveOrders();
+          render();
+          renderDrawer(selectedId);
+          toast(`Status changed to ${next}.`, "success");
+        });
+      document
+        .getElementById("drawerDuplicateBtn")
+        .addEventListener("click", duplicateSelected);
+      document
+        .getElementById("drawerDeleteBtn")
+        .addEventListener("click", deleteSelected);
+
+      document.getElementById("editForm").addEventListener("submit", saveForm);
+      document
+        .getElementById("deleteFromEditBtn")
+        .addEventListener("click", deleteFromEdit);
+      document
+        .getElementById("addEditCustomFieldBtn")
+        .addEventListener("click", () => {
+          const o = orders.find((x) => x.id === editingId);
+          if (!o) return;
+          if (!Array.isArray(o.customFields)) o.customFields = [];
+          o.customFields.push({ label: "", value: "", _sourceHeader: "" });
+          renderEditCustomFields(o);
+          toast("New field added. Fill in the details.", "info");
+          // Focus the new label
+          setTimeout(() => {
+            const wrap = document.getElementById("editCustomFields");
+            const inputs = wrap.querySelectorAll(".edit-field-label");
+            if (inputs.length) inputs[inputs.length - 1].focus();
+          }, 50);
+        });
+      document
+        .getElementById("closeEditModalBtn")
+        .addEventListener("click", closeEdit);
+      document
+        .getElementById("cancelEditBtn")
+        .addEventListener("click", closeEdit);
+      document
+        .getElementById("editModalBackdrop")
+        .addEventListener("click", closeEdit);
+
+      document
+        .getElementById("closeStatusModalBtn")
+        .addEventListener("click", closeStatusModal);
+      document
+        .getElementById("cancelStatusBtn")
+        .addEventListener("click", closeStatusModal);
+      document
+        .getElementById("statusModalBackdrop")
+        .addEventListener("click", closeStatusModal);
+      document
+        .getElementById("confirmStatusBtn")
+        .addEventListener("click", confirmStatus);
+
+      document
+        .getElementById("sectionBackBtn")
+        .addEventListener("click", () => {
+          hideSectionPage();
+          document
+            .querySelectorAll("[data-nav-page]")
+            .forEach((b) =>
+              b.classList.remove(
+                "bg-brand-50",
+                "text-brand-700",
+                "font-semibold"
+              )
+            );
+          document
+            .querySelector('[data-nav-page="dashboard"]')
+            ?.classList.add("bg-brand-50", "text-brand-700", "font-semibold");
+        });
+      document
+        .getElementById("sectionRefreshBtn")
+        .addEventListener("click", () => {
+          orders = loadOrders();
+          render();
+          const p = document.getElementById("sectionPageTitle").textContent;
+          const map = {
+            "All Work Orders": "all-orders",
+            Calendar: "calendar",
+            Reports: "reports",
+            Analytics: "analytics",
+            "Activity Log": "activity",
+            Users: "users",
+            Settings: "settings",
+          };
+          if (map[p]) showSectionPage(map[p]);
+          toast("Section refreshed.", "success");
+        });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          if (
+            !document.getElementById("importModal").classList.contains("hidden")
+          )
+            closeImportModal();
+          else if (
+            !document.getElementById("statusModal").classList.contains("hidden")
+          )
+            closeStatusModal();
+          else if (
+            !document.getElementById("editModal").classList.contains("hidden")
+          )
+            closeEdit();
+          else if (selectedId) closeDrawer();
+          else if (
+            !document.getElementById("sectionPage").classList.contains("hidden")
+          )
+            hideSectionPage();
+        }
+        if (
+          (e.ctrlKey || e.metaKey) &&
+          e.key.toLowerCase() === "z" &&
+          !e.target.matches("input,textarea,select")
+        ) {
+          e.preventDefault();
+          undoLast();
+        }
+      });
+
+      // ========================= INIT =========================
+      initializeDashboardFilters();
+      orders = loadOrders();
+      history = loadHistory();
+      importedHeaders = loadImportedHeaders();
+      currentPage = 1;
+      render();
+    </script>
+  </body>
+</html>
