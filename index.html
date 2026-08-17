@@ -43,6 +43,7 @@
       .line-clamp-2 {
         display: -webkit-box;
         -webkit-line-clamp: 2;
+        line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
       }
@@ -100,7 +101,7 @@
         min-width: 70px;
       }
       .status-dropdown-trigger:focus {
-        ring: 2px solid #3b82f6;
+        outline: 2px solid #3b82f6;
       }
       .status-dropdown-trigger option {
         background: white;
@@ -145,6 +146,62 @@
         font-weight: 800;
         color: #475569;
         margin-bottom: 0.4rem;
+      }
+      .import-step-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .import-step-copy {
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+      .import-step-title {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .import-step-subtitle {
+        display: block;
+      }
+      .import-source-badge,
+      .import-file-name {
+        display: block;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      .import-source-badge {
+        flex: 0 1 180px;
+        min-width: 0;
+        max-width: 180px;
+        white-space: normal;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .import-file-name {
+        margin-top: 8px;
+        color: #2563eb;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .import-custom-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+        gap: 8px;
+        align-items: center;
+        min-width: 0;
+      }
+      .import-custom-row > * {
+        min-width: 0;
+        max-width: 100%;
+      }
+      .import-custom-row .field-input-sm,
+      .import-custom-row select.field-input-sm {
+        max-width: 100%;
+        min-width: 0;
       }
       .detail-box-grid {
         display: grid;
@@ -758,7 +815,7 @@
             <!-- ADMIN IMPORT LAUNCHER -->
             <section
               id="adminImportSection"
-              class="bg-white border border-slate-200 rounded-2xl shadow-sm p-5"
+              class="hidden bg-white border border-slate-200 rounded-2xl shadow-sm p-5"
             >
               <div class="flex items-start gap-3">
                 <div
@@ -872,23 +929,25 @@
             >
               <div class="space-y-5">
                 <section class="rounded-2xl border border-slate-200 p-4">
-                  <div class="flex items-center justify-between gap-3 mb-3">
-                    <div>
-                      <h3 class="font-black text-slate-800">1. Choose data</h3>
-                      <p class="text-[11px] text-slate-400 mt-1">
+                  <div class="import-step-header">
+                    <div class="import-step-copy">
+                      <h3 class="import-step-title font-black text-slate-800">
+                        1. Choose data
+                      </h3>
+                      <p class="import-step-subtitle text-[11px] text-slate-400 mt-1">
                         Excel, CSV, TSV or paste rows.
                       </p>
                     </div>
                     <span
                       id="importSourceBadge"
-                      class="text-[10px] font-bold text-slate-400"
+                      class="import-source-badge text-[10px] font-bold text-slate-400"
                       >No data loaded</span
                     >
                   </div>
 
                   <div
                     id="importDropzone"
-                    class="dropzone border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:border-brand-400 hover:bg-slate-50 transition cursor-pointer"
+                    class="dropzone border-2 border-dashed border-slate-300 rounded-2xl p-4 text-center hover:border-brand-400 hover:bg-slate-50 transition cursor-pointer min-h-[150px] flex flex-col items-center justify-center"
                   >
                     <input
                       id="importFileInput"
@@ -917,8 +976,28 @@
                     </p>
                     <p
                       id="importFileName"
-                      class="text-xs text-brand-600 font-bold mt-2"
+                      class="import-file-name text-xs text-brand-600 font-bold mt-2"
                     ></p>
+                  </div>
+
+                  <div class="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <label class="field-label">API URL / endpoint</label>
+                    <input
+                      id="importApiUrl"
+                      type="url"
+                      placeholder="https://your-backend.example.com/work-orders"
+                      class="field-input text-xs"
+                    />
+                    <button
+                      id="importReadApiBtn"
+                      type="button"
+                      class="mt-2 w-full px-3 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold"
+                    >
+                      Load from API
+                    </button>
+                    <p class="text-[10px] text-slate-400 mt-2">
+                      Supports JSON arrays, { data: [...] }, { rows: [...] }, or CSV text from a GET endpoint.
+                    </p>
                   </div>
 
                   <div
@@ -970,31 +1049,6 @@
 
               <div class="min-w-0 space-y-5">
                 <section
-                  id="importMappingArea"
-                  class="hidden rounded-2xl border border-slate-200 p-4"
-                >
-                  <div class="flex items-start justify-between gap-3 mb-4">
-                    <div>
-                      <h3 class="font-black text-slate-800">
-                        Automatic column mapping
-                      </h3>
-                      <p class="text-[11px] text-slate-400 mt-1">
-                        Mappings are based on header names and the contents of
-                        the columns. You can override any mapping.
-                      </p>
-                    </div>
-                  </div>
-                  <div
-                    id="importMappingGrid"
-                    class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3"
-                  ></div>
-                  <div
-                    id="importCustomMappingArea"
-                    class="mt-5 pt-5 border-t border-slate-200"
-                  ></div>
-                </section>
-
-                <section
                   id="importPreviewArea"
                   class="hidden rounded-2xl border border-slate-200 overflow-hidden"
                 >
@@ -1019,7 +1073,7 @@
                   <div class="p-4">
                     <div
                       id="projectedCards"
-                      class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+                      class="grid grid-cols-3 gap-3"
                     ></div>
                     <div
                       class="mt-5 border border-slate-200 rounded-xl overflow-hidden"
@@ -1059,6 +1113,31 @@
                     and actual Work Order card previews before importing.
                   </p>
                 </section>
+
+                <section
+                  id="importMappingArea"
+                  class="hidden rounded-2xl border border-slate-200 p-4"
+                >
+                  <div class="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                      <h3 class="font-black text-slate-800">
+                        Automatic column mapping
+                      </h3>
+                      <p class="text-[11px] text-slate-400 mt-1">
+                        Mappings are based on header names and the contents of
+                        the columns. You can override any mapping.
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    id="importMappingGrid"
+                    class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3"
+                  ></div>
+                  <div
+                    id="importCustomMappingArea"
+                    class="mt-5 pt-5 border-t border-slate-200"
+                  ></div>
+                </section>
               </div>
             </div>
           </div>
@@ -1066,13 +1145,22 @@
           <div
             class="shrink-0 border-t border-slate-200 bg-white px-5 sm:px-7 py-4 flex flex-col sm:flex-row items-center justify-between gap-3"
           >
-            <button
-              id="importClearBtn"
-              type="button"
-              class="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-sm font-bold text-slate-600"
-            >
-              Clear Import
-            </button>
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                id="importClearBtn"
+                type="button"
+                class="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-sm font-bold text-slate-600"
+              >
+                Clear Import
+              </button>
+              <button
+                id="clearOrdersBtn"
+                type="button"
+                class="px-4 py-2.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-sm font-bold text-red-700"
+              >
+                Clear Orders
+              </button>
+            </div>
             <div class="flex gap-2 w-full sm:w-auto">
               <button
                 id="closeImportBottomBtn"
@@ -1349,48 +1437,6 @@
                 />
               </div>
 
-              <!-- CARD DISPLAY CONFIG -->
-              <div
-                class="sm:col-span-2 rounded-xl border border-brand-100 bg-brand-50/50 p-4"
-              >
-                <div class="flex items-center justify-between gap-3 mb-3">
-                  <div>
-                    <label class="field-label mb-0">Card Display</label>
-                    <p class="text-[10px] text-slate-400">
-                      Control what the center card calls and displays instead of
-                      being locked to Due Date.
-                    </p>
-                  </div>
-                </div>
-                <div class="grid sm:grid-cols-2 gap-3">
-                  <div>
-                    <label class="field-label">Card Date Source</label>
-                    <select id="cardDateSource" class="field-input"></select>
-                    <p class="text-[10px] text-slate-400 mt-0.5">
-                      Choose a field to show as the main date on the card.
-                    </p>
-                  </div>
-                  <div>
-                    <label class="field-label">Card Date Label</label>
-                    <input
-                      id="cardDateLabel"
-                      class="field-input"
-                      placeholder="e.g. Date Transmitted"
-                    />
-                    <p class="text-[10px] text-slate-400 mt-0.5">
-                      Custom label displayed next to the card date.
-                    </p>
-                  </div>
-                </div>
-                <div class="mt-3">
-                  <label class="field-label">Extra Card Fields</label>
-                  <div
-                    id="cardExtraFieldChoices"
-                    class="grid sm:grid-cols-2 gap-2"
-                  ></div>
-                </div>
-              </div>
-
               <!-- ====== CUSTOM FIELDS (EDIT MODAL) ====== -->
               <div
                 class="sm:col-span-2 rounded-xl border border-slate-200 p-4 bg-slate-50/60"
@@ -1408,7 +1454,7 @@
                     type="button"
                     class="px-3 py-2 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-[10px] font-black"
                   >
-                    + Add Field
+                    Add Field +
                   </button>
                 </div>
                 <div id="editCustomFields" class="space-y-3"></div>
@@ -1509,6 +1555,49 @@
               class="px-4 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold"
             >
               Confirm Change
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================= CONFIRMATION MODAL ========================= -->
+    <div id="confirmModal" class="fixed inset-0 z-[75] hidden">
+      <div
+        id="confirmModalBackdrop"
+        class="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
+      ></div>
+      <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl p-5">
+          <div class="flex items-start justify-between">
+            <div>
+              <h2 id="confirmModalTitle" class="font-black text-slate-900">
+                Confirm action
+              </h2>
+              <p id="confirmModalMessage" class="text-xs text-slate-400 mt-1"></p>
+            </div>
+            <button
+              id="closeConfirmModalBtn"
+              type="button"
+              class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500"
+            >
+              ✕
+            </button>
+          </div>
+          <div class="flex justify-end gap-2 mt-5">
+            <button
+              id="cancelConfirmBtn"
+              type="button"
+              class="px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-bold text-slate-600"
+            >
+              Cancel
+            </button>
+            <button
+              id="confirmModalConfirmBtn"
+              type="button"
+              class="px-4 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold"
+            >
+              Confirm
             </button>
           </div>
         </div>
@@ -1659,6 +1748,9 @@
       let importRows = [];
       let importHeaders = [];
       let importMapping = {};
+      let importManualValues = {};
+      let importFieldTypes = {};
+      let importFieldLabels = {};
       let importSourceName = "";
       let currentPage = 1;
       const PAGE_SIZE = 200;
@@ -1739,10 +1831,65 @@
       }
 
       function customFieldValue(o, label) {
+        const target = String(label || "").trim();
         const f = (o.customFields || []).find(
-          (x) => String(x.label || "") === String(label || "")
+          (x) =>
+            String(x.label || "").trim() === target ||
+            normalize(String(x.label || "")) === normalize(target) ||
+            String(x._sourceHeader || "").trim() === target ||
+            normalize(String(x._sourceHeader || "")) === normalize(target)
         );
         return f ? String(f.value ?? "") : "";
+      }
+
+      function resolveRowValueByHeader(row, source) {
+        if (!row || !source) return "";
+        const sourceKey = String(source).trim();
+        if (!sourceKey) return "";
+
+        if (row[sourceKey] !== undefined) return row[sourceKey];
+
+        const direct = Object.keys(row).find(
+          (key) => String(key).trim() === sourceKey
+        );
+        if (direct !== undefined) return row[direct];
+
+        const normalizedSource = normalize(sourceKey);
+        const normalizedMatch = Object.keys(row).find(
+          (key) => normalize(String(key)) === normalizedSource
+        );
+        if (normalizedMatch !== undefined) return row[normalizedMatch];
+
+        const partialMatch = Object.keys(row).find(
+          (key) =>
+            normalize(String(key)).includes(normalizedSource) ||
+            normalizedSource.includes(normalize(String(key)))
+        );
+        return partialMatch !== undefined ? row[partialMatch] : "";
+      }
+
+      function findMatchingHeaderValue(o, source) {
+        const sourceValue = String(source || "").trim();
+        if (!sourceValue) return "";
+        const raw = o && o._rawData ? o._rawData : {};
+        const keys = Object.keys(raw);
+        const directMatch = keys.find((k) => String(k).trim() === sourceValue);
+        if (directMatch !== undefined) return raw[directMatch];
+
+        const normalizedSource = normalize(sourceValue);
+        const normalizedMatch = keys.find(
+          (k) => normalize(String(k)) === normalizedSource
+        );
+        if (normalizedMatch !== undefined) return raw[normalizedMatch];
+
+        const partialMatch = keys.find(
+          (k) =>
+            normalize(String(k)).includes(normalizedSource) ||
+            normalizedSource.includes(normalize(String(k)))
+        );
+        if (partialMatch !== undefined) return raw[partialMatch];
+
+        return "";
       }
 
       function allAvailableHeaders(o) {
@@ -1779,8 +1926,13 @@
         if (source === "requester") return o.requester;
         if (source === "created") return o.created;
         if (source === "dueDate") return o.dueDate;
+
+        const rawValue = findMatchingHeaderValue(o, source);
+        if (rawValue !== undefined && rawValue !== "") return rawValue;
+
         const val = customFieldValue(o, source);
         if (val) return val;
+
         if (o._rawData && o._rawData[source] !== undefined)
           return o._rawData[source];
         return "";
@@ -1961,23 +2113,93 @@
       }
 
       function saveHistory() {
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-50)));
+        const compact = history.slice(-10).map((entry) => ({
+          ...entry,
+          data: Array.isArray(entry.data)
+            ? entry.data.map((o) => {
+                const copy = { ...o };
+                delete copy._rawData;
+                delete copy._importHeaders;
+                if (Array.isArray(copy.activity)) {
+                  copy.activity = copy.activity.slice(-10);
+                }
+                if (Array.isArray(copy.customFields)) {
+                  copy.customFields = copy.customFields.slice(0, 20);
+                }
+                return copy;
+              })
+            : [],
+        }));
+
+        const payload = JSON.stringify(compact);
+        if (payload.length > 180000) {
+          history = history.slice(-3);
+        }
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-10).map((entry) => ({
+          ...entry,
+          data: Array.isArray(entry.data)
+            ? entry.data.map((o) => {
+                const copy = { ...o };
+                delete copy._rawData;
+                delete copy._importHeaders;
+                if (Array.isArray(copy.activity)) {
+                  copy.activity = copy.activity.slice(-10);
+                }
+                if (Array.isArray(copy.customFields)) {
+                  copy.customFields = copy.customFields.slice(0, 20);
+                }
+                return copy;
+              })
+            : [],
+        }))));
       }
 
       function snapshot() {
-        return structuredClone(orders);
+        return orders.map((o) => {
+          const copy = { ...o };
+          delete copy._rawData;
+          delete copy._importHeaders;
+          if (Array.isArray(copy.activity)) {
+            copy.activity = copy.activity.slice(-10);
+          }
+          if (Array.isArray(copy.customFields)) {
+            copy.customFields = copy.customFields.slice(0, 20);
+          }
+          return copy;
+        });
       }
 
-      function pushHistory(label) {
-        history.push({ label, data: snapshot(), at: new Date().toISOString() });
-        if (history.length > 50) history.shift();
-        saveHistory();
+      function pushHistory(label, dataOverride = null) {
+        const next = {
+          label,
+          data: dataOverride ?? snapshot(),
+          at: new Date().toISOString(),
+        };
+        history.push(next);
+        if (history.length > 10) history.shift();
+        try {
+          saveHistory();
+        } catch (error) {
+          console.warn("History storage quota exceeded; trimming history.", error);
+          history = history.slice(-3);
+          try {
+            saveHistory();
+          } catch {
+            history = [];
+          }
+        }
         updateUndoButtons();
       }
 
       function undoLast() {
         if (!history.length) return;
         const last = history.pop();
+        if (!Array.isArray(last?.data)) {
+          saveHistory();
+          updateUndoButtons();
+          toast("Undo is not available for this action.", "info");
+          return;
+        }
         orders = last.data;
         saveOrders();
         saveHistory();
@@ -2308,10 +2530,10 @@
       }
 
       function cardHTML(o) {
-        const cardDateSource = displayConfig.cardDateSource || "dueDate";
+        const cardDateSource = o.cardDateSource || displayConfig.cardDateSource || "dueDate";
         const cardDateRaw = displayValue(o, cardDateSource);
         const due = cardDateRaw ? formatDate(cardDateRaw) : "—";
-        const cardDateLabel = displayConfig.cardDateLabel || "Due Date";
+        const cardDateLabel = o.cardDateLabel || displayConfig.cardDateLabel || "Due Date";
         const created = formatDate(o.created);
         const overdue =
           o.dueDate &&
@@ -2487,6 +2709,12 @@
         if (drawerStatus) drawerStatus.value = o.status;
 
         const activity = (o.activity || [])
+          .filter(
+            (a) =>
+              !/prepared for import from|updated by import|import/i.test(
+                String(a.text || "")
+              )
+          )
           .slice()
           .reverse()
           .map(
@@ -2506,7 +2734,7 @@
             (f) =>
               `<div class="custom-field-item"><strong>${esc(
                 f.label
-              )}</strong> <span>${esc(f.value)}</span></div>`
+              )}</strong> <span>${formatFieldValue(f.value)}</span></div>`
           )
           .join("");
 
@@ -2520,8 +2748,8 @@
           o.location
         )}
                 ${detailBox("Created", formatDate(o.created))}${detailBox(
-          displayConfig.cardDateLabel || "Due Date",
-          formatDate(displayValue(o, displayConfig.cardDateSource || "dueDate"))
+          o.cardDateLabel || displayConfig.cardDateLabel || "Due Date",
+          formatDate(displayValue(o, o.cardDateSource || displayConfig.cardDateSource || "dueDate"))
         )}
                 ${detailBox("Requester", o.requester)}${detailBox(
           "Assigned To",
@@ -2546,23 +2774,6 @@
         const headerOpts = allHeaders
           .map((h) => `<option value="${esc(h)}">${esc(h)}</option>`)
           .join("");
-
-        // Custom fields editor in drawer
-        const drawerFieldsHTML = `
-            <section class="drawer-add-field-section">
-              <div class="flex items-center justify-between mb-2">
-                <h4 class="text-xs font-black text-slate-700">Custom Fields</h4>
-                <button type="button" id="drawerAddFieldBtn" class="add-field-btn">+ Add Field</button>
-              </div>
-              <div id="drawerCustomFieldsList" class="drawer-custom-fields-list space-y-1.5 mb-3">
-                ${
-                  customFieldsDisplay ||
-                  '<p class="text-xs text-slate-400">No custom fields yet. Click "Add Field" to add one.</p>'
-                }
-              </div>
-              <div id="drawerCustomFieldsEditor" class="mt-3 space-y-2"></div>
-            </section>
-          `;
 
         const body = document.getElementById("drawerBody");
         body.innerHTML = `
@@ -2607,21 +2818,9 @@
                   '<p class="text-sm text-slate-400">No activity recorded.</p>'
                 }</div>
               </section>
-
-              ${drawerFieldsHTML}
             </div>
           `;
 
-        // Wire up drawer "Add Field"
-        const addBtn = document.getElementById("drawerAddFieldBtn");
-        if (addBtn) {
-          addBtn.addEventListener("click", function () {
-            addDrawerCustomField(o.id);
-          });
-        }
-
-        // Render the custom fields editor
-        renderDrawerCustomFieldsEditor(o);
         updateUndoButtons();
       }
 
@@ -2662,9 +2861,6 @@
 
         let html = "";
         fields.forEach((f, idx) => {
-          const isLast = idx === fields.length - 1;
-          const isEmpty = !f.label && !f.value;
-          if (!isEmpty && !isLast) return;
           html += `
               <div class="drawer-custom-field-row" data-field-index="${idx}">
                 <div>
@@ -2757,17 +2953,21 @@
           el.addEventListener("click", function () {
             const idx = parseInt(this.dataset.idx);
             if (o.customFields && o.customFields.length > idx) {
-              if (
-                !confirm(
-                  `Remove "${o.customFields[idx].label || "this field"}"?`
-                )
-              )
-                return;
-              o.customFields.splice(idx, 1);
-              saveOrders();
-              renderDrawerCustomFieldsEditor(o);
-              updateDrawerCustomFieldsDisplay(o);
-              toast("Field removed.", "info");
+              const label = o.customFields[idx].label || "this field";
+              openConfirmationModal({
+                title: "Remove field",
+                message: `Remove "${label}" from this work order?`,
+                confirmText: "Remove",
+                confirmClass: "bg-red-600 hover:bg-red-700",
+                onConfirm: () => {
+                  o.customFields.splice(idx, 1);
+                  saveOrders();
+                  renderDrawerCustomFieldsEditor(o);
+                  updateDrawerCustomFieldsDisplay(o);
+                  toast("Field removed.", "info");
+                  closeConfirmationModal();
+                },
+              });
             }
           });
         });
@@ -2797,17 +2997,63 @@
             (f) =>
               `<div class="custom-field-item"><strong>${esc(
                 f.label
-              )}</strong> <span>${esc(f.value)}</span></div>`
+              )}</strong> <span>${formatFieldValue(f.value)}</span></div>`
           )
           .join("");
+      }
+
+      function normalizeMediaUrl(value) {
+        const text = String(value ?? "").trim();
+        if (!/^https?:\/\//i.test(text)) return text;
+
+        try {
+          const url = new URL(text);
+          const host = url.hostname.toLowerCase();
+
+          if (host.includes("drive.google.com")) {
+            const fileMatch = text.match(/\/file\/d\/([A-Za-z0-9_-]+)/i);
+            const idMatch = text.match(/[?&]id=([A-Za-z0-9_-]+)/i);
+            const id = fileMatch?.[1] || idMatch?.[1];
+            if (id) {
+              return `https://drive.google.com/uc?export=view&id=${id}`;
+            }
+          }
+
+          return text;
+        } catch {
+          return text;
+        }
+      }
+
+      function isImageUrl(value) {
+        const text = normalizeMediaUrl(value);
+        if (!/^https?:\/\//i.test(text)) return false;
+        return /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i.test(text) || /drive.google.com\/uc\?export=view&id=/i.test(text);
+      }
+
+      function formatFieldValue(value) {
+        const text = String(value ?? "").trim();
+        if (!text) return "—";
+        if (!/^https?:\/\//i.test(text)) {
+          return esc(text);
+        }
+
+        const normalized = normalizeMediaUrl(text);
+        if (isImageUrl(normalized)) {
+          return `<a href="${esc(normalized)}" target="_blank" rel="noopener noreferrer" class="inline-flex"><img src="${esc(normalized)}" alt="Attachment preview" class="h-24 w-auto max-w-full rounded-lg border border-slate-200 object-cover shadow-sm hover:opacity-95" /></a>`;
+        }
+
+        return `<a href="${esc(normalized)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-brand-600 font-bold underline underline-offset-2 break-all hover:text-brand-700">${esc(
+          normalized
+        )}</a>`;
       }
 
       function detailBox(label, value) {
         return `<div class="bg-slate-50 rounded-lg p-3"><p class="text-[10px] text-slate-400 font-semibold">${esc(
           label
-        )}</p><p class="mt-1 text-sm font-bold text-slate-700 break-words">${esc(
-          value || "—"
-        )}</p></div>`;
+        )}</p><div class="mt-1 text-sm font-bold text-slate-700 break-words">${formatFieldValue(
+          value
+        )}</div></div>`;
       }
 
       // ========================= EDIT MODAL =========================
@@ -2854,34 +3100,40 @@
         // Render custom fields in edit modal
         renderEditCustomFields(o);
 
-        // Card display config
+        // Card display config (removed from the form UI; keep logic safe if a legacy field is still present)
         const cardSource = document.getElementById("cardDateSource");
-        const allHeaders = allAvailableHeaders(o);
-        const stdOpts = [
-          ["dueDate", "Due Date"],
-          ["created", "Created Date"],
-          ["status", "Status"],
-          ["priority", "Priority"],
-          ["category", "Category"],
-          ["location", "Location"],
-          ["assignee", "Assigned To"],
-          ["requester", "Requester"],
-        ];
-        const allOpts = [...stdOpts];
-        allHeaders.forEach((h) => {
-          if (!allOpts.some((x) => x[0] === h))
-            allOpts.push([h, h + " (Imported)"]);
-        });
-        cardSource.innerHTML = allOpts
-          .map(
-            ([v, l]) =>
-              `<option value="${esc(v)}" ${
-                displayConfig.cardDateSource === v ? "selected" : ""
-              }>${esc(l)}</option>`
-          )
-          .join("");
-        document.getElementById("cardDateLabel").value =
-          displayConfig.cardDateLabel || "Due Date";
+        const orderCardSource = o.cardDateSource || displayConfig.cardDateSource || "dueDate";
+        const orderCardLabel = o.cardDateLabel || displayConfig.cardDateLabel || "Due Date";
+        if (cardSource) {
+          const allHeaders = allAvailableHeaders(o);
+          const stdOpts = [
+            ["dueDate", "Due Date"],
+            ["created", "Created Date"],
+            ["status", "Status"],
+            ["priority", "Priority"],
+            ["category", "Category"],
+            ["location", "Location"],
+            ["assignee", "Assigned To"],
+            ["requester", "Requester"],
+          ];
+          const allOpts = [...stdOpts];
+          allHeaders.forEach((h) => {
+            if (!allOpts.some((x) => x[0] === h))
+              allOpts.push([h, h + " (Imported)"]);
+          });
+          cardSource.innerHTML = allOpts
+            .map(
+              ([v, l]) =>
+                `<option value="${esc(v)}" ${
+                  orderCardSource === v ? "selected" : ""
+                }>${esc(l)}</option>`
+            )
+            .join("");
+        }
+        const cardLabel = document.getElementById("cardDateLabel");
+        if (cardLabel) {
+          cardLabel.value = orderCardLabel;
+        }
         renderCardExtraChoices(o);
 
         document.getElementById("editModal").classList.remove("hidden");
@@ -2896,57 +3148,62 @@
         const headerOpts = allHeaders
           .map((h) => `<option value="${esc(h)}">${esc(h)}</option>`)
           .join("");
-        const fields = o.customFields || [];
-
-        if (!fields.length) {
-          wrap.innerHTML = `<p class="text-xs text-slate-400 italic">No custom fields. Click "Add Field" to add one.</p>`;
-          return;
-        }
+        const fields = Array.isArray(o.customFields) && o.customFields.length
+          ? o.customFields
+          : [{ label: "", value: "", _sourceHeader: "" }];
 
         let html = "";
         fields.forEach((f, idx) => {
+          const selectedHeader = f._sourceHeader || "";
+          const resolvedValue = selectedHeader ? displayValue(o, selectedHeader) : f.value || "";
           html += `
-              <div class="edit-custom-field-row" data-field-index="${idx}">
-                <div>
-                  <span class="field-label-sm">Label</span>
-                  <input class="field-input-sm edit-field-label" data-idx="${idx}" value="${esc(
-            f.label || ""
-          )}" placeholder="e.g. Date Transmitted">
-                </div>
-                <div>
-                  <span class="field-label-sm">Value</span>
-                  <select class="field-input-sm edit-field-value-select" data-idx="${idx}">
-                    <option value="">— Type custom —</option>
+              <div class="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center edit-custom-field-row rounded-xl border border-slate-200 bg-white p-2.5" data-field-index="${idx}">
+                <input class="field-input-sm edit-field-label" data-idx="${idx}" value="${esc(
+            f.label || selectedHeader || ""
+          )}" placeholder="Name">
+                <div class="flex items-center gap-2">
+                  <select class="field-input-sm edit-field-value-select flex-1" data-idx="${idx}">
+                    <option value="">Header from import</option>
                     ${headerOpts}
                   </select>
-                  <input class="field-input-sm edit-field-value-text mt-1 ${
-                    f._sourceHeader ? "hidden" : ""
-                  }" data-idx="${idx}" placeholder="Custom value..." value="${esc(
-            f.value || ""
-          )}">
                 </div>
-                <button type="button" class="field-remove-btn edit-field-remove" data-idx="${idx}" title="Remove field">✕</button>
+                <input class="field-input-sm edit-field-value-text ${
+                  selectedHeader ? "hidden" : ""
+                }" data-idx="${idx}" placeholder="Value (optional)" value="${esc(
+            resolvedValue
+          )}">
+                <button type="button" class="w-9 h-9 rounded-lg text-red-500 hover:bg-red-50 flex items-center justify-center field-remove-btn edit-field-remove" data-idx="${idx}" title="Remove field">✕</button>
               </div>
             `;
         });
 
         wrap.innerHTML = html;
 
-        // Store reference to the fields on the element
+        wrap.querySelectorAll(".edit-field-value-select").forEach((sel) => {
+          const idx = parseInt(sel.dataset.idx);
+          const field = fields[idx];
+          if (field && field._sourceHeader) {
+            sel.value = field._sourceHeader;
+          }
+          if (field && !field._sourceHeader && field.value) {
+            sel.value = "";
+          }
+        });
+
         wrap.dataset.fields = JSON.stringify(fields);
 
-        // Wire up
         wrap.querySelectorAll(".edit-field-label").forEach((el) => {
           el.addEventListener("input", function () {
             const idx = parseInt(this.dataset.idx);
             const fields2 = getEditCustomFields();
             if (fields2[idx]) fields2[idx].label = this.value;
-            // Also update the order's fields directly
+            wrap.dataset.fields = JSON.stringify(fields2);
             if (editingId) {
               const o2 = orders.find((x) => x.id === editingId);
               if (o2 && o2.customFields && o2.customFields[idx]) {
                 o2.customFields[idx].label = this.value;
               }
+              syncEditCustomFieldsToOrder(o2);
             }
           });
         });
@@ -2954,29 +3211,40 @@
         wrap.querySelectorAll(".edit-field-value-select").forEach((el) => {
           el.addEventListener("change", function () {
             const idx = parseInt(this.dataset.idx);
-            const textInput = this.parentElement.querySelector(
+            const fields2 = getEditCustomFields();
+            const o2 = orders.find((x) => x.id === editingId);
+            const valueText = this.parentElement.parentElement.querySelector(
               ".edit-field-value-text"
             );
-            if (this.value) {
-              const o2 = orders.find((x) => x.id === editingId);
-              const val = o2 ? displayValue(o2, this.value) : "";
-              const fields2 = getEditCustomFields();
-              if (fields2[idx]) {
-                fields2[idx].value = val;
+
+            if (fields2[idx]) {
+              if (this.value) {
+                const resolved = o2 ? displayValue(o2, this.value) : "";
+                fields2[idx].value = resolved;
                 fields2[idx]._sourceHeader = this.value;
+                if (valueText) {
+                  valueText.value = resolved;
+                  valueText.classList.add("hidden");
+                }
+              } else {
+                fields2[idx].value = valueText ? valueText.value : "";
+                fields2[idx]._sourceHeader = "";
+                if (valueText) valueText.classList.remove("hidden");
               }
-              if (o2 && o2.customFields && o2.customFields[idx]) {
-                o2.customFields[idx].value = val;
-                o2.customFields[idx]._sourceHeader = this.value;
-              }
-              textInput.classList.add("hidden");
-              textInput.value = val || "";
-            } else {
-              textInput.classList.remove("hidden");
-              textInput.focus();
-              const fields2 = getEditCustomFields();
-              if (fields2[idx]) fields2[idx]._sourceHeader = "";
             }
+            wrap.dataset.fields = JSON.stringify(fields2);
+
+            if (o2 && o2.customFields && o2.customFields[idx]) {
+              if (this.value) {
+                const resolved = o2 ? displayValue(o2, this.value) : "";
+                o2.customFields[idx].value = resolved;
+                o2.customFields[idx]._sourceHeader = this.value;
+              } else {
+                o2.customFields[idx].value = valueText ? valueText.value : "";
+                o2.customFields[idx]._sourceHeader = "";
+              }
+            }
+            syncEditCustomFieldsToOrder(o2);
           });
         });
 
@@ -2984,30 +3252,18 @@
           el.addEventListener("input", function () {
             const idx = parseInt(this.dataset.idx);
             const fields2 = getEditCustomFields();
+            const o2 = orders.find((x) => x.id === editingId);
             if (fields2[idx]) {
-              fields2[idx].value = this.value;
+              fields2[idx].value = this.value.trim();
               fields2[idx]._sourceHeader = "";
             }
-            const o2 = orders.find((x) => x.id === editingId);
+            wrap.dataset.fields = JSON.stringify(fields2);
             if (o2 && o2.customFields && o2.customFields[idx]) {
-              o2.customFields[idx].value = this.value;
+              o2.customFields[idx].value = this.value.trim();
               o2.customFields[idx]._sourceHeader = "";
             }
+            syncEditCustomFieldsToOrder(o2);
           });
-          // Show if needed
-          const idx = parseInt(el.dataset.idx);
-          const fields2 = getEditCustomFields();
-          if (
-            fields2[idx] &&
-            fields2[idx].value &&
-            !fields2[idx]._sourceHeader
-          ) {
-            el.classList.remove("hidden");
-            const sel = el.parentElement.querySelector(
-              ".edit-field-value-select"
-            );
-            if (sel) sel.value = "";
-          }
         });
 
         wrap.querySelectorAll(".edit-field-remove").forEach((el) => {
@@ -3015,26 +3271,25 @@
             const idx = parseInt(this.dataset.idx);
             const fields2 = getEditCustomFields();
             if (fields2.length > idx) {
-              if (!confirm(`Remove "${fields2[idx].label || "this field"}"?`))
-                return;
-              fields2.splice(idx, 1);
-              // Update the order
-              const o2 = orders.find((x) => x.id === editingId);
-              if (o2) o2.customFields = fields2;
-              renderEditCustomFields(o2);
-              toast("Field removed.", "info");
+              const label = fields2[idx].label || "this field";
+              openConfirmationModal({
+                title: "Remove field",
+                message: `Remove "${label}" from this work order?`,
+                confirmText: "Remove",
+                confirmClass: "bg-red-600 hover:bg-red-700",
+                onConfirm: () => {
+                  fields2.splice(idx, 1);
+                  if (!fields2.length) {
+                    fields2.push({ label: "", value: "", _sourceHeader: "" });
+                  }
+                  const o2 = orders.find((x) => x.id === editingId);
+                  if (o2) o2.customFields = fields2;
+                  renderEditCustomFields(o2);
+                  toast("Field removed.", "info");
+                },
+              });
             }
           });
-        });
-
-        // Check selects
-        wrap.querySelectorAll(".edit-field-value-select").forEach((sel) => {
-          if (sel.value) {
-            const txt = sel.parentElement.querySelector(
-              ".edit-field-value-text"
-            );
-            if (txt) txt.classList.add("hidden");
-          }
         });
       }
 
@@ -3044,6 +3299,42 @@
           return JSON.parse(wrap.dataset.fields || "[]");
         } catch {
           return [];
+        }
+      }
+
+      function normalizeCustomFields(list) {
+        if (!Array.isArray(list)) return [];
+        return list
+          .filter(
+            (f) =>
+              f &&
+              (String(f.label || "").trim() ||
+                String(f.value ?? "").trim() ||
+                String(f._sourceHeader || "").trim())
+          )
+          .map((f) => {
+            const sourceHeader = String(f._sourceHeader || "").trim();
+            const label = String(f.label || "").trim() || sourceHeader;
+            const value = String(f.value ?? "").trim();
+            return {
+              label,
+              value,
+              _sourceHeader: sourceHeader,
+            };
+          })
+          .filter((f) => f.label || f.value || f._sourceHeader);
+      }
+
+      function syncEditCustomFieldsToOrder(o2) {
+        const wrap = document.getElementById("editCustomFields");
+        if (!wrap || !o2) return;
+        try {
+          const fields2 = JSON.parse(wrap.dataset.fields || "[]");
+          o2.customFields = normalizeCustomFields(fields2);
+          wrap.dataset.fields = JSON.stringify(o2.customFields);
+        } catch {
+          o2.customFields = [];
+          wrap.dataset.fields = "[]";
         }
       }
 
@@ -3093,71 +3384,79 @@
         if (!editingId) return;
         const o = orders.find((x) => x.id === editingId);
         if (!o) return;
-        if (
-          !confirm(
-            `⚠️ Delete ${o.id} — "${o.title}"?\n\nThis can be undone immediately using Undo.`
-          )
-        )
-          return;
-        pushHistory("delete " + o.id);
-        orders = orders.filter((x) => x.id !== editingId);
-        saveOrders();
-        render();
-        const deletedId = editingId;
-        editingId = null;
-        document.getElementById("editModal").classList.add("hidden");
-        if (selectedId === deletedId) closeDrawer();
-        else if (!selectedId) document.body.classList.remove("overflow-hidden");
-        toast(`🗑️ ${o.id} deleted. Use Undo to restore it.`, "success");
+        openConfirmationModal({
+          title: "Delete work order",
+          message: `Delete ${o.id} — "${o.title}"? This can be undone immediately using Undo.`,
+          confirmText: "Delete",
+          confirmClass: "bg-red-600 hover:bg-red-700",
+          onConfirm: () => {
+            pushHistory("delete " + o.id);
+            orders = orders.filter((x) => x.id !== editingId);
+            saveOrders();
+            render();
+            const deletedId = editingId;
+            editingId = null;
+            document.getElementById("editModal").classList.add("hidden");
+            if (selectedId === deletedId) closeDrawer();
+            else if (!selectedId) document.body.classList.remove("overflow-hidden");
+            toast(`🗑️ ${o.id} deleted. Use Undo to restore it.`, "success");
+            closeConfirmationModal();
+          },
+        });
       }
 
       function deleteSelected() {
         if (!selectedId) return;
         const o = orders.find((x) => x.id === selectedId);
         if (!o) return;
-        if (
-          !confirm(
-            `⚠️ Delete ${o.id} — "${o.title}"?\n\nYou can use Undo immediately after deletion.`
-          )
-        )
-          return;
-        pushHistory("delete " + o.id);
-        orders = orders.filter((x) => x.id !== selectedId);
-        saveOrders();
-        render();
-        closeDrawer();
-        toast(`🗑️ ${o.id} deleted. Use Undo to restore it.`, "success");
+        openConfirmationModal({
+          title: "Delete work order",
+          message: `Delete ${o.id} — "${o.title}"? You can use Undo immediately after deletion.`,
+          confirmText: "Delete",
+          confirmClass: "bg-red-600 hover:bg-red-700",
+          onConfirm: () => {
+            pushHistory("delete " + o.id);
+            orders = orders.filter((x) => x.id !== selectedId);
+            saveOrders();
+            render();
+            closeDrawer();
+            toast(`🗑️ ${o.id} deleted. Use Undo to restore it.`, "success");
+            closeConfirmationModal();
+          },
+        });
       }
 
       function deleteUserFromList(name) {
         if (!name) return;
-        if (
-          !confirm(
-            `⚠️ Remove "${name}" from the user list?\n\nWork Orders assigned to them will become Unassigned.`
-          )
-        )
-          return;
-        pushHistory("remove user " + name);
-        users = users.filter((u) => u.name !== name);
-        orders.forEach((o) => {
-          if (o.assignee === name) o.assignee = "Unassigned";
+        openConfirmationModal({
+          title: "Remove user",
+          message: `Remove "${name}" from the user list? Work Orders assigned to them will become Unassigned.`,
+          confirmText: "Remove",
+          confirmClass: "bg-red-600 hover:bg-red-700",
+          onConfirm: () => {
+            pushHistory("remove user " + name);
+            users = users.filter((u) => u.name !== name);
+            orders.forEach((o) => {
+              if (o.assignee === name) o.assignee = "Unassigned";
+            });
+            saveUsers();
+            saveOrders();
+            render();
+            if (
+              !document
+                .getElementById("sectionPage")
+                .classList.contains("hidden") &&
+              document.getElementById("sectionPageTitle").textContent === "Users"
+            ) {
+              showSectionPage("users");
+            }
+            toast(
+              `👤 ${name} removed. Affected Work Orders unassigned.`,
+              "success"
+            );
+            closeConfirmationModal();
+          },
         });
-        saveUsers();
-        saveOrders();
-        render();
-        // Re-render the users section if it's open
-        if (
-          !document
-            .getElementById("sectionPage")
-            .classList.contains("hidden") &&
-          document.getElementById("sectionPageTitle").textContent === "Users"
-        ) {
-          showSectionPage("users");
-        }
-        toast(
-          `👤 ${name} removed. Affected Work Orders unassigned.`,
-          "success"
-        );
       }
 
       function closeEdit() {
@@ -3196,7 +3495,7 @@
         const textInputs = wrap.querySelectorAll(".edit-field-value-text");
         const newFields = [];
         labelInputs.forEach((el, idx) => {
-          const label = el.value.trim();
+          const rawLabel = el.value.trim();
           const select = selectInputs[idx];
           const text = textInputs[idx];
           let value = "";
@@ -3208,12 +3507,17 @@
           } else if (text) {
             value = text.value.trim();
           }
-          if (label) {
+          const label = rawLabel || sourceHeader || "";
+          if (label || value || sourceHeader) {
             newFields.push({ label, value, _sourceHeader: sourceHeader });
           }
         });
-        // If we got fields from the DOM, use those; otherwise fall back to the stored ones
-        if (newFields.length) customFields = newFields;
+        // Prefer the DOM state, but normalize aggressively so the saved object always gets the exact final list.
+        const finalCustomFields = normalizeCustomFields(
+          newFields.length ? newFields : customFields
+        );
+        o.customFields = finalCustomFields;
+        if (wrap) wrap.dataset.fields = JSON.stringify(finalCustomFields);
 
         const dateTransmitted = document.getElementById(
           "formDateTransmitted"
@@ -3238,32 +3542,46 @@
           requester: document.getElementById("formRequester").value.trim(),
           description: document.getElementById("formDescription").value.trim(),
           dateTransmitted: dateTransmitted || "",
-          customFields: customFields.filter((f) => f.label),
+          customFields: finalCustomFields,
         });
 
         if (
           dateTransmitted &&
-          !customFields.some((f) => f.label === "Date Transmitted")
+          !finalCustomFields.some((f) => f.label === "Date Transmitted")
         ) {
           o.customFields.push({
             label: "Date Transmitted",
             value: dateTransmitted,
             _sourceHeader: "",
           });
+          wrap.dataset.fields = JSON.stringify(o.customFields);
         }
 
-        // Save card display config
-        displayConfig.cardDateSource =
-          document.getElementById("cardDateSource").value || "dueDate";
-        displayConfig.cardDateLabel =
-          document.getElementById("cardDateLabel").value.trim() || "Due Date";
-        displayConfig.cardExtraFields = [
-          ...document.querySelectorAll(
-            "#cardExtraFieldChoices [data-card-extra]:checked"
-          ),
-        ]
-          .map((x) => x.dataset.cardExtra)
-          .slice(0, 2);
+        // Save card display config only if the legacy form controls still exist
+        const cardSource = document.getElementById("cardDateSource");
+        const cardLabel = document.getElementById("cardDateLabel");
+        const resolvedCardSource = cardSource
+          ? cardSource.value || "dueDate"
+          : o.cardDateSource || displayConfig.cardDateSource || "dueDate";
+        const resolvedCardLabel = cardLabel
+          ? cardLabel.value.trim() || "Due Date"
+          : o.cardDateLabel || displayConfig.cardDateLabel || "Due Date";
+        if (cardSource) {
+          displayConfig.cardDateSource = resolvedCardSource;
+          o.cardDateSource = resolvedCardSource;
+        }
+        if (cardLabel) {
+          displayConfig.cardDateLabel = resolvedCardLabel;
+          o.cardDateLabel = resolvedCardLabel;
+        }
+        const cardExtraChoices = document.getElementById("cardExtraFieldChoices");
+        if (cardExtraChoices) {
+          displayConfig.cardExtraFields = [
+            ...cardExtraChoices.querySelectorAll("[data-card-extra]:checked"),
+          ]
+            .map((x) => x.dataset.cardExtra)
+            .slice(0, 2);
+        }
         saveDisplayConfig();
 
         if (
@@ -3313,6 +3631,37 @@
       }
 
       // ========================= STATUS MODAL =========================
+      let pendingConfirmation = null;
+
+      function openConfirmationModal({
+        title,
+        message,
+        confirmText = "Confirm",
+        confirmClass = "bg-brand-600 hover:bg-brand-700",
+        onConfirm,
+      }) {
+        pendingConfirmation = onConfirm || null;
+        document.getElementById("confirmModalTitle").textContent = title;
+        document.getElementById("confirmModalMessage").textContent = message;
+        const btn = document.getElementById("confirmModalConfirmBtn");
+        btn.textContent = confirmText;
+        btn.className = `px-4 py-2.5 rounded-lg text-white text-sm font-bold ${confirmClass}`;
+        document.getElementById("confirmModal").classList.remove("hidden");
+        document.body.classList.add("overflow-hidden");
+      }
+
+      function closeConfirmationModal() {
+        document.getElementById("confirmModal").classList.add("hidden");
+        pendingConfirmation = null;
+        if (
+          !selectedId &&
+          document.getElementById("editModal").classList.contains("hidden") &&
+          document.getElementById("statusModal").classList.contains("hidden")
+        ) {
+          document.body.classList.remove("overflow-hidden");
+        }
+      }
+
       function openStatusModal(id = selectedId) {
         if (!id) return;
         const o = orders.find((x) => x.id === id);
@@ -3343,19 +3692,27 @@
           closeStatusModal();
           return;
         }
-        pushHistory("status change for " + o.id);
-        const previous = o.status;
-        o.status = next;
-        o.activity = o.activity || [];
-        o.activity.push({
-          date: nowStamp(),
-          text: `Status changed from ${previous} to ${next}`,
+        openConfirmationModal({
+          title: "Change status",
+          message: `Change ${o.id} from ${o.status} to ${next}?`,
+          confirmText: "Confirm change",
+          onConfirm: () => {
+            pushHistory("status change for " + o.id);
+            const previous = o.status;
+            o.status = next;
+            o.activity = o.activity || [];
+            o.activity.push({
+              date: nowStamp(),
+              text: `Status changed from ${previous} to ${next}`,
+            });
+            saveOrders();
+            render();
+            closeStatusModal();
+            closeConfirmationModal();
+            if (selectedId) renderDrawer(selectedId);
+            toast(`Status changed to ${next}.`, "success");
+          },
         });
-        saveOrders();
-        render();
-        closeStatusModal();
-        if (selectedId) renderDrawer(selectedId);
-        toast(`Status changed to ${next}.`, "success");
       }
 
       // ========================= DUPLICATE =========================
@@ -3628,8 +3985,52 @@
         return s;
       }
 
+      function buildImportCustomFieldsForRow(row) {
+        const fields = importCustomMappings
+          .map((f) => {
+            if (!f) return null;
+            const source = String(f.source || "").trim();
+            const label = String(f.label || source || "").trim();
+            if (!label) return null;
+            const sourceValue = resolveRowValueByHeader(row, source);
+            const rawValue = String(f.value ?? "").trim();
+            const resolvedValue = rawValue
+              ? rawValue
+              : String(sourceValue ?? "").trim();
+            const item = {
+              label,
+              value: resolvedValue,
+              _sourceHeader: source,
+            };
+            return item;
+          })
+          .filter((f) => f && f.label && (f.value || f._sourceHeader));
+
+        return fields;
+      }
+
+      function mergeCustomFields(existing = [], incoming = []) {
+        const map = new Map();
+        [...(Array.isArray(existing) ? existing : []), ...(Array.isArray(incoming) ? incoming : [])].forEach((field) => {
+          if (!field || !field.label) return;
+          const key = `${String(field.label || "").trim()}::${String(field._sourceHeader || "").trim()}`;
+          map.set(key, {
+            label: String(field.label || "").trim(),
+            value: String(field.value ?? "").trim(),
+            _sourceHeader: String(field._sourceHeader || "").trim(),
+          });
+        });
+        return [...map.values()].filter((f) => f.label && (f.value || f._sourceHeader));
+      }
+
       function makeMappedOrder(row, i) {
-        const get = (f) => (importMapping[f] ? row[importMapping[f]] : "");
+        const get = (f) => {
+          if (importManualValues && importManualValues[f] !== undefined) {
+            return importManualValues[f];
+          }
+          if (!importMapping[f]) return "";
+          return resolveRowValueByHeader(row, importMapping[f]);
+        };
         const rawId = String(get("id") || "").trim();
         const id = rawId || `IMPORT-${Date.now()}-${i + 1}`;
         const rawStatus = String(get("status") || "").trim();
@@ -3637,21 +4038,10 @@
         const mappedSources = new Set(
           Object.values(importMapping).filter(Boolean)
         );
-        const customFields = (
-          importCustomMappings.length
-            ? importCustomMappings
-            : importHeaders
-                .filter((h) => !mappedSources.has(h))
-                .map((h) => ({ label: h, source: h }))
-        )
-          .map((f) => ({
-            label: String(f.label || "").trim(),
-            value: String(row[f.source] ?? "").trim(),
-            _sourceHeader: f.source,
-          }))
-          .filter((f) => f.label && f.value);
+        const customFields = buildImportCustomFieldsForRow(row);
 
         const dueDate = parseDateValue(get("dueDate"));
+        const importedDueLabel = importFieldLabels.dueDate || "Due Date";
         return {
           id,
           title: String(get("title") || "Untitled Work Order").trim(),
@@ -3666,21 +4056,17 @@
           created: parseDateValue(get("created")) || nowDate(),
           dueDate: dueDate,
           dateTransmitted: "",
+          cardDateSource: "dueDate",
+          cardDateLabel: importedDueLabel,
           customFields,
-          activity: [
-            {
-              date: nowStamp(),
-              text: `Prepared for import from ${
-                importSourceName || "admin data"
-              }`,
-            },
-          ],
+          activity: [],
+          sourceOrder: i,
           _importHeaders: importHeaders.slice(),
           _rawData: { ...row },
         };
       }
 
-      function showImportData(headers, rows, source = "pasted data") {
+      function showImportData(headers, rows, source = "pasted data", sourceType = "file") {
         importHeaders = headers.map((h, i) =>
           String(h || `Column ${i + 1}`).trim()
         );
@@ -3692,13 +4078,15 @@
           })
           .filter((r) => Object.values(r).some((v) => String(v).trim() !== ""));
         importSourceName = source;
+        importSourceType = sourceType;
         importMapping = inferMapping(importHeaders, importRows);
+        importManualValues = {};
+        importFieldLabels = {};
+        importFieldTypes = { dueDate: "date" };
         const mappedSources = new Set(
           Object.values(importMapping).filter(Boolean)
         );
-        importCustomMappings = importHeaders
-          .filter((h) => !mappedSources.has(h))
-          .map((h) => ({ label: h, source: h }));
+        importCustomMappings = [];
 
         importedHeaders = importHeaders.slice();
         saveImportedHeaders();
@@ -3719,7 +4107,7 @@
 
       function renderImportMapping() {
         const grid = document.getElementById("importMappingGrid");
-        const labels = {
+        const defaultLabels = {
           id: "Work Order ID",
           title: "Title",
           description: "Description",
@@ -3732,26 +4120,64 @@
           created: "Created Date",
           dueDate: "Due Date",
         };
+        const labels = { ...defaultLabels, ...importFieldLabels };
         grid.innerHTML = Object.keys(FIELD_DEFS)
           .map((field) => {
             const mapped = importMapping[field] || "";
             const required = field === "title";
+            const customLabel = labels[field] || defaultLabels[field] || field;
+            const manualValue = importManualValues[field] || "";
+            const type = importFieldTypes[field] || (field === "dueDate" ? "date" : "mapped");
+            const typeOptions = `
+              <div class="grid grid-cols-[76px_minmax(0,1fr)] items-center gap-2 mt-2">
+                <span class="text-[8px] font-black uppercase tracking-wide text-slate-400">Type</span>
+                <select data-import-field-type="${field}" class="w-full bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-semibold text-slate-700">
+                  <option value="mapped" ${type === "mapped" ? "selected" : ""}>Header</option>
+                  <option value="date" ${type === "date" ? "selected" : ""}>Date</option>
+                  <option value="value" ${type === "value" ? "selected" : ""}>Value</option>
+                  <option value="dropdown" ${type === "dropdown" ? "selected" : ""}>Dropdown</option>
+                </select>
+              </div>`;
+            const headerControl = field === "dueDate" && type === "date"
+              ? `<div class="mt-2 space-y-2">
+                  <input type="date" data-import-manual-field="${field}" class="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-[10px] font-semibold text-slate-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" value="${esc(
+                    manualValue
+                  )}" aria-label="Manual due date value">
+                  <div class="grid grid-cols-[76px_minmax(0,1fr)] items-center gap-2">
+                    <span class="text-[8px] font-black uppercase tracking-wide text-slate-400">Header</span>
+                    <select data-import-map-field="${field}" class="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs font-semibold"><option value="">— Not mapped —</option>${importHeaders
+                      .map(
+                        (h) =>
+                          `<option value="${esc(h)}" ${
+                            importMapping[field] === h ? "selected" : ""
+                          }>${esc(h)}</option>`
+                      )
+                      .join("")}</select>
+                  </div>
+                </div>`
+              : `<div class="mt-2 grid grid-cols-[76px_minmax(0,1fr)] items-center gap-2">
+                    <span class="text-[8px] font-black uppercase tracking-wide text-slate-400">Header</span>
+                    <select data-import-map-field="${field}" class="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs font-semibold"><option value="">— Not mapped —</option>${importHeaders
+                      .map(
+                        (h) =>
+                          `<option value="${esc(h)}" ${
+                            importMapping[field] === h ? "selected" : ""
+                          }>${esc(h)}</option>`
+                      )
+                      .join("")}</select>
+                  </div>`;
             return `<label class="bg-slate-50 border border-slate-200 rounded-xl p-3">
-              <span class="flex items-center justify-between mb-1"><span class="block text-[10px] font-black uppercase tracking-wide text-slate-400">${
-                labels[field]
-              }</span><span class="text-[9px] font-black ${
+              <span class="flex items-center justify-between mb-1 gap-2"><span class="block text-[10px] font-black uppercase tracking-wide text-slate-400">
+                <input data-import-label-field="${field}" class="w-full min-w-0 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[10px] font-black uppercase tracking-wide text-slate-600 placeholder:text-slate-300 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-100" value="${esc(
+                  customLabel
+                )}" aria-label="Label for ${esc(field)}">
+              </span><span data-import-status class="text-[9px] font-black ${
               mapped ? "text-emerald-600" : "text-slate-400"
             }">${mapped ? "MAPPED" : "UNMAPPED"}${
               required ? " • REQUIRED" : ""
             }</span></span>
-              <select data-import-map-field="${field}" class="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs font-semibold"><option value="">— Not mapped —</option>${importHeaders
-              .map(
-                (h) =>
-                  `<option value="${esc(h)}" ${
-                    importMapping[field] === h ? "selected" : ""
-                  }>${esc(h)}</option>`
-              )
-              .join("")}</select>
+              ${typeOptions}
+              ${headerControl}
               ${
                 mapped
                   ? `<span class="block text-[10px] text-slate-400 mt-1 truncate">Source: ${esc(
@@ -3763,6 +4189,14 @@
           })
           .join("");
 
+        grid.querySelectorAll("[data-import-label-field]").forEach((input) => {
+          input.addEventListener("input", (e) => {
+            const field = e.target.dataset.importLabelField;
+            importFieldLabels[field] = e.target.value.trim();
+            renderImportPreview();
+          });
+        });
+
         grid.querySelectorAll("[data-import-map-field]").forEach((sel) =>
           sel.addEventListener("change", (e) => {
             importMapping[e.target.dataset.importMapField] = e.target.value;
@@ -3772,37 +4206,56 @@
             importCustomMappings = importCustomMappings.filter(
               (f) => !mapped.has(f.source)
             );
-            importHeaders
-              .filter((h) => !mapped.has(h))
-              .forEach((h) => {
-                if (!importCustomMappings.some((f) => f.source === h))
-                  importCustomMappings.push({ label: h, source: h });
-              });
             renderImportMapping();
             renderImportPreview();
           })
         );
+
+        grid.querySelectorAll("[data-import-field-type]").forEach((sel) =>
+          sel.addEventListener("change", (e) => {
+            const field = e.target.dataset.importFieldType;
+            importFieldTypes[field] = e.target.value;
+            renderImportMapping();
+            renderImportPreview();
+          })
+        );
+
+        grid.querySelectorAll("[data-import-manual-field]").forEach((input) => {
+          input.addEventListener("input", (e) => {
+            const field = e.target.dataset.importManualField;
+            importManualValues[field] = e.target.value;
+            renderImportPreview();
+          });
+        });
 
         const wrap = document.getElementById("importCustomMappingArea");
         if (!wrap) return;
         wrap.innerHTML = `<div class="flex items-center justify-between gap-3 mb-3"><div><h4 class="text-xs font-black text-slate-700">Additional / custom fields</h4><p class="text-[10px] text-slate-400 mt-1">Anything not mapped above can be renamed and carried into the Work Order drawer.</p></div><button type="button" id="addImportCustomBtn" class="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[10px] font-black">+ Add Field</button></div>
           <div id="importCustomRows" class="space-y-2"></div>`;
         const rows = document.getElementById("importCustomRows");
-        importCustomMappings.forEach((f, i) => {
+        const customRows = importCustomMappings.length
+          ? importCustomMappings
+          : [];
+        customRows.forEach((f, i) => {
           rows.insertAdjacentHTML(
             "beforeend",
-            `<div class="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
-                <input data-custom-label="${i}" class="field-input-sm" placeholder="Display label e.g. Date Transmitted" value="${esc(
+            `<div class="import-custom-row">
+                <input data-custom-label="${i}" class="field-input-sm" placeholder="Name" value="${esc(
               f.label
             )}">
-                <select data-custom-source="${i}" class="field-input-sm"><option value="">Choose source column</option>${importHeaders
-              .map(
-                (h) =>
-                  `<option value="${esc(h)}" ${
-                    f.source === h ? "selected" : ""
-                  }>${esc(h)}</option>`
-              )
-              .join("")}</select>
+                <select data-custom-source="${i}" class="field-input-sm">
+                  <option value="">Header from import</option>${importHeaders
+                    .map(
+                      (h) =>
+                        `<option value="${esc(h)}" ${
+                          f.source === h ? "selected" : ""
+                        }>${esc(h)}</option>`
+                    )
+                    .join("")}
+                </select>
+                <input data-custom-value="${i}" class="field-input-sm" placeholder="Value (optional)" value="${esc(
+              f.value || ""
+            )}">
                 <button type="button" data-custom-remove="${i}" class="w-9 h-9 rounded-lg text-red-500 hover:bg-red-50 flex items-center justify-center">✕</button>
               </div>`
           );
@@ -3810,33 +4263,57 @@
         document
           .getElementById("addImportCustomBtn")
           .addEventListener("click", () => {
-            importCustomMappings.push({
-              label: "New Field",
-              source:
-                importHeaders.find(
-                  (h) => !importCustomMappings.some((x) => x.source === h)
-                ) || "",
-            });
+            importCustomMappings.push({ label: "", source: "", value: "" });
             renderImportMapping();
             renderImportPreview();
           });
         rows.querySelectorAll("[data-custom-label]").forEach((el) =>
           el.addEventListener("input", (e) => {
-            importCustomMappings[+e.target.dataset.customLabel].label =
-              e.target.value;
+            const index = +e.target.dataset.customLabel;
+            importCustomMappings[index] = importCustomMappings[index] || {
+              label: "",
+              source: "",
+              value: "",
+            };
+            importCustomMappings[index].label = e.target.value;
             renderImportPreview();
           })
         );
         rows.querySelectorAll("[data-custom-source]").forEach((el) =>
           el.addEventListener("change", (e) => {
-            importCustomMappings[+e.target.dataset.customSource].source =
-              e.target.value;
+            const index = +e.target.dataset.customSource;
+            importCustomMappings[index] = importCustomMappings[index] || {
+              label: "",
+              source: "",
+              value: "",
+            };
+            importCustomMappings[index].source = e.target.value;
+            if (!importCustomMappings[index].label && e.target.value) {
+              importCustomMappings[index].label = e.target.value;
+            }
+            renderImportMapping();
+            renderImportPreview();
+          })
+        );
+        rows.querySelectorAll("[data-custom-value]").forEach((el) =>
+          el.addEventListener("input", (e) => {
+            const index = +e.target.dataset.customValue;
+            importCustomMappings[index] = importCustomMappings[index] || {
+              label: "",
+              source: "",
+              value: "",
+            };
+            importCustomMappings[index].value = e.target.value;
             renderImportPreview();
           })
         );
         rows.querySelectorAll("[data-custom-remove]").forEach((el) =>
           el.addEventListener("click", (e) => {
-            importCustomMappings.splice(+e.target.dataset.customRemove, 1);
+            const index = +e.target.dataset.customRemove;
+            importCustomMappings.splice(index, 1);
+            if (!importCustomMappings.length) {
+              importCustomMappings = [{ label: "", source: "", value: "" }];
+            }
             renderImportMapping();
             renderImportPreview();
           })
@@ -3844,6 +4321,7 @@
       }
 
       function projectedCardHTML(o) {
+        const dueLabel = importFieldLabels.dueDate || "Due";
         const due = o.dueDate ? formatDate(o.dueDate) : "No due date";
         const created = formatDate(o.created);
         const overdue =
@@ -3874,7 +4352,9 @@
               <div class="bg-slate-50 rounded-lg p-2"><p class="text-[9px] text-slate-400">Location</p><p class="text-[10px] font-bold text-slate-700 truncate">${esc(
                 o.location || "—"
               )}</p></div>
-              <div class="bg-slate-50 rounded-lg p-2"><p class="text-[9px] text-slate-400">Due</p><p class="text-[10px] font-bold ${
+              <div class="bg-slate-50 rounded-lg p-2"><p class="text-[9px] text-slate-400">${esc(
+                dueLabel
+              )}</p><p class="text-[10px] font-bold ${
                 overdue ? "text-red-600" : "text-slate-700"
               }">${esc(due)}</p></div>
             </div>
@@ -3913,7 +4393,7 @@
           assignee: "Assigned To",
           location: "Location",
           created: "Created",
-          dueDate: "Due",
+          dueDate: importFieldLabels.dueDate || "Due",
         };
         const missing = ["title"].filter((f) => !importMapping[f]);
         const badge = document.getElementById("importReadyBadge");
@@ -3932,9 +4412,10 @@
           confirm.disabled = !importRows.length;
         }
 
+        const previewLimit = 3;
         document.getElementById(
           "importPreviewCount"
-        ).textContent = `Showing first ${Math.min(6, importRows.length)} of ${
+        ).textContent = `Showing first ${Math.min(previewLimit, importRows.length)} of ${
           importRows.length
         }`;
         document.getElementById("importPreviewHead").innerHTML = `<tr>${fields
@@ -3948,7 +4429,7 @@
           )
           .join("")}</tr>`;
         const preview = importRows
-          .slice(0, 8)
+          .slice(0, previewLimit)
           .map((r, i) => makeMappedOrder(r, i));
         document.getElementById("importPreviewBody").innerHTML = preview
           .map(
@@ -3979,7 +4460,7 @@
           .join("");
 
         const projected = importRows
-          .slice(0, 6)
+          .slice(0, previewLimit)
           .map((r, i) => makeMappedOrder(r, i));
         document.getElementById("projectedCards").innerHTML = projected.length
           ? projected.map(projectedCardHTML).join("")
@@ -3990,8 +4471,12 @@
         importRows = [];
         importHeaders = [];
         importMapping = {};
+        importManualValues = {};
+        importFieldLabels = {};
         importCustomMappings = [];
         importSourceName = "";
+        importSourceType = "file";
+        importFieldTypes = {};
         document.getElementById("importSourceBadge").textContent =
           "No data loaded";
         document.getElementById("importFileName").textContent = "";
@@ -4008,10 +4493,34 @@
           "inline-flex items-center px-2 py-1 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black";
         document.getElementById("confirmImportBtn").disabled = true;
         document.getElementById("importPasteData").value = "";
+        document.getElementById("importApiUrl").value = "";
         document.getElementById("importFileInput").value = "";
       }
 
+      function clearAllOrders() {
+        openConfirmationModal({
+          title: "Clear all orders",
+          message:
+            "This will permanently remove all current work orders from the dashboard. This action cannot be undone.",
+          confirmText: "Clear Orders",
+          confirmClass: "bg-red-600 hover:bg-red-700",
+          onConfirm: () => {
+            orders = [];
+            history = [];
+            saveOrders();
+            saveHistory();
+            updateUndoButtons();
+            render();
+            closeConfirmationModal();
+            closeImportModal();
+            resetImportCenter();
+            toast("Dashboard cleared. All work orders removed.", "error");
+          },
+        });
+      }
+
       function openImportModal() {
+        resetImportCenter();
         document.getElementById("importModal").classList.remove("hidden");
         document.body.classList.add("overflow-hidden");
       }
@@ -4037,7 +4546,12 @@
         }
 
         const incoming = importRows.map(makeMappedOrder);
-        pushHistory(`import ${incoming.length} rows`);
+        const isApiImport = importSourceType === "api";
+
+        if (!isApiImport) {
+          pushHistory(`import ${incoming.length} rows`);
+        }
+
         const existing = new Map(
           orders.map((o) => [String(o.id).trim().toLowerCase(), o])
         );
@@ -4051,11 +4565,8 @@
             const merged = {
               ...old,
               ...n,
-              activity: [
-                ...(old.activity || []),
-                ...(n.activity || []),
-                { date: nowStamp(), text: "Updated by import" },
-              ],
+              customFields: mergeCustomFields(old.customFields, n.customFields),
+              activity: [...(old.activity || []), ...(n.activity || [])],
               _importHeaders: n._importHeaders || [],
               _rawData: n._rawData || {},
             };
@@ -4070,35 +4581,48 @@
           }
         });
 
-        orders = orders.map((o, i) => ({
-          ...o,
-          id: String(o.id ?? `WO-${i + 1}`).trim() || `WO-${i + 1}`,
-          title:
-            String(o.title ?? "Untitled Work Order").trim() ||
-            "Untitled Work Order",
-          description: String(o.description ?? "").trim(),
-          status: normalizeStatus(o.status || "Open"),
-          priority: normalizePriority(o.priority || "Medium"),
-          category: String(o.category ?? "General").trim() || "General",
-          location: String(o.location ?? "").trim(),
-          assignee: String(o.assignee ?? "Unassigned").trim() || "Unassigned",
-          requester: String(o.requester ?? "").trim(),
-          created: parseDateValue(o.created) || nowDate(),
-          dueDate: parseDateValue(o.dueDate),
-          activity: Array.isArray(o.activity) ? o.activity : [],
-          customFields: Array.isArray(o.customFields) ? o.customFields : [],
-          _importHeaders: Array.isArray(o._importHeaders)
-            ? o._importHeaders
-            : [],
-          _rawData: o._rawData || {},
-        }));
+        orders = orders.map((o, i) => {
+          const rawRow = o && o._rawData ? o._rawData : {};
+          const rowCustomFields = buildImportCustomFieldsForRow(rawRow);
+          const finalCustomFields = mergeCustomFields(
+            Array.isArray(o.customFields) ? o.customFields : [],
+            rowCustomFields
+          );
+
+          return {
+            ...o,
+            id: String(o.id ?? `WO-${i + 1}`).trim() || `WO-${i + 1}`,
+            title:
+              String(o.title ?? "Untitled Work Order").trim() ||
+              "Untitled Work Order",
+            description: String(o.description ?? "").trim(),
+            status: normalizeStatus(o.status || "Open"),
+            priority: normalizePriority(o.priority || "Medium"),
+            category: String(o.category ?? "General").trim() || "General",
+            location: String(o.location ?? "").trim(),
+            assignee: String(o.assignee ?? "Unassigned").trim() || "Unassigned",
+            requester: String(o.requester ?? "").trim(),
+            created: parseDateValue(o.created) || nowDate(),
+            dueDate: parseDateValue(o.dueDate),
+            activity: Array.isArray(o.activity) ? o.activity : [],
+            customFields: finalCustomFields,
+            _importHeaders: Array.isArray(o._importHeaders)
+              ? o._importHeaders
+              : [],
+            _rawData: rawRow,
+          };
+        });
 
         const timeOf = (v) => {
           const s = String(v || "");
           const t = Date.parse(s.length <= 10 ? s + "T00:00:00" : s);
           return Number.isNaN(t) ? 0 : t;
         };
-        orders.sort((a, b) => timeOf(b.created) - timeOf(a.created));
+        orders.sort(
+          (a, b) =>
+            timeOf(b.created) - timeOf(a.created) ||
+            Number(b.sourceOrder ?? 0) - Number(a.sourceOrder ?? 0)
+        );
 
         saveOrders();
         orders = loadOrders();
@@ -4116,7 +4640,9 @@
         render();
 
         toast(
-          `✅ Import successful: ${added} new, ${updated} updated. ${orders.length} work orders now displayed.`,
+          isApiImport
+            ? `✅ API import reflected: ${added} new, ${updated} updated. ${orders.length} work orders are now visible in the dashboard.`
+            : `✅ Import successful: ${added} new, ${updated} updated. ${orders.length} work orders now displayed.`,
           "success"
         );
         setTimeout(() => {
@@ -4127,18 +4653,24 @@
 
       async function handleImportFile(file) {
         if (!file) return;
+        const ext = (file.name || "").split(".").pop().toLowerCase();
+        const mime = (file.type || "").toLowerCase();
+        if (["html", "htm", "xhtml"].includes(ext) || mime.includes("text/html")) {
+          toast("Please upload a data file, not an HTML page.", "error");
+          return;
+        }
         document.getElementById(
           "importFileName"
         ).textContent = `Reading: ${file.name}`;
         try {
-          const ext = file.name.split(".").pop().toLowerCase();
           if (["csv", "tsv"].includes(ext)) {
             const text = await file.text();
             const parsed = parseDelimited(text);
             if (!parsed.headers.length || !parsed.rows.length)
               throw new Error("No rows");
-            showImportData(parsed.headers, parsed.rows, file.name);
-          } else {
+            showImportData(parsed.headers, parsed.rows, file.name, "file");
+            toast("File loaded successfully. Review the mapping and confirm import.", "success");
+          } else if (["xlsx", "xls"].includes(ext) || mime.includes("sheet") || mime.includes("excel")) {
             const data = await file.arrayBuffer();
             const wb = XLSX.read(data, { type: "array", cellDates: true });
             if (!wb.SheetNames.length) throw new Error("No sheet");
@@ -4149,14 +4681,117 @@
             });
             const headers = rows.length ? Object.keys(rows[0]) : [];
             if (!headers.length || !rows.length) throw new Error("No rows");
-            showImportData(headers, rows, file.name);
+            showImportData(headers, rows, file.name, "file");
+            toast("File loaded successfully. Review the mapping and confirm import.", "success");
+          } else {
+            throw new Error("Unsupported file type. Use CSV or Excel.");
           }
         } catch (err) {
           console.error(err);
           toast(
-            "Could not read that file. Please check the Excel/CSV format.",
+            "Could not read that file. Please use a CSV or Excel spreadsheet.",
             "error"
           );
+        }
+      }
+
+      function normalizeApiRows(payload) {
+        if (Array.isArray(payload)) return payload;
+        if (!payload || typeof payload !== "object") return [];
+        const candidates = [payload.data, payload.rows, payload.items, payload.result];
+        for (const candidate of candidates) {
+          if (Array.isArray(candidate)) return candidate;
+        }
+        return [];
+      }
+
+      async function fetchApiDataFromUrl(url) {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            Accept: "application/json, text/csv, text/plain, */*",
+          },
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const contentType = (response.headers.get("content-type") || "").toLowerCase();
+        const text = await response.text();
+
+        if (contentType.includes("text/html") || /<\s*(html|body|doctype)/i.test(text.slice(0, 500))) {
+          throw new Error("Endpoint returned HTML instead of data. Please use a backend JSON/CSV endpoint.");
+        }
+
+        let rows = [];
+        let headers = [];
+
+        if (contentType.includes("application/json") || text.trim().startsWith("[") || text.trim().startsWith("{")) {
+          const data = JSON.parse(text);
+          rows = normalizeApiRows(data);
+          if (!rows.length && data && typeof data === "object") {
+            const nested = Object.values(data).find((v) => Array.isArray(v));
+            if (nested) rows = nested;
+          }
+          if (!rows.length) {
+            throw new Error("JSON response did not contain an array of rows.");
+          }
+          if (rows.every((row) => row && typeof row === "object" && !Array.isArray(row))) {
+            headers = Object.keys(rows[0]);
+          } else if (rows.every(Array.isArray)) {
+            headers = rows[0].map((_, idx) => `Column ${idx + 1}`);
+            rows = rows.map((row) => {
+              const obj = {};
+              headers.forEach((header, idx) => {
+                obj[header] = row[idx] ?? "";
+              });
+              return obj;
+            });
+          } else {
+            throw new Error("Unsupported JSON format from API.");
+          }
+        } else {
+          const parsed = parseDelimited(text);
+          if (!parsed.headers.length || !parsed.rows.length) {
+            throw new Error("No rows returned from API");
+          }
+          headers = parsed.headers;
+          rows = parsed.rows;
+        }
+
+        if (!headers.length || !rows.length) {
+          throw new Error("No importable data found in the API response.");
+        }
+
+        return { headers, rows };
+      }
+
+      async function handleImportApi() {
+        const url = document.getElementById("importApiUrl").value.trim();
+        if (!url) {
+          toast("Enter an API URL or backend endpoint first.", "error");
+          return;
+        }
+
+        const button = document.getElementById("importReadApiBtn");
+        const original = button.textContent;
+        button.disabled = true;
+        button.textContent = "Loading...";
+        document.getElementById("importFileName").textContent = `Reading: ${url}`;
+
+        try {
+          const { headers, rows } = await fetchApiDataFromUrl(url);
+          showImportData(headers, rows, url, "api");
+          toast("API data loaded successfully. Review the mapping and confirm import.", "success");
+        } catch (err) {
+          console.error(err);
+          toast(
+            "Could not load data from that API endpoint. Use a backend JSON/CSV response, not an HTML page.",
+            "error"
+          );
+        } finally {
+          button.disabled = false;
+          button.textContent = original;
         }
       }
 
@@ -4450,11 +5085,18 @@
             "Most recent actions recorded by this frontend prototype.";
           const acts = orders
             .flatMap((o) =>
-              (o.activity || []).map((a) => ({
-                ...a,
-                id: o.id,
-                title: o.title,
-              }))
+              (o.activity || [])
+                .filter(
+                  (a) =>
+                    !/prepared for import from|updated by import|import/i.test(
+                      String(a.text || "")
+                    )
+                )
+                .map((a) => ({
+                  ...a,
+                  id: o.id,
+                  title: o.title,
+                }))
             )
             .sort((a, b) => String(b.date).localeCompare(String(a.date)))
             .slice(0, 100);
@@ -4548,15 +5190,20 @@
           document
             .getElementById("settingsReset")
             .addEventListener("click", () => {
-              if (
-                confirm("Reset all local work-order data to the demo records?")
-              ) {
-                pushHistory("before demo reset");
-                orders = structuredClone(seedOrders);
-                saveOrders();
-                render();
-                toast("Demo data restored.", "success");
-              }
+              openConfirmationModal({
+                title: "Reset demo data",
+                message: "Reset all local work-order data to the demo records?",
+                confirmText: "Reset",
+                confirmClass: "bg-red-600 hover:bg-red-700",
+                onConfirm: () => {
+                  pushHistory("before demo reset");
+                  orders = structuredClone(seedOrders);
+                  saveOrders();
+                  render();
+                  toast("Demo data restored.", "success");
+                  closeConfirmationModal();
+                },
+              });
             });
         }
       }
@@ -4589,26 +5236,42 @@
           window.scrollTo({ top: 0, behavior: "smooth" });
         }
       });
-      document.getElementById("refreshBtn").addEventListener("click", () => {
-        const btn = document.getElementById("refreshBtn"),
-          icon = document.getElementById("refreshIcon");
+      document.getElementById("refreshBtn").addEventListener("click", async () => {
+        const btn = document.getElementById("refreshBtn");
+        const icon = document.getElementById("refreshIcon");
+        const apiUrl = document.getElementById("importApiUrl").value.trim();
         btn.disabled = true;
         icon.classList.add("animate-spin");
-        setTimeout(() => {
-          try {
-            orders = loadOrders();
-            history = loadHistory();
-            currentPage = 1;
-            render();
-            if (selectedId && orders.some((o) => o.id === selectedId))
-              renderDrawer(selectedId);
-            else if (selectedId) closeDrawer();
-            toast("Dashboard refreshed from saved data.", "success");
-          } finally {
-            btn.disabled = false;
-            icon.classList.remove("animate-spin");
+        try {
+          if (apiUrl) {
+            const { headers, rows } = await fetchApiDataFromUrl(apiUrl);
+            showImportData(headers, rows, apiUrl, "api");
+            if (importMapping.title) {
+              applyImport();
+              return;
+            }
+            toast("API data loaded. Review the mapping and confirm import.", "info");
+            return;
           }
-        }, 250);
+
+          orders = loadOrders();
+          history = loadHistory();
+          currentPage = 1;
+          render();
+          if (selectedId && orders.some((o) => o.id === selectedId))
+            renderDrawer(selectedId);
+          else if (selectedId) closeDrawer();
+          toast("Dashboard refreshed from saved data.", "success");
+        } catch (err) {
+          console.error(err);
+          toast(
+            "Could not refresh from the backend. Check the API endpoint and try again.",
+            "error"
+          );
+        } finally {
+          btn.disabled = false;
+          icon.classList.remove("animate-spin");
+        }
       });
 
       document.getElementById("importTopBtn").addEventListener("click", () => {
@@ -4629,7 +5292,14 @@
         .addEventListener("click", closeImportModal);
       document
         .getElementById("importClearBtn")
-        .addEventListener("click", resetImportCenter);
+        .addEventListener("click", () => {
+          resetImportCenter();
+          closeImportModal();
+          toast("Import cleared.", "info");
+        });
+      document
+        .getElementById("clearOrdersBtn")
+        .addEventListener("click", clearAllOrders);
       document
         .getElementById("confirmImportBtn")
         .addEventListener("click", applyImport);
@@ -4642,6 +5312,9 @@
         .getElementById("importFileInput")
         .addEventListener("change", (e) => handleImportFile(e.target.files[0]));
       document
+        .getElementById("importReadApiBtn")
+        .addEventListener("click", handleImportApi);
+      document
         .getElementById("importReadPasteBtn")
         .addEventListener("click", () => {
           const parsed = parseDelimited(
@@ -4652,6 +5325,7 @@
             return;
           }
           showImportData(parsed.headers, parsed.rows, "pasted data");
+          toast("Pasted data loaded successfully. Review the mapping and confirm import.", "success");
         });
       const idz = document.getElementById("importDropzone");
       ["dragenter", "dragover"].forEach((evt) =>
@@ -4746,22 +5420,27 @@
           if (!o) return;
           const next = e.target.value;
           if (next === o.status) return;
-          if (!confirm(`Change ${o.id} status from ${o.status} to ${next}?`)) {
-            e.target.value = o.status;
-            return;
-          }
-          pushHistory("status change for " + o.id);
           const prev = o.status;
-          o.status = next;
-          o.activity = o.activity || [];
-          o.activity.push({
-            date: nowStamp(),
-            text: `Status changed from ${prev} to ${next}`,
+          openConfirmationModal({
+            title: "Change status",
+            message: `Change ${o.id} status from ${prev} to ${next}?`,
+            confirmText: "Confirm change",
+            onConfirm: () => {
+              pushHistory("status change for " + o.id);
+              o.status = next;
+              o.activity = o.activity || [];
+              o.activity.push({
+                date: nowStamp(),
+                text: `Status changed from ${prev} to ${next}`,
+              });
+              saveOrders();
+              render();
+              renderDrawer(selectedId);
+              toast(`Status changed to ${next}.`, "success");
+              closeConfirmationModal();
+            },
           });
-          saveOrders();
-          render();
-          renderDrawer(selectedId);
-          toast(`Status changed to ${next}.`, "success");
+          e.target.value = o.status;
         });
       document
         .getElementById("drawerDuplicateBtn")
@@ -4781,6 +5460,7 @@
           if (!o) return;
           if (!Array.isArray(o.customFields)) o.customFields = [];
           o.customFields.push({ label: "", value: "", _sourceHeader: "" });
+          saveOrders();
           renderEditCustomFields(o);
           toast("New field added. Fill in the details.", "info");
           // Focus the new label
@@ -4812,6 +5492,25 @@
       document
         .getElementById("confirmStatusBtn")
         .addEventListener("click", confirmStatus);
+      document
+        .getElementById("closeConfirmModalBtn")
+        .addEventListener("click", closeConfirmationModal);
+      document
+        .getElementById("cancelConfirmBtn")
+        .addEventListener("click", closeConfirmationModal);
+      document
+        .getElementById("confirmModalBackdrop")
+        .addEventListener("click", closeConfirmationModal);
+      document
+        .getElementById("confirmModalConfirmBtn")
+        .addEventListener("click", () => {
+          const fn = pendingConfirmation;
+          if (typeof fn === "function") {
+            fn();
+          } else {
+            closeConfirmationModal();
+          }
+        });
 
       document
         .getElementById("sectionBackBtn")
