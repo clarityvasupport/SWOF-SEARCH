@@ -318,6 +318,10 @@
         background: #fef2f2;
         border-color: #fca5a5;
       }
+      /* Login modal extra style */
+      .login-modal {
+        max-width: 400px;
+      }
     </style>
   </head>
 
@@ -371,6 +375,15 @@
               />
             </svg>
             Undo <span id="undoCount" class="text-xs text-slate-400"></span>
+          </button>
+          <!-- LOGIN / LOGOUT BUTTON -->
+          <button
+            id="loginBtn"
+            type="button"
+            class="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-sm"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.8" stroke-linecap="round" d="M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7-3a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm0 12v-1a4 4 0 0 0-2.5-3.7"/></svg>
+            <span id="loginBtnText">Login</span>
           </button>
           <button
             id="importTopBtn"
@@ -686,74 +699,34 @@
           <section
             class="bg-white border border-slate-200 rounded-xl shadow-sm p-3 mb-4"
           >
-            <div
-              class="grid grid-cols-1 lg:grid-cols-[minmax(280px,1fr)_140px_140px_170px_auto_auto] gap-2.5 items-center"
-            >
-              <div class="relative min-w-0">
-                <svg
-                  class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-width="1.8"
-                    stroke-linecap="round"
-                    d="m20 20-4.5-4.5m2-5.5a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
-                  />
-                </svg>
-                <input
-                  id="searchInput"
-                  type="search"
-                  placeholder="Search work order, title, location, person, category..."
-                  class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-                />
-              </div>
-              <select
-                id="statusFilter"
-                class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-              ></select>
-              <select
-                id="priorityFilter"
-                class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-              ></select>
-              <select
-                id="sortSelect"
-                class="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-              >
-                <option value="created_desc">Newest Created</option>
-                <option value="created_asc">Oldest Created</option>
-                <option value="due_asc">Due Soonest</option>
-                <option value="title_asc">Title A–Z</option>
-              </select>
-              <button
-                id="clearFiltersBtn"
-                type="button"
-                class="px-3 py-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-sm font-semibold text-slate-600"
-              >
-                Clear
-              </button>
-              <button
-                id="refreshBtn"
-                type="button"
-                class="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-600"
-                title="Reload saved data and refresh the dashboard"
-              >
-                <svg
-                  id="refreshIcon"
-                  class="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-width="1.8"
-                    stroke-linecap="round"
-                    d="M20 11a8 8 0 0 0-15.3-3M4 5v4h4M4 13a8 8 0 0 0 15.3 3M20 19v-4h-4"
-                  /></svg
-                ><span>Refresh</span>
-              </button>
+            <div class="flex flex-nowrap items-center gap-1 lg:gap-2.5 overflow-x-auto">
+            <!-- Search input -->
+            <div class="relative flex-1 min-w-[60px] lg:min-w-[280px]">
+              <svg class="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.8" stroke-linecap="round" d="m20 20-4.5-4.5m2-5.5a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"/></svg>
+              <input id="searchInput" type="search" placeholder="Search..." class="w-full pl-8 pr-2 py-1.5 lg:py-2.5 rounded-lg border border-slate-200 bg-white text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500" />
             </div>
+            <!-- Status dropdown -->
+            <select id="statusFilter" class="flex-1 min-w-[50px] lg:min-w-[120px] px-2 py-1.5 lg:py-2.5 rounded-lg border border-slate-200 bg-white text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 truncate"></select>
+            <!-- Priority dropdown -->
+            <select id="priorityFilter" class="flex-1 min-w-[50px] lg:min-w-[120px] px-2 py-1.5 lg:py-2.5 rounded-lg border border-slate-200 bg-white text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 truncate"></select>
+            <!-- Sort dropdown -->
+            <select id="sortSelect" class="flex-1 min-w-[50px] lg:min-w-[140px] px-2 py-1.5 lg:py-2.5 rounded-lg border border-slate-200 bg-white text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 truncate">
+              <option value="created_desc">Newest Created</option>
+              <option value="created_asc">Oldest Created</option>
+              <option value="due_asc">Due Soonest</option>
+              <option value="title_asc">Title A–Z</option>
+            </select>
+            <!-- Clear button -->
+            <button id="clearFiltersBtn" type="button" class="px-2 lg:px-3 py-1.5 lg:py-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs lg:text-sm font-semibold text-slate-600 whitespace-nowrap flex-shrink-0">
+              <span class="hidden sm:inline">Clear</span>
+              <svg class="w-4 h-4 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+            <!-- Refresh button -->
+            <button id="refreshBtn" type="button" class="inline-flex items-center justify-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 lg:py-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs lg:text-sm font-semibold text-slate-600 whitespace-nowrap flex-shrink-0" title="Sync from cloud and reload">
+              <svg id="refreshIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.8" stroke-linecap="round" d="M20 11a8 8 0 0 0-15.3-3M4 5v4h4M4 13a8 8 0 0 0 15.3 3M20 19v-4h-4"/></svg>
+              <span class="hidden sm:inline">Refresh</span>
+            </button>
+          </div>
           </section>
 
           <div
@@ -1197,6 +1170,33 @@
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================= LOGIN MODAL ========================= -->
+    <div id="loginModal" class="fixed inset-0 z-[90] hidden" role="dialog" aria-modal="true" aria-label="Admin Login">
+      <div id="loginModalBackdrop" class="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"></div>
+      <div class="relative min-h-full flex items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 login-modal">
+          <div class="flex items-center justify-between mb-5">
+            <h2 class="text-xl font-black text-slate-900">Admin Login</h2>
+            <button id="closeLoginModalBtn" type="button" class="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 flex items-center justify-center">✕</button>
+          </div>
+          <form id="loginForm">
+            <div class="space-y-4">
+              <div>
+                <label class="field-label" for="loginUsername">Username</label>
+                <input id="loginUsername" type="text" class="field-input" placeholder="admin" autocomplete="username" value="admin" />
+              </div>
+              <div>
+                <label class="field-label" for="loginPassword">Password</label>
+                <input id="loginPassword" type="password" class="field-input" placeholder="Enter password" autocomplete="current-password" />
+              </div>
+              <button type="submit" class="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm">Log In</button>
+            </div>
+          </form>
+          <p id="loginError" class="mt-3 text-center text-xs text-red-600 hidden">Invalid username or password.</p>
         </div>
       </div>
     </div>
@@ -1840,6 +1840,9 @@
       let users = loadUsers();
       let importCustomMappings = [];
       let importedHeaders = loadImportedHeaders();
+
+      // ---------- LOGIN STATE ----------
+      let isLoggedIn = false;
 
       function loadImportedHeaders() {
         try {
@@ -2536,6 +2539,180 @@
         if (priority && !priority.value) priority.value = "all";
       }
 
+      // ---------- LOGIN FUNCTIONS ----------
+      function openLoginModal() {
+        document.getElementById("loginModal").classList.remove("hidden");
+        document.body.classList.add("overflow-hidden");
+        document.getElementById("loginError").classList.add("hidden");
+        document.getElementById("loginUsername").value = "admin";
+        setTimeout(() => document.getElementById("loginUsername").focus(), 100);
+      }
+
+      function closeLoginModal() {
+        document.getElementById("loginModal").classList.add("hidden");
+        document.body.classList.remove("overflow-hidden");
+      }
+
+      function login(username, password) {
+      if (username === "admin" && password === "password") {
+        isLoggedIn = true;
+        closeLoginModal();
+        updateLoginUI();
+        render(); // <--- add this
+        toast("✅ Logged in as Admin", "success");
+        return true;
+      } else {
+        document.getElementById("loginError").classList.remove("hidden");
+        return false;
+      }
+    }
+
+    function logout() {
+      isLoggedIn = false;
+      updateLoginUI();
+      render(); // <--- add this
+      toast("🔒 Logged out", "info");
+    }
+
+      function updateLoginUI() {
+        const loginBtn = document.getElementById("loginBtn");
+        const loginText = document.getElementById("loginBtnText");
+        if (isLoggedIn) {
+          loginText.textContent = "Logout";
+          loginBtn.classList.remove("bg-emerald-600", "hover:bg-emerald-700");
+          loginBtn.classList.add("bg-red-600", "hover:bg-red-700");
+        } else {
+          loginText.textContent = "Login";
+          loginBtn.classList.remove("bg-red-600", "hover:bg-red-700");
+          loginBtn.classList.add("bg-emerald-600", "hover:bg-emerald-700");
+        }
+        // Enable/disable editing controls
+        toggleEditability();
+      }
+
+      function requireLogin() {
+        if (!isLoggedIn) {
+          openLoginModal();
+          return false;
+        }
+        return true;
+      }
+
+      function toggleEditability() {
+        // Disable buttons and inputs that modify data when not logged in
+        const editActions = [
+          "newOrderBtn",
+          "importTopBtn",
+          "importSideBtn",
+          "openImportModalBtn",
+          "drawerEditBtn",
+          "drawerDuplicateBtn",
+          "drawerDeleteBtn",
+          "deleteFromEditBtn",
+          "addEditCustomFieldBtn",
+          "clearOrdersBtn",
+          "confirmImportBtn",
+          "settingsReset"
+        ];
+        editActions.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            if (!isLoggedIn) {
+              el.disabled = true;
+              el.classList.add("opacity-50", "cursor-not-allowed");
+            } else {
+              el.disabled = false;
+              el.classList.remove("opacity-50", "cursor-not-allowed");
+            }
+          }
+        });
+        // Status dropdowns in cards are dynamically generated – we handle in render via class.
+        // We'll also add a class to the body for CSS styling.
+        document.body.classList.toggle("readonly", !isLoggedIn);
+        // Update the import modal confirm button dynamically if open.
+        const confirmBtn = document.getElementById("confirmImportBtn");
+        if (confirmBtn) {
+          if (!isLoggedIn) {
+            confirmBtn.disabled = true;
+            confirmBtn.classList.add("opacity-50", "cursor-not-allowed");
+          } else {
+            // only enable if import is ready (handled by renderImportPreview)
+            // but we'll set it later in renderImportPreview
+          }
+        }
+      }
+
+      // Override all edit‑triggering functions to check login
+      const originalNewOrder = newOrder;
+      newOrder = function() {
+        if (!requireLogin()) return;
+        originalNewOrder();
+      };
+
+      const originalOpenEdit = openEdit;
+      openEdit = function(id) {
+        if (!requireLogin()) return;
+        originalOpenEdit(id);
+      };
+
+      const originalDeleteSelected = deleteSelected;
+      deleteSelected = function() {
+        if (!requireLogin()) return;
+        originalDeleteSelected();
+      };
+
+      const originalDeleteFromEdit = deleteFromEdit;
+      deleteFromEdit = function() {
+        if (!requireLogin()) return;
+        originalDeleteFromEdit();
+      };
+
+      const originalDuplicateSelected = duplicateSelected;
+      duplicateSelected = function() {
+        if (!requireLogin()) return;
+        originalDuplicateSelected();
+      };
+
+      const originalApplyImport = applyImport;
+      applyImport = function() {
+        if (!requireLogin()) return;
+        originalApplyImport();
+      };
+
+      const originalOpenImportModal = openImportModal;
+      openImportModal = function() {
+        if (!requireLogin()) return;
+        originalOpenImportModal();
+      };
+
+      const originalClearAllOrders = clearAllOrders;
+      clearAllOrders = function() {
+        if (!requireLogin()) return;
+        originalClearAllOrders();
+      };
+
+      // Also protect status change from card dropdown
+      const originalChangeStatusDirect = changeStatusDirect;
+      changeStatusDirect = function(id, newStatus) {
+        if (!requireLogin()) {
+          openLoginModal();
+          return;
+        }
+        originalChangeStatusDirect(id, newStatus);
+      };
+
+      // Protect drawer status change
+      const origDrawerStatusListener = document.getElementById("drawerStatusSelect").onchange;
+      document.getElementById("drawerStatusSelect").addEventListener("change", function(e) {
+        if (!requireLogin()) {
+          e.target.value = orders.find(o => o.id === selectedId)?.status || "Open";
+          return;
+        }
+        // original logic is in event binding below; we'll keep it.
+      });
+
+      // ---------- END LOGIN FUNCTIONS ----------
+
       function render() {
         initializeDashboardFilters();
         orders = orders.filter(Boolean).map((o, i) => ({
@@ -2659,10 +2836,20 @@
             openEdit(el.dataset.edit);
           });
         });
+        // Disable status dropdowns if not logged in
+        if (!isLoggedIn) {
+          grid.querySelectorAll("[data-status-select]").forEach(el => {
+            el.disabled = true;
+            el.classList.add("opacity-50", "cursor-not-allowed");
+          });
+        }
         updateUndoButtons();
+        toggleEditability(); // ensures UI reflects login state
       }
 
       function changeStatusDirect(id, newStatus) {
+        // This is now protected by the override above
+        // (the override calls this original function after login check)
         const o = orders.find((x) => x.id === id);
         if (!o) return;
         if (o.status === newStatus) return;
@@ -2699,6 +2886,8 @@
           "Overdue",
           "Cancelled",
         ];
+        // Disable status dropdown if not logged in
+        const disabledAttr = !isLoggedIn ? 'disabled="disabled"' : '';
 
         return `
         <article data-open="${esc(
@@ -2727,7 +2916,7 @@
         ).replace("border-", "")}" style="${statusClass(o.status)
           .split(" ")
           .map((c) => (c.startsWith("bg-") ? `background-color:${c};` : ""))
-          .join("")}">
+          .join("")}" ${disabledAttr}>
                 ${statusOpts
                   .map(
                     (s) =>
@@ -3298,6 +3487,7 @@
 
       // ========================= EDIT MODAL =========================
       function openEdit(id) {
+        // Now protected by login check wrapper
         const o = orders.find((x) => x.id === id);
         if (!o) return;
         editingId = id;
@@ -3621,6 +3811,7 @@
 
       // ====== DELETE FUNCTIONS (WORKING) ======
       function deleteFromEdit() {
+        // Protected by wrapper
         if (!editingId) return;
         const o = orders.find((x) => x.id === editingId);
         if (!o) return;
@@ -3646,6 +3837,7 @@
       }
 
       function deleteSelected() {
+        // Protected by wrapper
         if (!selectedId) return;
         const o = orders.find((x) => x.id === selectedId);
         if (!o) return;
@@ -3668,6 +3860,7 @@
 
       function deleteUserFromList(name) {
         if (!name) return;
+        if (!requireLogin()) return;
         openConfirmationModal({
           title: "Remove user",
           message: `Remove "${name}" from the user list? Work Orders assigned to them will become Unassigned.`,
@@ -3845,6 +4038,7 @@
 
       // ========================= NEW ORDER =========================
       function newOrder() {
+        // Protected by wrapper
         const o = {
           id: nextId(),
           title: "New Work Order",
@@ -4030,6 +4224,7 @@
 
       // ========================= DUPLICATE =========================
       function duplicateSelected() {
+        // Protected by wrapper
         if (!selectedId) return;
         const o = orders.find((x) => x.id === selectedId);
         if (!o) return;
@@ -4486,9 +4681,9 @@
                 )}" aria-label="Label for ${esc(field)}">
               </span><span data-import-status class="text-[9px] font-black ${
               mapped ? "text-emerald-600" : "text-slate-400"
-            }">${mapped ? "MAPPED" : "UNMAPPED"}${
+            }">${mapped ? "MAPPED" : "UNMAPPED"}${(
               required ? " • REQUIRED" : ""
-            }</span></span>
+            )}</span></span>
               ${typeOptions}
               ${headerControl}
               ${
@@ -4722,7 +4917,7 @@
           badge.textContent = "✓ READY TO IMPORT";
           badge.className =
             "inline-flex items-center px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black";
-          confirm.disabled = !importRows.length;
+          confirm.disabled = !importRows.length || !isLoggedIn;
         }
 
         const previewLimit = 3;
@@ -4811,6 +5006,7 @@
       }
 
       function clearAllOrders() {
+        // Protected by wrapper
         openConfirmationModal({
           title: "Clear all orders",
           message:
@@ -4833,6 +5029,7 @@
       }
 
       function openImportModal() {
+        // Protected by wrapper
         resetImportCenter();
         document.getElementById("importModal").classList.remove("hidden");
         document.body.classList.add("overflow-hidden");
@@ -4849,6 +5046,7 @@
       }
 
       function applyImport() {
+        // Protected by wrapper
         if (!importRows.length) {
           toast("Load a file or paste rows first.", "error");
           return;
@@ -5319,13 +5517,13 @@
                     o.title
                   )}</span>`
               )
-              .join("")}${
+              .join("")}${(
               ds.length > 3
                 ? `<span class="text-[9px] text-brand-600">${
                     ds.length - 3
                   } more</span>`
                 : ""
-            }</button>`;
+            )}</button>`;
           }).join("")}</div></div>`;
           body.querySelectorAll("[data-calendar-date]").forEach((b) =>
             b.addEventListener("click", () => {
@@ -5503,6 +5701,7 @@
           document
             .getElementById("settingsReset")
             .addEventListener("click", () => {
+              if (!requireLogin()) return;
               openConfirmationModal({
                 title: "Reset demo data",
                 message: "Reset all local work-order data to the demo records?",
@@ -5550,45 +5749,42 @@
         }
       });
       document.getElementById("refreshBtn").addEventListener("click", async () => {
-      const btn = document.getElementById("refreshBtn");
-      const icon = document.getElementById("refreshIcon");
-      const apiUrl = document.getElementById("importApiUrl").value.trim();
-      btn.disabled = true;
-      icon.classList.add("animate-spin");
-      try {
-        if (apiUrl) {
-          // If a custom API URL is entered, use that (unchanged behaviour)
-          const { headers, rows } = await fetchApiDataFromUrl(apiUrl);
-          showImportData(headers, rows, apiUrl, "api");
-          if (importMapping.title) {
-            applyImport();
+        const btn = document.getElementById("refreshBtn");
+        const icon = document.getElementById("refreshIcon");
+        const apiUrl = document.getElementById("importApiUrl").value.trim();
+        btn.disabled = true;
+        icon.classList.add("animate-spin");
+        try {
+          if (apiUrl) {
+            const { headers, rows } = await fetchApiDataFromUrl(apiUrl);
+            showImportData(headers, rows, apiUrl, "api");
+            if (importMapping.title) {
+              applyImport();
+              return;
+            }
+            toast("API data loaded. Review the mapping and confirm import.", "info");
             return;
           }
-          toast("API data loaded. Review the mapping and confirm import.", "info");
-          return;
-        }
 
-        // ✅ NEW: Pull data from the Worker/KV (cloud sync)
-        await loadSharedState();
-        currentPage = 1;
-        render();
-        if (selectedId && orders.some((o) => o.id === selectedId)) {
-          renderDrawer(selectedId);
-        } else if (selectedId) {
-          closeDrawer();
+          // Cloud sync
+          await loadSharedState();
+          currentPage = 1;
+          render();
+          if (selectedId && orders.some((o) => o.id === selectedId))
+            renderDrawer(selectedId);
+          else if (selectedId) closeDrawer();
+          toast("Dashboard synced from the cloud.", "success");
+        } catch (err) {
+          console.error(err);
+          toast(
+            "Could not sync from the cloud. Check your connection or the Worker.",
+            "error"
+          );
+        } finally {
+          btn.disabled = false;
+          icon.classList.remove("animate-spin");
         }
-        toast("Dashboard synced from the cloud.", "success");
-      } catch (err) {
-        console.error(err);
-        toast(
-          "Could not sync from the cloud. Check your connection or the Worker.",
-          "error"
-        );
-      } finally {
-        btn.disabled = false;
-        icon.classList.remove("animate-spin");
-      }
-    });
+      });
 
       document.getElementById("importTopBtn").addEventListener("click", () => {
         hideSectionPage();
@@ -5732,6 +5928,11 @@
       document
         .getElementById("drawerStatusSelect")
         .addEventListener("change", (e) => {
+          if (!requireLogin()) {
+            const o = orders.find((x) => x.id === selectedId);
+            if (o) e.target.value = o.status;
+            return;
+          }
           const o = orders.find((x) => x.id === selectedId);
           if (!o) return;
           const next = e.target.value;
@@ -5772,6 +5973,7 @@
       document
         .getElementById("addEditCustomFieldBtn")
         .addEventListener("click", () => {
+          if (!requireLogin()) return;
           const o = orders.find((x) => x.id === editingId);
           if (!o) return;
           if (!Array.isArray(o.customFields)) o.customFields = [];
@@ -5952,6 +6154,32 @@
           if (map[p]) showSectionPage(map[p]);
           toast("Section refreshed.", "success");
         });
+
+      // ========================= LOGIN EVENTS =========================
+      document.getElementById("loginBtn").addEventListener("click", () => {
+        if (isLoggedIn) {
+          logout();
+        } else {
+          openLoginModal();
+        }
+      });
+      document.getElementById("closeLoginModalBtn").addEventListener("click", closeLoginModal);
+      document.getElementById("loginModalBackdrop").addEventListener("click", closeLoginModal);
+      document.getElementById("loginForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const username = document.getElementById("loginUsername").value.trim();
+        const password = document.getElementById("loginPassword").value.trim();
+        login(username, password);
+      });
+      // Auto-login with pre-filled credentials on Enter key (if form not used)
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !document.getElementById("loginModal").classList.contains("hidden")) {
+          const username = document.getElementById("loginUsername").value.trim();
+          const password = document.getElementById("loginPassword").value.trim();
+          e.preventDefault();
+          login(username, password);
+        }
+      });
 
       // ========================= INIT =========================
       initializeDashboardFilters();
