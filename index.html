@@ -5550,42 +5550,45 @@
         }
       });
       document.getElementById("refreshBtn").addEventListener("click", async () => {
-        const btn = document.getElementById("refreshBtn");
-        const icon = document.getElementById("refreshIcon");
-        const apiUrl = document.getElementById("importApiUrl").value.trim();
-        btn.disabled = true;
-        icon.classList.add("animate-spin");
-        try {
-          if (apiUrl) {
-            const { headers, rows } = await fetchApiDataFromUrl(apiUrl);
-            showImportData(headers, rows, apiUrl, "api");
-            if (importMapping.title) {
-              applyImport();
-              return;
-            }
-            toast("API data loaded. Review the mapping and confirm import.", "info");
+      const btn = document.getElementById("refreshBtn");
+      const icon = document.getElementById("refreshIcon");
+      const apiUrl = document.getElementById("importApiUrl").value.trim();
+      btn.disabled = true;
+      icon.classList.add("animate-spin");
+      try {
+        if (apiUrl) {
+          // If a custom API URL is entered, use that (unchanged behaviour)
+          const { headers, rows } = await fetchApiDataFromUrl(apiUrl);
+          showImportData(headers, rows, apiUrl, "api");
+          if (importMapping.title) {
+            applyImport();
             return;
           }
-
-          orders = loadOrders();
-          history = loadHistory();
-          currentPage = 1;
-          render();
-          if (selectedId && orders.some((o) => o.id === selectedId))
-            renderDrawer(selectedId);
-          else if (selectedId) closeDrawer();
-          toast("Dashboard refreshed from saved data.", "success");
-        } catch (err) {
-          console.error(err);
-          toast(
-            "Could not refresh from the backend. Check the API endpoint and try again.",
-            "error"
-          );
-        } finally {
-          btn.disabled = false;
-          icon.classList.remove("animate-spin");
+          toast("API data loaded. Review the mapping and confirm import.", "info");
+          return;
         }
-      });
+
+        // ✅ NEW: Pull data from the Worker/KV (cloud sync)
+        await loadSharedState();
+        currentPage = 1;
+        render();
+        if (selectedId && orders.some((o) => o.id === selectedId)) {
+          renderDrawer(selectedId);
+        } else if (selectedId) {
+          closeDrawer();
+        }
+        toast("Dashboard synced from the cloud.", "success");
+      } catch (err) {
+        console.error(err);
+        toast(
+          "Could not sync from the cloud. Check your connection or the Worker.",
+          "error"
+        );
+      } finally {
+        btn.disabled = false;
+        icon.classList.remove("animate-spin");
+      }
+    });
 
       document.getElementById("importTopBtn").addEventListener("click", () => {
         hideSectionPage();
