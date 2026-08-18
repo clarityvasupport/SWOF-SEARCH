@@ -1,0 +1,15 @@
+{
+  "name": "SWOF-SEARCH",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:18",
+  "features": {},
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "SWOF-SEARCH",
+      "onAutoForward": "notify",
+      "requireLocalPort": false
+    }
+  },
+  "postCreateCommand": "npm install",
+  "remoteUser": "node"
+}
