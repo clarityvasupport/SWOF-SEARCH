@@ -1604,6 +1604,70 @@
       </div>
     </div>
 
+    <!-- ========================= IMAGE PREVIEW MODAL ========================= -->
+    <div id="imagePreviewModal" class="fixed inset-0 z-[80] hidden">
+      <div
+        id="imagePreviewModalBackdrop"
+        class="absolute inset-0 bg-slate-950/75 backdrop-blur-sm"
+      ></div>
+      <div class="relative min-h-full flex items-center justify-center p-4 sm:p-8">
+        <div class="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden">
+          <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+            <div>
+              <h3 class="text-sm font-black text-slate-800">Attachment preview</h3>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
+                <button
+                  id="zoomOutImagePreviewBtn"
+                  type="button"
+                  class="h-8 w-8 rounded-md hover:bg-slate-200 text-slate-700 text-lg font-bold"
+                  aria-label="Zoom out"
+                >
+                  −
+                </button>
+                <span id="imagePreviewZoomValue" class="min-w-[48px] text-center text-[11px] font-bold text-slate-700">100%</span>
+                <button
+                  id="zoomInImagePreviewBtn"
+                  type="button"
+                  class="h-8 w-8 rounded-md hover:bg-slate-200 text-slate-700 text-lg font-bold"
+                  aria-label="Zoom in"
+                >
+                  +
+                </button>
+              </div>
+              <button
+                id="resetImagePreviewZoomBtn"
+                type="button"
+                class="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
+              >
+                Reset
+              </button>
+              <button
+                id="closeImagePreviewModalBtn"
+                type="button"
+                class="w-9 h-9 rounded-lg hover:bg-slate-100 text-slate-500 flex items-center justify-center text-xl"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          <div class="p-4 sm:p-6 bg-slate-50">
+            <div id="imagePreviewModalViewport" class="max-h-[72vh] overflow-auto rounded-xl border border-slate-200 bg-white p-2">
+              <img
+                id="imagePreviewModalImg"
+                src=""
+                alt="Full attachment preview"
+                draggable="false"
+                class="mx-auto block max-w-full rounded-xl bg-white shadow-sm transition-transform duration-150 ease-out cursor-grab active:cursor-grabbing select-none"
+                style="touch-action: none; user-select: none;"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ========================= TOASTS ========================= -->
     <div
       id="toastStack"
@@ -1761,26 +1825,27 @@
 
       function loadImportedHeaders() {
         try {
-          return JSON.parse(localStorage.getItem(IMPORTED_HEADERS_KEY) || "[]");
-        } catch {
-          return [];
-        }
+          const fromStorage = JSON.parse(localStorage.getItem(IMPORTED_HEADERS_KEY) || "[]");
+          if (Array.isArray(fromStorage)) return fromStorage;
+        } catch {}
+        return [];
       }
 
       function saveImportedHeaders() {
-        localStorage.setItem(
-          IMPORTED_HEADERS_KEY,
-          JSON.stringify(importedHeaders)
-        );
+        try {
+          localStorage.setItem(IMPORTED_HEADERS_KEY, JSON.stringify(importedHeaders));
+        } catch {}
+        syncSharedStorage();
       }
 
       function loadDisplayConfig() {
         try {
+          const fromStorage = JSON.parse(localStorage.getItem(DISPLAY_CONFIG_KEY) || "{}");
           return {
             cardDateSource: "dueDate",
             cardDateLabel: "Due Date",
             cardExtraFields: [],
-            ...JSON.parse(localStorage.getItem(DISPLAY_CONFIG_KEY) || "{}"),
+            ...fromStorage,
           };
         } catch {
           return {
@@ -1792,7 +1857,10 @@
       }
 
       function saveDisplayConfig() {
-        localStorage.setItem(DISPLAY_CONFIG_KEY, JSON.stringify(displayConfig));
+        try {
+          localStorage.setItem(DISPLAY_CONFIG_KEY, JSON.stringify(displayConfig));
+        } catch {}
+        syncSharedStorage();
       }
 
       function loadUsers() {
@@ -1815,7 +1883,66 @@
       }
 
       function saveUsers() {
-        localStorage.setItem(USERS_KEY, JSON.stringify(users));
+        try {
+          localStorage.setItem(USERS_KEY, JSON.stringify(users));
+        } catch {}
+        syncSharedStorage();
+      }
+
+      async function syncSharedStorage() {
+        const payload = {
+          orders: Array.isArray(orders) ? orders : [],
+          history: Array.isArray(history) ? history : [],
+          displayConfig: displayConfig && typeof displayConfig === "object" ? displayConfig : {},
+          users: Array.isArray(users) ? users : [],
+          importedHeaders: Array.isArray(importedHeaders) ? importedHeaders : [],
+        };
+
+        try {
+          const res = await fetch("/api/data", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) throw new Error("shared sync failed");
+          const data = await res.json();
+          if (data && data.data) {
+            if (Array.isArray(data.data.orders)) orders = data.data.orders;
+            if (Array.isArray(data.data.history)) history = data.data.history;
+            if (data.data.displayConfig && typeof data.data.displayConfig === "object") displayConfig = data.data.displayConfig;
+            if (Array.isArray(data.data.users)) users = data.data.users;
+            if (Array.isArray(data.data.importedHeaders)) importedHeaders = data.data.importedHeaders;
+          }
+        } catch {
+          // Fallback to browser storage if the shared backend is unavailable.
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            localStorage.setItem(DISPLAY_CONFIG_KEY, JSON.stringify(displayConfig));
+            localStorage.setItem(USERS_KEY, JSON.stringify(users));
+            localStorage.setItem(IMPORTED_HEADERS_KEY, JSON.stringify(importedHeaders));
+          } catch {}
+        }
+      }
+
+      async function loadSharedState() {
+        try {
+          const res = await fetch("/api/data", { cache: "no-store" });
+          if (!res.ok) throw new Error("shared load failed");
+          const data = await res.json();
+          if (data && data.orders) orders = Array.isArray(data.orders) ? data.orders : orders;
+          if (data && data.history) history = Array.isArray(data.history) ? data.history : history;
+          if (data && data.displayConfig && typeof data.displayConfig === "object") displayConfig = data.displayConfig;
+          if (data && data.users) users = Array.isArray(data.users) ? data.users : users;
+          if (data && data.importedHeaders) importedHeaders = Array.isArray(data.importedHeaders) ? data.importedHeaders : importedHeaders;
+        } catch {
+          // Fall back to the browser cache if the server is unavailable.
+          orders = loadOrders();
+          history = loadHistory();
+          displayConfig = loadDisplayConfig();
+          users = loadUsers();
+          importedHeaders = loadImportedHeaders();
+        }
       }
 
       function allKnownCustomLabels() {
@@ -2101,7 +2228,10 @@
       }
 
       function saveOrders() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+        } catch {}
+        syncSharedStorage();
       }
 
       function loadHistory() {
@@ -2135,23 +2265,26 @@
         if (payload.length > 180000) {
           history = history.slice(-3);
         }
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-10).map((entry) => ({
-          ...entry,
-          data: Array.isArray(entry.data)
-            ? entry.data.map((o) => {
-                const copy = { ...o };
-                delete copy._rawData;
-                delete copy._importHeaders;
-                if (Array.isArray(copy.activity)) {
-                  copy.activity = copy.activity.slice(-10);
-                }
-                if (Array.isArray(copy.customFields)) {
-                  copy.customFields = copy.customFields.slice(0, 20);
-                }
-                return copy;
-              })
-            : [],
-        }))));
+        try {
+          localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-10).map((entry) => ({
+            ...entry,
+            data: Array.isArray(entry.data)
+              ? entry.data.map((o) => {
+                  const copy = { ...o };
+                  delete copy._rawData;
+                  delete copy._importHeaders;
+                  if (Array.isArray(copy.activity)) {
+                    copy.activity = copy.activity.slice(-10);
+                  }
+                  if (Array.isArray(copy.customFields)) {
+                    copy.customFields = copy.customFields.slice(0, 20);
+                  }
+                  return copy;
+                })
+              : [],
+          }))));
+        } catch {}
+        syncSharedStorage();
       }
 
       function snapshot() {
@@ -3002,33 +3135,119 @@
           .join("");
       }
 
+      function extractDriveFileId(url) {
+        if (!url) return null;
+        const text = String(url).trim();
+        if (!text) return null;
+
+        const patterns = [
+          /\/d\/([a-zA-Z0-9_-]{10,})/i,
+          /\/file\/d\/([a-zA-Z0-9_-]{10,})/i,
+          /[?&]id=([a-zA-Z0-9_-]{10,})/i,
+          /[?&]export=view&id=([a-zA-Z0-9_-]{10,})/i,
+          /thumbnail\?id=([a-zA-Z0-9_-]{10,})/i,
+        ];
+
+        for (const pattern of patterns) {
+          const match = text.match(pattern);
+          if (match) return match[1];
+        }
+
+        if (/^[a-zA-Z0-9_-]{10,}$/.test(text)) return text;
+        return null;
+      }
+
+      function driveThumbUrl(fileId, size = 400) {
+        return `https://drive.google.com/thumbnail?sz=w${size}&id=${fileId}`;
+      }
+
+      function driveViewUrl(fileId) {
+        return `https://drive.google.com/uc?export=view&id=${fileId}`;
+      }
+
+      function driveFallbackUrl(fileId, size = 1600) {
+        return `https://lh3.googleusercontent.com/d/${fileId}=w${size}`;
+      }
+
+      function loadDriveImage(imgEl, sourceUrl, { size = 1600, onFail } = {}) {
+        const fileId = extractDriveFileId(sourceUrl);
+
+        if (!fileId) {
+          imgEl.src = sourceUrl || "";
+          imgEl.onerror = () => onFail?.(imgEl);
+          return;
+        }
+
+        const candidates = [
+          driveViewUrl(fileId),
+          driveFallbackUrl(fileId, size),
+          driveThumbUrl(fileId, Math.min(size, 400)),
+        ];
+
+        let idx = 0;
+        const tryNext = () => {
+          if (idx >= candidates.length) {
+            imgEl.onerror = null;
+            onFail?.(imgEl);
+            return;
+          }
+          imgEl.src = candidates[idx];
+          idx += 1;
+        };
+
+        imgEl.onerror = () => {
+          tryNext();
+        };
+        imgEl.onload = () => {
+          imgEl.style.display = "block";
+        };
+        tryNext();
+      }
+
+      function normalizeDriveId(value) {
+        return extractDriveFileId(value) || "";
+      }
+
       function normalizeMediaUrl(value) {
         const text = String(value ?? "").trim();
         if (!/^https?:\/\//i.test(text)) return text;
 
-        try {
-          const url = new URL(text);
-          const host = url.hostname.toLowerCase();
-
-          if (host.includes("drive.google.com")) {
-            const fileMatch = text.match(/\/file\/d\/([A-Za-z0-9_-]+)/i);
-            const idMatch = text.match(/[?&]id=([A-Za-z0-9_-]+)/i);
-            const id = fileMatch?.[1] || idMatch?.[1];
-            if (id) {
-              return `https://drive.google.com/uc?export=view&id=${id}`;
-            }
-          }
-
-          return text;
-        } catch {
-          return text;
+        const id = extractDriveFileId(text);
+        if (id) {
+          return driveThumbUrl(id, 200);
         }
+
+        return text;
+      }
+
+      function normalizeFullMediaUrl(value) {
+        const text = String(value ?? "").trim();
+        if (!/^https?:\/\//i.test(text)) return text;
+
+        const id = extractDriveFileId(text);
+        if (id) {
+          return driveViewUrl(id);
+        }
+
+        return text;
+      }
+
+      function normalizeThumbnailMediaUrl(value) {
+        const text = String(value ?? "").trim();
+        if (!/^https?:\/\//i.test(text)) return text;
+
+        const id = extractDriveFileId(text);
+        if (id) {
+          return driveThumbUrl(id, 400);
+        }
+
+        return text;
       }
 
       function isImageUrl(value) {
-        const text = normalizeMediaUrl(value);
+        const text = String(value ?? "").trim();
         if (!/^https?:\/\//i.test(text)) return false;
-        return /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i.test(text) || /drive.google.com\/uc\?export=view&id=/i.test(text);
+        return /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i.test(text) || /drive\.google\.com\/thumbnail\?sz=w\d+&id=/i.test(text) || /drive\.google\.com\/uc\?export=view&id=/i.test(text) || /lh3\.googleusercontent\.com\/d\//i.test(text);
       }
 
       function formatFieldValue(value) {
@@ -3038,13 +3257,16 @@
           return esc(text);
         }
 
-        const normalized = normalizeMediaUrl(text);
-        if (isImageUrl(normalized)) {
-          return `<a href="${esc(normalized)}" target="_blank" rel="noopener noreferrer" class="inline-flex"><img src="${esc(normalized)}" alt="Attachment preview" class="h-24 w-auto max-w-full rounded-lg border border-slate-200 object-cover shadow-sm hover:opacity-95" /></a>`;
+        const thumbUrl = normalizeThumbnailMediaUrl(text) || normalizeMediaUrl(text);
+        const fullPreview = normalizeFullMediaUrl(text) || thumbUrl;
+        if (isImageUrl(thumbUrl)) {
+          return `<button type="button" data-image-preview="${esc(fullPreview)}" data-image-alt="Attachment preview" class="inline-flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-200">
+            <img src="${esc(thumbUrl)}" alt="Attachment preview" class="h-24 w-auto max-w-full rounded-md object-cover" />
+          </button>`;
         }
 
-        return `<a href="${esc(normalized)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-brand-600 font-bold underline underline-offset-2 break-all hover:text-brand-700">${esc(
-          normalized
+        return `<a href="${esc(text)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-brand-600 font-bold underline underline-offset-2 break-all hover:text-brand-700">${esc(
+          text
         )}</a>`;
       }
 
@@ -3632,6 +3854,79 @@
 
       // ========================= STATUS MODAL =========================
       let pendingConfirmation = null;
+      let imagePreviewZoom = 1;
+      let imagePreviewTranslate = { x: 0, y: 0 };
+      let imagePreviewDrag = null;
+
+      function applyImagePreviewTransform() {
+        const image = document.getElementById("imagePreviewModalImg");
+        if (!image) return;
+
+        image.style.transform = `translate(${imagePreviewTranslate.x}px, ${imagePreviewTranslate.y}px) scale(${imagePreviewZoom})`;
+        image.style.transformOrigin = "center center";
+      }
+
+      function setImagePreviewZoom(level) {
+        const zoomValue = document.getElementById("imagePreviewZoomValue");
+        const image = document.getElementById("imagePreviewModalImg");
+        if (!image) return;
+
+        imagePreviewZoom = Math.min(Math.max(level, 1), 3);
+        applyImagePreviewTransform();
+
+        if (zoomValue) {
+          zoomValue.textContent = `${Math.round(imagePreviewZoom * 100)}%`;
+        }
+      }
+
+      function resetImagePreviewZoom() {
+        imagePreviewTranslate = { x: 0, y: 0 };
+        setImagePreviewZoom(1);
+      }
+
+      function openImagePreviewModal(src, alt = "Attachment preview") {
+        const modal = document.getElementById("imagePreviewModal");
+        const image = document.getElementById("imagePreviewModalImg");
+        if (!modal || !image || !src) return;
+
+        image.style.display = "none";
+        image.alt = alt;
+        image.onerror = null;
+        image.onload = null;
+        imagePreviewTranslate = { x: 0, y: 0 };
+        imagePreviewZoom = 1;
+        image.style.transform = "translate(0px, 0px) scale(1)";
+        const zoomValue = document.getElementById("imagePreviewZoomValue");
+        if (zoomValue) zoomValue.textContent = "100%";
+
+        loadDriveImage(image, src, {
+          size: 2000,
+          onFail: () => {
+            image.style.display = "none";
+            image.alt = "Image could not be loaded from Drive";
+          },
+        });
+
+        modal.classList.remove("hidden");
+        document.body.classList.add("overflow-hidden");
+      }
+
+      function closeImagePreviewModal() {
+        const modal = document.getElementById("imagePreviewModal");
+        if (!modal) return;
+        modal.classList.add("hidden");
+        const image = document.getElementById("imagePreviewModalImg");
+        if (image) image.src = "";
+        if (
+          document.getElementById("editModal").classList.contains("hidden") &&
+          document.getElementById("statusModal").classList.contains("hidden") &&
+          document.getElementById("confirmModal").classList.contains("hidden") &&
+          document.getElementById("importModal").classList.contains("hidden") &&
+          !selectedId
+        ) {
+          document.body.classList.remove("overflow-hidden");
+        }
+      }
 
       function openConfirmationModal({
         title,
@@ -5511,6 +5806,95 @@
             closeConfirmationModal();
           }
         });
+      const imagePreviewViewport = document.getElementById("imagePreviewModalViewport");
+      const imagePreviewImage = document.getElementById("imagePreviewModalImg");
+
+      imagePreviewViewport.addEventListener("pointerdown", (event) => {
+        if (imagePreviewZoom <= 1) return;
+        event.preventDefault();
+        imagePreviewDrag = {
+          startX: event.clientX,
+          startY: event.clientY,
+          originX: imagePreviewTranslate.x,
+          originY: imagePreviewTranslate.y,
+        };
+        imagePreviewViewport.setPointerCapture(event.pointerId);
+      });
+
+      imagePreviewViewport.addEventListener("pointermove", (event) => {
+        if (!imagePreviewDrag || imagePreviewZoom <= 1) return;
+        event.preventDefault();
+
+        const deltaX = event.clientX - imagePreviewDrag.startX;
+        const deltaY = event.clientY - imagePreviewDrag.startY;
+        imagePreviewTranslate = {
+          x: imagePreviewDrag.originX + deltaX,
+          y: imagePreviewDrag.originY + deltaY,
+        };
+        applyImagePreviewTransform();
+      });
+
+      imagePreviewViewport.addEventListener("pointerup", () => {
+        imagePreviewDrag = null;
+      });
+
+      imagePreviewViewport.addEventListener("pointerleave", () => {
+        imagePreviewDrag = null;
+      });
+
+      document
+        .getElementById("closeImagePreviewModalBtn")
+        .addEventListener("click", closeImagePreviewModal);
+      document
+        .getElementById("zoomInImagePreviewBtn")
+        .addEventListener("click", () => setImagePreviewZoom(imagePreviewZoom + 0.2));
+      document
+        .getElementById("zoomOutImagePreviewBtn")
+        .addEventListener("click", () => setImagePreviewZoom(imagePreviewZoom - 0.2));
+      document
+        .getElementById("resetImagePreviewZoomBtn")
+        .addEventListener("click", resetImagePreviewZoom);
+      document
+        .getElementById("imagePreviewModalBackdrop")
+        .addEventListener("click", closeImagePreviewModal);
+      document.addEventListener("click", (event) => {
+        const trigger = event.target.closest("[data-image-preview]");
+        if (!trigger) return;
+        openImagePreviewModal(trigger.dataset.imagePreview, trigger.dataset.imageAlt || "Attachment preview");
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          if (!document.getElementById("imagePreviewModal").classList.contains("hidden")) {
+            closeImagePreviewModal();
+            return;
+          }
+          if (
+            !document.getElementById("importModal").classList.contains("hidden")
+          )
+            closeImportModal();
+          else if (
+            !document.getElementById("statusModal").classList.contains("hidden")
+          )
+            closeStatusModal();
+          else if (
+            !document.getElementById("editModal").classList.contains("hidden")
+          )
+            closeEdit();
+          else if (selectedId) closeDrawer();
+          else if (
+            !document.getElementById("sectionPage").classList.contains("hidden")
+          )
+            hideSectionPage();
+        }
+        if (
+          (e.ctrlKey || e.metaKey) &&
+          e.key.toLowerCase() === "z" &&
+          !e.target.matches("input,textarea,select")
+        ) {
+          e.preventDefault();
+          undoLast();
+        }
+      });
 
       document
         .getElementById("sectionBackBtn")
@@ -5548,43 +5932,17 @@
           toast("Section refreshed.", "success");
         });
 
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") {
-          if (
-            !document.getElementById("importModal").classList.contains("hidden")
-          )
-            closeImportModal();
-          else if (
-            !document.getElementById("statusModal").classList.contains("hidden")
-          )
-            closeStatusModal();
-          else if (
-            !document.getElementById("editModal").classList.contains("hidden")
-          )
-            closeEdit();
-          else if (selectedId) closeDrawer();
-          else if (
-            !document.getElementById("sectionPage").classList.contains("hidden")
-          )
-            hideSectionPage();
-        }
-        if (
-          (e.ctrlKey || e.metaKey) &&
-          e.key.toLowerCase() === "z" &&
-          !e.target.matches("input,textarea,select")
-        ) {
-          e.preventDefault();
-          undoLast();
-        }
-      });
-
       // ========================= INIT =========================
       initializeDashboardFilters();
-      orders = loadOrders();
-      history = loadHistory();
-      importedHeaders = loadImportedHeaders();
-      currentPage = 1;
-      render();
+      (async function initApp() {
+        await loadSharedState();
+        orders = Array.isArray(orders) && orders.length ? orders : loadOrders();
+        history = Array.isArray(history) ? history : loadHistory();
+        users = Array.isArray(users) && users.length ? users : loadUsers();
+        importedHeaders = Array.isArray(importedHeaders) ? importedHeaders : loadImportedHeaders();
+        currentPage = 1;
+        render();
+      })();
     </script>
   </body>
 </html>
