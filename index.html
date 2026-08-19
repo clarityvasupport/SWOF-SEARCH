@@ -5297,7 +5297,7 @@
           : '<p class="text-sm text-black/40">No rows to preview.</p>';
       }
 
-      function resetImportCenter() {
+      function resetImportCenter(keepUrl = false) {
         importRows = [];
         importHeaders = [];
         importMapping = {};
@@ -5307,50 +5307,88 @@
         importSourceName = "";
         importSourceType = "file";
         importFieldTypes = {};
-        document.getElementById("importSourceBadge").textContent =
-          "No data loaded";
+        document.getElementById("importSourceBadge").textContent = "No data loaded";
         document.getElementById("importFileName").textContent = "";
         document.getElementById("importRowCount").textContent = "";
-        document.getElementById("importMappingSummary").textContent =
-          "Load a file to begin.";
+        document.getElementById("importMappingSummary").textContent = "Load a file to begin.";
         document.getElementById("importMappingArea").classList.add("hidden");
         document.getElementById("importPreviewArea").classList.add("hidden");
-        document
-          .getElementById("importEmptyPreview")
-          .classList.remove("hidden");
+        document.getElementById("importEmptyPreview").classList.remove("hidden");
         document.getElementById("importReadyBadge").textContent = "WAITING";
-        document.getElementById("importReadyBadge").className =
-          "inline-flex items-center px-2 py-1 rounded-full bg-black/10 text-black/50 text-[10px] font-black";
+        document.getElementById("importReadyBadge").className = "inline-flex items-center px-2 py-1 rounded-full bg-black/10 text-black/50 text-[10px] font-black";
         document.getElementById("confirmImportBtn").disabled = true;
         document.getElementById("importPasteData").value = "";
-        document.getElementById("importApiUrl").value = "";
         document.getElementById("importFileInput").value = "";
+        // Only clear the API URL if keepUrl is false
+        if (!keepUrl) {
+          document.getElementById("importApiUrl").value = "";
+        } else {
+          // If we are keeping it, set it from localStorage if present
+          const stored = loadApiUrl();
+          if (stored) {
+            document.getElementById("importApiUrl").value = stored;
+          }
+        }
+      }
+
+      // ===== PERSIST IMPORT API URL =====
+      function saveApiUrl(url) {
+        try {
+          localStorage.setItem('import_api_url', url.trim());
+        } catch (e) {}
+      }
+
+      function loadApiUrl() {
+        try {
+          return localStorage.getItem('import_api_url') || '';
+        } catch (e) { return ''; }
+      }
+
+      async function autoSyncFromStoredApi() {
+        const url = loadApiUrl();
+        if (!url) return;
+        
+        const input = document.getElementById("importApiUrl");
+        if (input) input.value = url;
+        
+        try {
+          const { headers, rows } = await fetchApiDataFromUrl(url);
+          showImportData(headers, rows, url, "api");
+          if (importMapping.title) {
+            applyImport();
+            toast("🔄 Auto‑synced with external API on page load.", "success");
+          } else {
+            toast("⚠️ External API loaded, but title mapping missing – please check import center.", "warning");
+          }
+        } catch (err) {
+          console.warn("Auto‑sync from stored API failed:", err);
+        }
       }
 
       function clearAllOrders() {
-      openConfirmationModal({
-        title: "Clear all orders",
-        message: "This will permanently remove all current work orders from the dashboard. This action cannot be undone.",
-        confirmText: "Clear Orders",
-        confirmClass: "bg-red-600 hover:bg-red-700",
-        onConfirm: () => {
-          orders = [];
-          history = [];
-          users = [];               // Clear users
-          importedHeaders = [];     // Clear imported headers
-          saveOrders();
-          saveHistory();
-          saveUsers();
-          saveImportedHeaders();
-          updateUndoButtons();
-          render();
-          closeConfirmationModal();
-          closeImportModal();
-          resetImportCenter();
-          toast("Dashboard cleared. All work orders removed.", "error");
-        },
-      });
-    }
+        openConfirmationModal({
+          title: "Clear all orders",
+          message: "This will permanently remove all current work orders from the dashboard. This action cannot be undone.",
+          confirmText: "Clear Orders",
+          confirmClass: "bg-red-600 hover:bg-red-700",
+          onConfirm: () => {
+            orders = [];
+            history = [];
+            users = [];               // Clear users
+            importedHeaders = [];     // Clear imported headers
+            saveOrders();
+            saveHistory();
+            saveUsers();
+            saveImportedHeaders();
+            updateUndoButtons();
+            render();
+            closeConfirmationModal();
+            closeImportModal();
+            resetImportCenter();
+            toast("Dashboard cleared. All work orders removed.", "error");
+          },
+        });
+      }
 
       function openImportModal() {
         resetImportCenter();
@@ -5468,9 +5506,16 @@
         currentPage = 1;
 
         hideSectionPage();
+
+        // After successful import, save the URL and keep it
+        const apiUrl = document.getElementById("importApiUrl").value.trim();
+        if (apiUrl) {
+          saveApiUrl(apiUrl);
+        }
         closeImportModal();
-        resetImportCenter();
+        resetImportCenter(true);
         render();
+        toast("🌐 API URL saved for auto‑sync on refresh.", "info");
 
         // Update users from imported assignees
         const importedAssignees = new Set(
@@ -6910,6 +6955,7 @@
           : loadImportedHeaders();
         currentPage = 1;
         render();
+        await autoSyncFromStoredApi();
 
         // Mobile sidebar toggle (with auto-close toggle)
         const hamburger = document.getElementById("hamburgerBtn");
