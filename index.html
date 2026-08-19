@@ -47,14 +47,23 @@
         transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
       }
       @media (max-width: 1279px) {
-        #sidebarNav {
+        header {
+          height: 64px;
+          min-height: 64px;
+          max-height: 64px;
+          overflow: hidden;
+        }
+        header .flex-wrap {
+          flex-wrap: nowrap !important;
+        }
+      }
+      @media (max-width: 1279px) {
+      #sidebarNav {
         position: fixed;
-        top: 0;
+        top: 64px;
         left: 0;
         bottom: 0;
         width: 280px;
-        margin-top: 64px;    /* Push it down by header height */
-        height: calc(100vh - 64px);  /* Ensure full height minus header */
         background: #f69f1a;
         z-index: 40;
         transform: translateX(-100%);
@@ -65,10 +74,10 @@
         display: block !important;
         transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
       }
-        #sidebarNav.open {
-          transform: translateX(0);
-        }
+      #sidebarNav.open {
+        transform: translateX(0);
       }
+    }
       * {
         scrollbar-width: thin;
         scrollbar-color: #a4a4a4 transparent;
