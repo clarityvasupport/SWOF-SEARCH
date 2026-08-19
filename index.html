@@ -2018,10 +2018,10 @@
 
     <script>
       // =========================================================
-      // WORK ORDER APP — v1.4.2
+      // WORK ORDER APP — v1.5.2
       // =========================================================
 
-      const APP_VERSION = "1.4.2";
+      const APP_VERSION = "1.5.2";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -5319,6 +5319,7 @@
         // Only clear the API URL if keepUrl is false
         if (!keepUrl) {
           document.getElementById("importApiUrl").value = "";
+          clearMappingConfig();
         } else {
           // If we are keeping it, set it from localStorage if present
           const stored = loadApiUrl();
@@ -5349,17 +5350,82 @@
         if (input) input.value = url;
         
         try {
+          // Fetch the fresh data
           const { headers, rows } = await fetchApiDataFromUrl(url);
-          showImportData(headers, rows, url, "api");
-          if (importMapping.title) {
-            applyImport();
-            toast("🔄 Auto‑synced with external API on page load.", "success");
+          
+          // Try to load the saved mapping configuration
+          const savedConfig = loadMappingConfig();
+          
+          if (savedConfig && savedConfig.mapping && savedConfig.mapping.title) {
+            // RESTORE SAVED MAPPING
+            importHeaders = savedConfig.headers || headers;
+            importRows = rows;
+            importSourceName = savedConfig.sourceName || url;
+            importSourceType = "api";
+            importMapping = savedConfig.mapping || {};
+            importFieldLabels = savedConfig.fieldLabels || {};
+            importFieldTypes = savedConfig.fieldTypes || {};
+            importCustomMappings = savedConfig.customMappings || [];
+            
+            // Show the import data with the saved mapping
+            document.getElementById("importSourceBadge").textContent = url;
+            document.getElementById("importRowCount").textContent = `${rows.length} rows`;
+            document.getElementById("importMappingSummary").textContent = `Restored saved mapping for ${headers.length} source columns and ${rows.length} data rows.`;
+            document.getElementById("importMappingArea").classList.remove("hidden");
+            document.getElementById("importPreviewArea").classList.remove("hidden");
+            document.getElementById("importEmptyPreview").classList.add("hidden");
+            
+            // Render with the saved mapping
+            renderImportMapping();
+            renderImportPreview();
+            
+            // Auto-apply the import
+            if (importMapping.title) {
+              applyImport();
+              toast("🔄 Auto‑synced with saved mapping on page load.", "success");
+            }
           } else {
-            toast("⚠️ External API loaded, but title mapping missing – please check import center.", "warning");
+            // No saved mapping – use inference as before
+            showImportData(headers, rows, url, "api");
+            if (importMapping.title) {
+              applyImport();
+              toast("🔄 Auto‑synced with inferred mapping on page load.", "success");
+            } else {
+              toast("⚠️ External API loaded, but title mapping missing – please check import center.", "warning");
+            }
           }
         } catch (err) {
           console.warn("Auto‑sync from stored API failed:", err);
         }
+      }
+
+      // ===== PERSIST MAPPING CONFIGURATION =====
+      function saveMappingConfig() {
+        try {
+          const config = {
+            mapping: importMapping || {},
+            fieldLabels: importFieldLabels || {},
+            fieldTypes: importFieldTypes || {},
+            customMappings: importCustomMappings || [],
+            headers: importHeaders || [],
+            sourceName: importSourceName || "",
+          };
+          localStorage.setItem('import_mapping_config', JSON.stringify(config));
+        } catch (e) {}
+      }
+
+      function loadMappingConfig() {
+        try {
+          const raw = localStorage.getItem('import_mapping_config');
+          if (!raw) return null;
+          return JSON.parse(raw);
+        } catch (e) { return null; }
+      }
+
+      function clearMappingConfig() {
+        try {
+          localStorage.removeItem('import_mapping_config');
+        } catch (e) {}
       }
 
       function clearAllOrders() {
@@ -5504,15 +5570,16 @@
 
         hideSectionPage();
 
-        // After successful import, save the URL and keep it
+        // After successful import, save the URL AND the mapping
         const apiUrl = document.getElementById("importApiUrl").value.trim();
         if (apiUrl) {
           saveApiUrl(apiUrl);
+          saveMappingConfig(); // <- THIS IS NEW
         }
         closeImportModal();
         resetImportCenter(true);
         render();
-        toast("🌐 API URL saved for auto‑sync on refresh.", "info");
+        toast("🌐 API URL and mapping saved for auto‑sync on refresh.", "info");
 
         // Update users from imported assignees
         const importedAssignees = new Set(
@@ -6449,6 +6516,7 @@
         .getElementById("importClearBtn")
         .addEventListener("click", () => {
           resetImportCenter();
+          clearMappingConfig();
           closeImportModal();
           toast("Import cleared.", "info");
         });
