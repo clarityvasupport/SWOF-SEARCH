@@ -2018,10 +2018,10 @@
 
     <script>
       // =========================================================
-      // WORK ORDER APP — v1.5.2
+      // WORK ORDER APP — v1.5.3
       // =========================================================
 
-      const APP_VERSION = "1.5.2";
+      const APP_VERSION = "1.5.3";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -5345,57 +5345,60 @@
       async function autoSyncFromStoredApi() {
         const url = loadApiUrl();
         if (!url) return;
-        
         const input = document.getElementById("importApiUrl");
         if (input) input.value = url;
-        
+        await fetchAndApplyWithSavedMapping(url);
+      }
+
+      async function fetchAndApplyWithSavedMapping(apiUrl) {
+        if (!apiUrl) return;
         try {
-          // Fetch the fresh data
-          const { headers, rows } = await fetchApiDataFromUrl(url);
-          
-          // Try to load the saved mapping configuration
+          const { headers, rows } = await fetchApiDataFromUrl(apiUrl);
           const savedConfig = loadMappingConfig();
-          
+
           if (savedConfig && savedConfig.mapping && savedConfig.mapping.title) {
-            // RESTORE SAVED MAPPING
             importHeaders = savedConfig.headers || headers;
             importRows = rows;
-            importSourceName = savedConfig.sourceName || url;
+            importSourceName = savedConfig.sourceName || apiUrl;
             importSourceType = "api";
             importMapping = savedConfig.mapping || {};
             importFieldLabels = savedConfig.fieldLabels || {};
             importFieldTypes = savedConfig.fieldTypes || {};
             importCustomMappings = savedConfig.customMappings || [];
-            
-            // Show the import data with the saved mapping
-            document.getElementById("importSourceBadge").textContent = url;
+
+            document.getElementById("importSourceBadge").textContent = apiUrl;
             document.getElementById("importRowCount").textContent = `${rows.length} rows`;
             document.getElementById("importMappingSummary").textContent = `Restored saved mapping for ${headers.length} source columns and ${rows.length} data rows.`;
             document.getElementById("importMappingArea").classList.remove("hidden");
             document.getElementById("importPreviewArea").classList.remove("hidden");
             document.getElementById("importEmptyPreview").classList.add("hidden");
-            
-            // Render with the saved mapping
+
             renderImportMapping();
             renderImportPreview();
-            
-            // Auto-apply the import
+
             if (importMapping.title) {
               applyImport();
-              toast("🔄 Auto‑synced with saved mapping on page load.", "success");
+              toast("🔄 Synced with saved mapping.", "success");
+              return true;
+            } else {
+              toast("⚠️ Saved mapping missing 'Title' – please check import center.", "warning");
+              return false;
             }
           } else {
-            // No saved mapping – use inference as before
-            showImportData(headers, rows, url, "api");
+            showImportData(headers, rows, apiUrl, "api");
             if (importMapping.title) {
               applyImport();
-              toast("🔄 Auto‑synced with inferred mapping on page load.", "success");
+              toast("🔄 Synced with inferred mapping.", "success");
+              return true;
             } else {
               toast("⚠️ External API loaded, but title mapping missing – please check import center.", "warning");
+              return false;
             }
           }
         } catch (err) {
-          console.warn("Auto‑sync from stored API failed:", err);
+          console.warn("Sync failed:", err);
+          toast("❌ Failed to sync with external API.", "error");
+          return false;
         }
       }
 
@@ -6454,47 +6457,35 @@
           window.scrollTo({ top: 0, behavior: "smooth" });
         }
       });
-      document
-        .getElementById("refreshBtn")
-        .addEventListener("click", async () => {
-          const btn = document.getElementById("refreshBtn");
-          const icon = document.getElementById("refreshIcon");
-          const apiUrl = document.getElementById("importApiUrl").value.trim();
-          btn.disabled = true;
-          icon.classList.add("animate-spin");
-          try {
-            if (apiUrl) {
-              const { headers, rows } = await fetchApiDataFromUrl(apiUrl);
-              showImportData(headers, rows, apiUrl, "api");
-              if (importMapping.title) {
-                applyImport();
-                return;
-              }
-              toast(
-                "API data loaded. Review the mapping and confirm import.",
-                "info"
-              );
-              return;
-            }
-
-            await loadSharedState();
-            currentPage = 1;
-            render();
-            if (selectedId && orders.some((o) => o.id === selectedId))
-              renderDrawer(selectedId);
-            else if (selectedId) closeDrawer();
-            toast("Dashboard synced from the cloud.", "success");
-          } catch (err) {
-            console.error(err);
-            toast(
-              "Could not sync from the cloud. Check your connection or the Worker.",
-              "error"
-            );
-          } finally {
+      document.getElementById("refreshBtn").addEventListener("click", async () => {
+        const btn = document.getElementById("refreshBtn");
+        const icon = document.getElementById("refreshIcon");
+        const apiUrl = document.getElementById("importApiUrl").value.trim();
+        btn.disabled = true;
+        icon.classList.add("animate-spin");
+        try {
+          if (apiUrl) {
+            await fetchAndApplyWithSavedMapping(apiUrl);
             btn.disabled = false;
             icon.classList.remove("animate-spin");
+            return;
           }
-        });
+
+          await loadSharedState();
+          currentPage = 1;
+          render();
+          if (selectedId && orders.some((o) => o.id === selectedId))
+            renderDrawer(selectedId);
+          else if (selectedId) closeDrawer();
+          toast("Dashboard synced from the cloud.", "success");
+        } catch (err) {
+          console.error(err);
+          toast("Could not sync from the cloud. Check your connection or the Worker.", "error");
+        } finally {
+          btn.disabled = false;
+          icon.classList.remove("animate-spin");
+        }
+      });
 
       document.getElementById("importTopBtn").addEventListener("click", () => {
         hideSectionPage();
