@@ -48,21 +48,23 @@
       }
       @media (max-width: 1279px) {
         #sidebarNav {
-          position: fixed;
-          top: 64px;
-          left: 0;
-          bottom: 0;
-          width: 280px;
-          background: #f69f1a;
-          z-index: 40;
-          transform: translateX(-100%);
-          overflow-y: auto;
-          padding: 1rem;
-          box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
-          border-right: 1px solid rgba(0, 0, 0, 0.1);
-          display: block !important;
-          transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-        }
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 280px;
+        margin-top: 64px;    /* Push it down by header height */
+        height: calc(100vh - 64px);  /* Ensure full height minus header */
+        background: #f69f1a;
+        z-index: 40;
+        transform: translateX(-100%);
+        overflow-y: auto;
+        padding: 1rem;
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
+        border-right: 1px solid rgba(0, 0, 0, 0.1);
+        display: block !important;
+        transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+      }
         #sidebarNav.open {
           transform: translateX(0);
         }
