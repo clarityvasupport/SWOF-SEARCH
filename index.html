@@ -44,6 +44,7 @@
       }
       /* Mobile sidebar overlay – no backdrop, just slide */
       #sidebarNav {
+        height: 100vh;
         transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
       }
       @media (max-width: 1279px) {
@@ -64,6 +65,7 @@
         left: 0;
         bottom: 0;
         width: 280px;
+        height: calc(100vh - 64px) !important; /* Force override */
         background: #f69f1a;
         z-index: 40;
         transform: translateX(-100%);
@@ -488,7 +490,7 @@
         <!-- ========================= LEFT NAV ========================= -->
         <aside
           id="sidebarNav"
-          class="hidden xl:block fixed top-0 left-0 h-screen w-[182px] bg-brand-orange text-black p-4 overflow-y-auto z-30 border-r border-black/10"
+          class="hidden xl:block fixed top-0 left-0 w-[182px] bg-brand-orange text-black p-4 overflow-y-auto z-30 border-r border-black/10"
         >
           <!-- Pin/Auto-close toggle (top-right) -->
           <div class="flex justify-end mb-2">
@@ -788,7 +790,7 @@
 
           <!-- FILTER BAR -->
           <section
-            class="bg-brand-pending text-black rounded-xl shadow-sm p-3 mb-4"
+            class="sticky top-[64px] z-20 bg-brand-pending text-black rounded-xl shadow-sm p-3 mb-4"
           >
             <div
               class="flex flex-nowrap items-center gap-1 lg:gap-2.5 overflow-x-auto"
