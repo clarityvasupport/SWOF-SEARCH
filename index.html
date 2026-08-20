@@ -2018,10 +2018,10 @@
 
     <script>
       // =========================================================
-      // WORK ORDER APP — v1.5.4
+      // WORK ORDER APP — v1.5.5
       // =========================================================
 
-      const APP_VERSION = "1.5.4";
+      const APP_VERSION = "1.5.5";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -5377,7 +5377,7 @@
             renderImportPreview();
 
             if (importMapping.title) {
-              applyImport();
+              applyImport(true);
               toast("🔄 Synced with saved mapping.", "success");
               return true;
             } else {
@@ -5387,7 +5387,7 @@
           } else {
             showImportData(headers, rows, apiUrl, "api");
             if (importMapping.title) {
-              applyImport();
+              applyImport(true);
               toast("🔄 Synced with inferred mapping.", "success");
               return true;
             } else {
@@ -5472,7 +5472,8 @@
           document.body.classList.remove("overflow-hidden");
       }
 
-      function applyImport() {
+      function applyImport(skipAuth = false) {
+      if (!skipAuth && !requireLogin()) return;
         if (!importRows.length) {
           toast("Load a file or paste rows first.", "error");
           return;
@@ -6494,21 +6495,18 @@
         try {
           if (apiUrl) {
             await fetchAndApplyWithSavedMapping(apiUrl);
-            btn.disabled = false;
-            icon.classList.remove("animate-spin");
-            return;
+          } else {
+            await loadSharedState();
+            currentPage = 1;
+            render();
+            if (selectedId && orders.some((o) => o.id === selectedId))
+              renderDrawer(selectedId);
+            else if (selectedId) closeDrawer();
+            toast("Dashboard synced from the cloud.", "success");
           }
-
-          await loadSharedState();
-          currentPage = 1;
-          render();
-          if (selectedId && orders.some((o) => o.id === selectedId))
-            renderDrawer(selectedId);
-          else if (selectedId) closeDrawer();
-          toast("Dashboard synced from the cloud.", "success");
         } catch (err) {
           console.error(err);
-          toast("Could not sync from the cloud. Check your connection or the Worker.", "error");
+          toast("Could not sync. Check your connection.", "error");
         } finally {
           btn.disabled = false;
           icon.classList.remove("animate-spin");
