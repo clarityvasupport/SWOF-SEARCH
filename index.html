@@ -1304,7 +1304,8 @@
               >
                 Clear Orders
               </button>
-            </div>
+              <button id="clearEverythingBtn" type="button" class="px-4 py-2.5 rounded-xl border border-red-500 bg-red-500/10 hover:bg-red-500/20 text-sm font-bold text-red-600 transition">Clear Everything</button>
+              </div>
             <div class="flex gap-2 w-full sm:w-auto">
               <button
                 id="closeImportBottomBtn"
@@ -2018,10 +2019,10 @@
 
     <script>
       // =========================================================
-      // WORK ORDER APP — v1.5.6
+      // WORK ORDER APP — v1.5.7
       // =========================================================
 
-      const APP_VERSION = "1.5.6";
+      const APP_VERSION = "1.5.7";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -5456,6 +5457,40 @@
         });
       }
 
+      function clearAllAndStopSync() {
+        openConfirmationModal({
+          title: "⚠️ Permanently clear all data",
+          message: "This will remove ALL work orders, users, history AND clear the saved API URL. Auto-sync will be disabled on refresh. Are you sure?",
+          confirmText: "Clear Everything",
+          confirmClass: "bg-red-600 hover:bg-red-700",
+          onConfirm: () => {
+            orders = [];
+            history = [];
+            users = [];
+            importedHeaders = [];
+            
+            clearMappingConfig();
+            localStorage.removeItem('import_api_url');
+            
+            document.getElementById("importApiUrl").value = "";
+            
+            saveOrders();
+            saveHistory();
+            saveUsers();
+            saveImportedHeaders();
+            
+            resetImportCenter(false);
+            
+            updateUndoButtons();
+            render();
+            closeConfirmationModal();
+            closeImportModal();
+            
+            toast("✅ All data cleared. Auto-sync disabled. Refresh will NOT restore from API.", "error");
+          },
+        });
+      }
+
       function openImportModal() {
         resetImportCenter();
         document.getElementById("importModal").classList.remove("hidden");
@@ -6542,6 +6577,7 @@
       document
         .getElementById("clearOrdersBtn")
         .addEventListener("click", clearAllOrders);
+      document.getElementById("clearEverythingBtn").addEventListener("click", clearAllAndStopSync);
       document
         .getElementById("confirmImportBtn")
         .addEventListener("click", applyImport);
