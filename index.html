@@ -2018,10 +2018,10 @@
 
     <script>
       // =========================================================
-      // WORK ORDER APP — v1.5.5
+      // WORK ORDER APP — v1.5.6
       // =========================================================
 
-      const APP_VERSION = "1.5.5";
+      const APP_VERSION = "1.5.6";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -6494,8 +6494,10 @@
         icon.classList.add("animate-spin");
         try {
           if (apiUrl) {
+            // Use the saved mapping (works without login)
             await fetchAndApplyWithSavedMapping(apiUrl);
           } else {
+            // Sync from Cloudflare KV (works without login)
             await loadSharedState();
             currentPage = 1;
             render();
@@ -6506,7 +6508,7 @@
           }
         } catch (err) {
           console.error(err);
-          toast("Could not sync. Check your connection.", "error");
+          toast("Could not sync. Check your connection or the Worker.", "error");
         } finally {
           btn.disabled = false;
           icon.classList.remove("animate-spin");
