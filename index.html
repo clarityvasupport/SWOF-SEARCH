@@ -58,27 +58,27 @@
         }
       }
       @media (max-width: 1279px) {
-      #sidebarNav {
-        position: fixed;
-        top: 64px;
-        left: 0;
-        bottom: 0;
-        width: 280px;
-        background: #f69f1a;
-        z-index: 40;
-        transform: translateX(-100%);
-        overflow-y: auto;
-        padding: 1rem;
-        padding-bottom: 3rem;
-        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
-        border-right: 1px solid rgba(0, 0, 0, 0.1);
-        display: block !important;
-        transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+        #sidebarNav {
+          position: fixed;
+          top: 64px;
+          left: 0;
+          bottom: 0;
+          width: 280px;
+          background: #f69f1a;
+          z-index: 40;
+          transform: translateX(-100%);
+          overflow-y: auto;
+          padding: 1rem;
+          padding-bottom: 3rem;
+          box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
+          border-right: 1px solid rgba(0, 0, 0, 0.1);
+          display: block !important;
+          transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        #sidebarNav.open {
+          transform: translateX(0);
+        }
       }
-      #sidebarNav.open {
-        transform: translateX(0);
-      }
-    }
       * {
         scrollbar-width: thin;
         scrollbar-color: #a4a4a4 transparent;
@@ -127,6 +127,17 @@
         50% {
           box-shadow: 0 0 0 7px rgba(50, 99, 99, 0);
         }
+      }
+      /* Fix dropdown options visibility in dark theme */
+      #fieldConfigTable select option {
+        background: #1e1e1c;
+        color: #ffffff;
+      }
+      #fieldConfigTable select option:hover {
+        background: #326363;
+      }
+      #fieldConfigTable select:focus {
+        outline: 2px solid #326363;
       }
       .status-dropdown-trigger {
         cursor: pointer;
@@ -437,8 +448,17 @@
             class="inline-flex items-center gap-1 px-1.5 sm:px-2 lg:px-3 py-1.5 lg:py-2 rounded-lg bg-white/20 hover:bg-white/30 text-black text-xs lg:text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition"
             title="Undo last dashboard change"
           >
-            <svg class="w-3 h-3 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-width="2" stroke-linecap="round" d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-2" />
+            <svg
+              class="w-3 h-3 lg:w-4 lg:h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-width="2"
+                stroke-linecap="round"
+                d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-2"
+              />
             </svg>
             <span class="hidden sm:inline">Undo</span>
             <span id="undoCount" class="text-xs text-black/50"></span>
@@ -450,10 +470,21 @@
             type="button"
             class="inline-flex items-center gap-1 px-1.5 sm:px-2.5 lg:px-3.5 py-1.5 lg:py-2.5 rounded-lg bg-brand-success hover:bg-[#6EAD30] text-white text-xs lg:text-sm font-bold shadow-sm transition whitespace-nowrap"
           >
-            <svg class="w-3 h-3 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-width="1.8" stroke-linecap="round" d="M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7-3a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm0 12v-1a4 4 0 0 0-2.5-3.7" />
+            <svg
+              class="w-3 h-3 lg:w-4 lg:h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-width="1.8"
+                stroke-linecap="round"
+                d="M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7-3a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm0 12v-1a4 4 0 0 0-2.5-3.7"
+              />
             </svg>
-            <span id="loginBtnText" class="hidden sm:inline text-xs lg:text-sm">Login</span>
+            <span id="loginBtnText" class="hidden sm:inline text-xs lg:text-sm"
+              >Login</span
+            >
           </button>
 
           <!-- IMPORT BUTTON -->
@@ -462,8 +493,17 @@
             type="button"
             class="inline-flex items-center gap-1 px-1.5 sm:px-2.5 lg:px-3 py-1.5 lg:py-2 rounded-lg bg-brand-success hover:bg-[#6EAD30] text-white text-xs lg:text-sm font-semibold transition whitespace-nowrap"
           >
-            <svg class="w-3 h-3 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-width="1.8" stroke-linecap="round" d="M12 3v12m0-12 4 4m-4-4L8 7M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+            <svg
+              class="w-3 h-3 lg:w-4 lg:h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-width="1.8"
+                stroke-linecap="round"
+                d="M12 3v12m0-12 4 4m-4-4L8 7M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"
+              />
             </svg>
             <span class="hidden sm:inline text-xs lg:text-sm">Import</span>
           </button>
@@ -474,10 +514,21 @@
             type="button"
             class="inline-flex items-center gap-1 px-1.5 sm:px-2.5 lg:px-3.5 py-1.5 lg:py-2.5 rounded-lg bg-brand-teal hover:bg-[#2A5454] text-white text-xs lg:text-sm font-bold shadow-sm transition whitespace-nowrap"
           >
-            <svg class="w-3 h-3 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-width="2" stroke-linecap="round" d="M12 5v14M5 12h14" />
+            <svg
+              class="w-3 h-3 lg:w-4 lg:h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-width="2"
+                stroke-linecap="round"
+                d="M12 5v14M5 12h14"
+              />
             </svg>
-            <span class="hidden sm:inline text-xs lg:text-sm">New Work Order</span>
+            <span class="hidden sm:inline text-xs lg:text-sm"
+              >New Work Order</span
+            >
             <span class="sm:hidden text-xs lg:text-sm">New</span>
           </button>
         </div>
@@ -487,7 +538,10 @@
     <main class="max-w-none mx-auto px-5 lg:px-6 py-4">
       <div class="grid grid-cols-1 xl:pl-[182px] gap-5 items-start">
         <!-- ========================= LEFT NAV ========================= -->
-        <aside id="sidebarNav" class="hidden xl:block fixed top-0 left-0 bottom-0 w-[182px] bg-brand-orange text-black p-4 overflow-y-auto z-30 border-r border-black/10">
+        <aside
+          id="sidebarNav"
+          class="hidden xl:block fixed top-0 left-0 bottom-0 w-[182px] bg-brand-orange text-black p-4 overflow-y-auto z-30 border-r border-black/10"
+        >
           <!-- Pin/Auto-close toggle (top-right) -->
           <div class="flex justify-end mb-2">
             <button
@@ -1304,8 +1358,14 @@
               >
                 Clear Orders
               </button>
-              <button id="clearEverythingBtn" type="button" class="px-4 py-2.5 rounded-xl border border-red-500 bg-red-500/10 hover:bg-red-500/20 text-sm font-bold text-red-600 transition">Clear Everything</button>
-              </div>
+              <button
+                id="clearEverythingBtn"
+                type="button"
+                class="px-4 py-2.5 rounded-xl border border-red-500 bg-red-500/10 hover:bg-red-500/20 text-sm font-bold text-red-600 transition"
+              >
+                Clear Everything
+              </button>
+            </div>
             <div class="flex gap-2 w-full sm:w-auto">
               <button
                 id="closeImportBottomBtn"
@@ -1487,7 +1547,10 @@
     </div>
 
     <!-- ========================= SECTION PAGES ========================= -->
-    <div id="sectionPage" class="hidden fixed left-0 xl:left-[182px] right-0 top-[64px] bottom-0 z-[35] bg-brand-dark text-white overflow-y-auto">
+    <div
+      id="sectionPage"
+      class="hidden fixed left-0 xl:left-[182px] right-0 top-[64px] bottom-0 z-[35] bg-brand-dark text-white overflow-y-auto"
+    >
       <div class="max-w-[1500px] mx-auto px-5 lg:px-8 py-6">
         <div class="flex items-center justify-between gap-4 mb-6">
           <div>
@@ -2019,10 +2082,10 @@
 
     <script>
       // =========================================================
-      // WORK ORDER APP — v1.5.7
+      // WORK ORDER APP — v1.5.8
       // =========================================================
 
-      const APP_VERSION = "1.5.7";
+      const APP_VERSION = "1.5.8";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -2085,6 +2148,8 @@
             cardDateSource: "dueDate",
             cardDateLabel: "Due Date",
             cardExtraFields: [],
+            calendarDateSource: "created",
+            fieldConfig: fromStorage.fieldConfig || {},
             ...fromStorage,
           };
         } catch {
@@ -2092,6 +2157,8 @@
             cardDateSource: "dueDate",
             cardDateLabel: "Due Date",
             cardExtraFields: [],
+            calendarDateSource: "created",
+            fieldConfig: {},
           };
         }
       }
@@ -2111,7 +2178,6 @@
           const saved = JSON.parse(localStorage.getItem(USERS_KEY) || "null");
           if (Array.isArray(saved) && saved.length) return saved;
         } catch {}
-        // Start with empty users – only added via import
         return [];
       }
 
@@ -2123,46 +2189,61 @@
       }
 
       async function syncSharedStorage() {
-      const payload = {
-        orders: Array.isArray(orders) ? orders : [],
-        history: Array.isArray(history) ? history : [],
-        displayConfig: displayConfig && typeof displayConfig === "object" ? displayConfig : {},
-        users: Array.isArray(users) ? users : [],
-        importedHeaders: Array.isArray(importedHeaders) ? importedHeaders : [],
-        password: storedPassword || "password", // ✅ FIXED: use storedPassword
-      };
+        const payload = {
+          orders: Array.isArray(orders) ? orders : [],
+          history: Array.isArray(history) ? history : [],
+          displayConfig:
+            displayConfig && typeof displayConfig === "object"
+              ? displayConfig
+              : {},
+          users: Array.isArray(users) ? users : [],
+          importedHeaders: Array.isArray(importedHeaders)
+            ? importedHeaders
+            : [],
+          password: storedPassword || "password",
+        };
 
-      try {
-        const res = await fetch("/api/data", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error("shared sync failed");
-        const data = await res.json();
-        if (data && data.data) {
-          if (Array.isArray(data.data.orders)) orders = data.data.orders;
-          if (Array.isArray(data.data.history)) history = data.data.history;
-          if (data.data.displayConfig && typeof data.data.displayConfig === "object") displayConfig = data.data.displayConfig;
-          if (Array.isArray(data.data.users)) users = data.data.users;
-          if (Array.isArray(data.data.importedHeaders)) importedHeaders = data.data.importedHeaders;
-        }
-        isOnline = true;
-        updateStorageBadge();
-      } catch {
-        // Fallback to localStorage
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-          localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-          localStorage.setItem(DISPLAY_CONFIG_KEY, JSON.stringify(displayConfig));
-          localStorage.setItem(USERS_KEY, JSON.stringify(users));
-          localStorage.setItem(IMPORTED_HEADERS_KEY, JSON.stringify(importedHeaders));
-          localStorage.setItem("wo_password", storedPassword);
-        } catch {}
-        isOnline = false;
-        updateStorageBadge();
+          const res = await fetch("/api/data", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) throw new Error("shared sync failed");
+          const data = await res.json();
+          if (data && data.data) {
+            if (Array.isArray(data.data.orders)) orders = data.data.orders;
+            if (Array.isArray(data.data.history)) history = data.data.history;
+            if (
+              data.data.displayConfig &&
+              typeof data.data.displayConfig === "object"
+            )
+              displayConfig = data.data.displayConfig;
+            if (Array.isArray(data.data.users)) users = data.data.users;
+            if (Array.isArray(data.data.importedHeaders))
+              importedHeaders = data.data.importedHeaders;
+          }
+          isOnline = true;
+          updateStorageBadge();
+        } catch {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            localStorage.setItem(
+              DISPLAY_CONFIG_KEY,
+              JSON.stringify(displayConfig)
+            );
+            localStorage.setItem(USERS_KEY, JSON.stringify(users));
+            localStorage.setItem(
+              IMPORTED_HEADERS_KEY,
+              JSON.stringify(importedHeaders)
+            );
+            localStorage.setItem("wo_password", storedPassword);
+          } catch {}
+          isOnline = false;
+          updateStorageBadge();
+        }
       }
-    }
 
       function updateStorageBadge() {
         const badge = document.getElementById("storageBadge");
@@ -2206,7 +2287,8 @@
               ? data.importedHeaders
               : importedHeaders;
           if (data && data.password) storedPassword = data.password;
-          if (data && data.history) history = Array.isArray(data.history) ? data.history : history;
+          if (data && data.history)
+            history = Array.isArray(data.history) ? data.history : history;
           isOnline = true;
           updateStorageBadge();
         } catch {
@@ -2215,12 +2297,12 @@
           displayConfig = loadDisplayConfig();
           users = loadUsers();
           importedHeaders = loadImportedHeaders();
-          // keep default storedPassword
           isOnline = false;
           updateStorageBadge();
         }
       }
 
+      // ===== CORE HELPER FUNCTIONS =====
       function allKnownCustomLabels() {
         return [
           ...new Set(
@@ -2231,6 +2313,179 @@
             )
           ),
         ];
+      }
+
+      function getAvailableDateFields() {
+        const fields = [{ value: "created", label: "Created Date" }];
+
+        if (orders.some((o) => o.dueDate && o.dueDate !== "")) {
+          fields.push({ value: "dueDate", label: "Due Date" });
+        }
+
+        const dateCustomFields = allKnownCustomLabels().filter((label) => {
+          return orders.some((o) => {
+            const val = customFieldValue(o, label);
+            return val && /^\d{4}-\d{2}-\d{2}/.test(val);
+          });
+        });
+
+        dateCustomFields.forEach((label) => {
+          fields.push({ value: `custom:${label}`, label: label });
+        });
+
+        return fields;
+      }
+
+      // ===== FIELD CONFIGURATION =====
+      function getFieldConfig(fieldKey) {
+        const defaults = {
+          title: {
+            label: "Title",
+            source: "title",
+            showOnCard: true,
+            showInTable: true,
+          },
+          status: {
+            label: "Status",
+            source: "status",
+            showOnCard: true,
+            showInTable: true,
+          },
+          priority: {
+            label: "Priority",
+            source: "priority",
+            showOnCard: false,
+            showInTable: true,
+          },
+          category: {
+            label: "Category",
+            source: "category",
+            showOnCard: false,
+            showInTable: false,
+          },
+          location: {
+            label: "Location",
+            source: "location",
+            showOnCard: true,
+            showInTable: true,
+          },
+          assignee: {
+            label: "Assigned To",
+            source: "assignee",
+            showOnCard: true,
+            showInTable: true,
+          },
+          requester: {
+            label: "Requester",
+            source: "requester",
+            showOnCard: false,
+            showInTable: false,
+          },
+          created: {
+            label: "Created Date",
+            source: "created",
+            showOnCard: false,
+            showInTable: true,
+          },
+          dueDate: {
+            label: "Due Date",
+            source: "dueDate",
+            showOnCard: true,
+            showInTable: true,
+          },
+        };
+
+        const fromConfig =
+          displayConfig.fieldConfig && displayConfig.fieldConfig[fieldKey];
+        if (fromConfig) {
+          return { ...defaults[fieldKey], ...fromConfig };
+        }
+        return defaults[fieldKey] || { label: fieldKey, source: fieldKey };
+      }
+
+      function getAllFieldConfigs() {
+        const coreFields = [
+          "title",
+          "status",
+          "priority",
+          "category",
+          "location",
+          "assignee",
+          "requester",
+          "created",
+          "dueDate",
+        ];
+        const configs = {};
+
+        coreFields.forEach((f) => {
+          configs[f] = getFieldConfig(f);
+        });
+
+        const customLabels = allKnownCustomLabels();
+        customLabels.forEach((label, idx) => {
+          const key = `custom_${idx + 1}`;
+          const existing =
+            displayConfig.fieldConfig && displayConfig.fieldConfig[key];
+          if (existing) {
+            configs[key] = { ...existing };
+          } else {
+            configs[key] = {
+              label: label,
+              source: `custom:${label}`,
+              showOnCard: true,
+              showInTable: true,
+            };
+          }
+        });
+
+        return configs;
+      }
+
+      function updateFieldConfig(fieldKey, updates) {
+        if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
+        displayConfig.fieldConfig[fieldKey] = {
+          ...displayConfig.fieldConfig[fieldKey],
+          ...updates,
+        };
+        saveDisplayConfig();
+      }
+
+      function addCustomFieldConfig(label, source) {
+        const allConfigs = getAllFieldConfigs();
+        const customKeys = Object.keys(allConfigs).filter((k) =>
+          k.startsWith("custom_")
+        );
+        const newKey = `custom_${customKeys.length + 1}`;
+        if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
+        displayConfig.fieldConfig[newKey] = {
+          label: label,
+          source: source,
+          showOnCard: true,
+          showInTable: true,
+        };
+        saveDisplayConfig();
+        return newKey;
+      }
+
+      function removeCustomFieldConfig(fieldKey) {
+        if (displayConfig.fieldConfig && displayConfig.fieldConfig[fieldKey]) {
+          delete displayConfig.fieldConfig[fieldKey];
+          saveDisplayConfig();
+        }
+      }
+
+      function allAvailableHeaders() {
+        const headers = new Set();
+        orders.forEach((o) => {
+          if (o._importHeaders) {
+            o._importHeaders.forEach((h) => headers.add(h));
+          }
+          if (o._rawData) {
+            Object.keys(o._rawData).forEach((h) => headers.add(h));
+          }
+        });
+        importedHeaders.forEach((h) => headers.add(h));
+        return [...headers].filter(Boolean);
       }
 
       function customFieldValue(o, label) {
@@ -2295,30 +2550,18 @@
         return "";
       }
 
-      function allAvailableHeaders(o) {
-        const std = [
-          "id",
-          "title",
-          "status",
-          "priority",
-          "category",
-          "location",
-          "assignee",
-          "requester",
-          "created",
-          "dueDate",
-        ];
-        const custom = (o.customFields || [])
-          .map((f) => String(f.label || "").trim())
-          .filter(Boolean);
-        const imported = o._importHeaders || [];
-        return [
-          ...new Set([...std, ...custom, ...imported, ...importedHeaders]),
-        ];
-      }
-
       function displayValue(o, source) {
         if (!source) return "";
+
+        if (
+          source &&
+          typeof source === "string" &&
+          source.startsWith("custom:")
+        ) {
+          const customLabel = source.replace("custom:", "");
+          return customFieldValue(o, customLabel);
+        }
+
         if (source === "id") return o.id;
         if (source === "title") return o.title;
         if (source === "status") return o.status;
@@ -2494,6 +2737,7 @@
         ],
       };
 
+      // ===== DATA PERSISTENCE =====
       function loadOrders() {
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
@@ -2828,12 +3072,11 @@
         if (priority && !priority.value) priority.value = "all";
       }
 
-      // ---------- LOGIN FUNCTIONS ----------
+      // ===== LOGIN FUNCTIONS =====
       function openLoginModal() {
         document.getElementById("loginModal").classList.remove("hidden");
         document.body.classList.add("overflow-hidden");
         document.getElementById("loginError").classList.add("hidden");
-        // No pre-filled values
         document.getElementById("loginUsername").value = "";
         document.getElementById("loginPassword").value = "";
         setTimeout(() => document.getElementById("loginUsername").focus(), 100);
@@ -2845,7 +3088,6 @@
       }
 
       function login(username, password) {
-        // Check against stored password (from KV) or fallback to "password"
         const validPassword = storedPassword || "password";
         if (username === "admin" && password === validPassword) {
           isLoggedIn = true;
@@ -2928,7 +3170,7 @@
         }
       }
 
-      // Override all edit‑triggering functions to check login
+      // ===== OVERRIDES =====
       const originalNewOrder = newOrder;
       newOrder = function () {
         if (!requireLogin()) return;
@@ -2960,9 +3202,9 @@
       };
 
       const originalApplyImport = applyImport;
-      applyImport = function () {
-        if (!requireLogin()) return;
-        originalApplyImport();
+      applyImport = function (skipAuth) {
+        if (!skipAuth && !requireLogin()) return;
+        originalApplyImport(skipAuth);
       };
 
       const originalOpenImportModal = openImportModal;
@@ -2996,8 +3238,7 @@
           }
         });
 
-      // ---------- END LOGIN FUNCTIONS ----------
-
+      // ===== RENDER FUNCTIONS =====
       function render() {
         initializeDashboardFilters();
         orders = orders.filter(Boolean).map((o, i) => ({
@@ -3151,6 +3392,8 @@
       }
 
       function cardHTML(o) {
+        const fieldConfigs = getAllFieldConfigs();
+
         const cardDateSource =
           o.cardDateSource || displayConfig.cardDateSource || "dueDate";
         const cardDateRaw = displayValue(o, cardDateSource);
@@ -3172,6 +3415,49 @@
           "Cancelled",
         ];
         const disabledAttr = !isLoggedIn ? 'disabled="disabled"' : "";
+
+        let locationValue = "—";
+        let locationLabel = "Location";
+        let dateValue = due;
+        let dateLabel = cardDateLabel;
+
+        const locationConfig = fieldConfigs.location;
+        if (locationConfig && locationConfig.showOnCard !== false) {
+          locationValue = displayValue(o, locationConfig.source) || "—";
+          locationLabel = locationConfig.label || "Location";
+        }
+
+        const dueDateConfig = fieldConfigs.dueDate;
+        if (dueDateConfig && dueDateConfig.showOnCard !== false) {
+          const rawDate = displayValue(o, dueDateConfig.source);
+          dateValue = rawDate ? formatDate(rawDate) : "—";
+          dateLabel = dueDateConfig.label || "Due Date";
+        }
+
+        let extraFieldsHTML = "";
+        const extraFields = Object.keys(fieldConfigs)
+          .filter((key) => {
+            const cfg = fieldConfigs[key];
+            return (
+              cfg.showOnCard !== false &&
+              !["title", "status", "location", "dueDate"].includes(key)
+            );
+          })
+          .slice(0, 4);
+
+        if (extraFields.length) {
+          extraFieldsHTML = `<div class="mt-2 grid grid-cols-2 gap-2">`;
+          extraFields.forEach((key) => {
+            const cfg = fieldConfigs[key];
+            const val = displayValue(o, cfg.source);
+            extraFieldsHTML += `<div class="bg-black/5 rounded-lg p-2.5"><p class="text-black/40 truncate">${esc(
+              cfg.label || key
+            )}</p><p class="font-bold text-black/80 mt-0.5 truncate">${esc(
+              val || "—"
+            )}</p></div>`;
+          });
+          extraFieldsHTML += `</div>`;
+        }
 
         return `
         <article data-open="${esc(
@@ -3219,34 +3505,20 @@
 
           <div class="mt-4 grid grid-cols-2 gap-2 text-xs">
             <div class="bg-black/5 rounded-lg p-2.5">
-              <p class="text-black/40">Location</p><p class="font-bold text-black/80 mt-0.5 truncate">${esc(
-                o.location || "—"
+              <p class="text-black/40">${esc(locationLabel)}</p>
+              <p class="font-bold text-black/80 mt-0.5 truncate">${esc(
+                locationValue
               )}</p>
             </div>
             <div class="bg-black/5 rounded-lg p-2.5">
-              <p class="text-black/40">${esc(
-                cardDateLabel
-              )}</p><p class="font-bold ${
-          overdue ? "text-red-600" : "text-black/80"
-        } mt-0.5">${esc(due)}</p>
+              <p class="text-black/40">${esc(dateLabel)}</p>
+              <p class="font-bold ${
+                overdue ? "text-red-600" : "text-black/80"
+              } mt-0.5">${esc(dateValue)}</p>
             </div>
           </div>
 
-          ${
-            displayConfig.cardExtraFields?.length
-              ? `<div class="mt-2 grid grid-cols-2 gap-2">${displayConfig.cardExtraFields
-                  .slice(0, 2)
-                  .map((label) => {
-                    const v = displayValue(o, label);
-                    return `<div class="bg-black/5 rounded-lg p-2.5"><p class="text-black/40 truncate">${esc(
-                      label
-                    )}</p><p class="font-bold text-black/80 mt-0.5 truncate">${esc(
-                      v || "—"
-                    )}</p></div>`;
-                  })
-                  .join("")}</div>`
-              : ""
-          }
+          ${extraFieldsHTML}
 
           <div class="mt-3 flex items-center gap-2 text-[11px] text-black/40">
             <span>Created ${esc(created)}</span>
@@ -3285,7 +3557,7 @@
         </article>`;
       }
 
-      // ========================= DRAWER =========================
+      // ===== DRAWER =====
       function openDrawer(id) {
         if (!orders.some((o) => o.id === id)) return;
         selectedId = id;
@@ -3626,6 +3898,7 @@
           .join("");
       }
 
+      // ===== IMAGE HELPERS =====
       function extractDriveFileId(url) {
         if (!url) return null;
         const text = String(url).trim();
@@ -3781,7 +4054,7 @@
         )}</div></div>`;
       }
 
-      // ========================= EDIT MODAL =========================
+      // ===== EDIT MODAL =====
       function openEdit(id) {
         const o = orders.find((x) => x.id === id);
         if (!o) return;
@@ -4107,7 +4380,7 @@
         );
       }
 
-      // ====== DELETE FUNCTIONS (WORKING) ======
+      // ===== DELETE FUNCTIONS =====
       function deleteFromEdit() {
         if (!editingId) return;
         const o = orders.find((x) => x.id === editingId);
@@ -4332,7 +4605,7 @@
         toast("✅ Work order saved successfully.", "success");
       }
 
-      // ========================= NEW ORDER =========================
+      // ===== NEW ORDER =====
       function newOrder() {
         const o = {
           id: nextId(),
@@ -4359,7 +4632,7 @@
         openEdit(o.id);
       }
 
-      // ========================= STATUS MODAL =========================
+      // ===== STATUS MODAL =====
       let pendingConfirmation = null;
       let imagePreviewZoom = 1;
       let imagePreviewTranslate = { x: 0, y: 0 };
@@ -4519,7 +4792,7 @@
         });
       }
 
-      // ========================= DUPLICATE =========================
+      // ===== DUPLICATE =====
       function duplicateSelected() {
         if (!selectedId) return;
         const o = orders.find((x) => x.id === selectedId);
@@ -4538,7 +4811,7 @@
         toast(`${copy.id} created from ${o.id}.`, "success");
       }
 
-      // ========================= IMPORT ENGINE =========================
+      // ===== IMPORT ENGINE =====
       function parseDelimited(text) {
         const lines = text
           .replace(/\r/g, "")
@@ -5305,24 +5578,27 @@
         importSourceName = "";
         importSourceType = "file";
         importFieldTypes = {};
-        document.getElementById("importSourceBadge").textContent = "No data loaded";
+        document.getElementById("importSourceBadge").textContent =
+          "No data loaded";
         document.getElementById("importFileName").textContent = "";
         document.getElementById("importRowCount").textContent = "";
-        document.getElementById("importMappingSummary").textContent = "Load a file to begin.";
+        document.getElementById("importMappingSummary").textContent =
+          "Load a file to begin.";
         document.getElementById("importMappingArea").classList.add("hidden");
         document.getElementById("importPreviewArea").classList.add("hidden");
-        document.getElementById("importEmptyPreview").classList.remove("hidden");
+        document
+          .getElementById("importEmptyPreview")
+          .classList.remove("hidden");
         document.getElementById("importReadyBadge").textContent = "WAITING";
-        document.getElementById("importReadyBadge").className = "inline-flex items-center px-2 py-1 rounded-full bg-black/10 text-black/50 text-[10px] font-black";
+        document.getElementById("importReadyBadge").className =
+          "inline-flex items-center px-2 py-1 rounded-full bg-black/10 text-black/50 text-[10px] font-black";
         document.getElementById("confirmImportBtn").disabled = true;
         document.getElementById("importPasteData").value = "";
         document.getElementById("importFileInput").value = "";
-        // Only clear the API URL if keepUrl is false
         if (!keepUrl) {
           document.getElementById("importApiUrl").value = "";
           clearMappingConfig();
         } else {
-          // If we are keeping it, set it from localStorage if present
           const stored = loadApiUrl();
           if (stored) {
             document.getElementById("importApiUrl").value = stored;
@@ -5333,14 +5609,16 @@
       // ===== PERSIST IMPORT API URL =====
       function saveApiUrl(url) {
         try {
-          localStorage.setItem('import_api_url', url.trim());
+          localStorage.setItem("import_api_url", url.trim());
         } catch (e) {}
       }
 
       function loadApiUrl() {
         try {
-          return localStorage.getItem('import_api_url') || '';
-        } catch (e) { return ''; }
+          return localStorage.getItem("import_api_url") || "";
+        } catch (e) {
+          return "";
+        }
       }
 
       async function autoSyncFromStoredApi() {
@@ -5368,11 +5646,21 @@
             importCustomMappings = savedConfig.customMappings || [];
 
             document.getElementById("importSourceBadge").textContent = apiUrl;
-            document.getElementById("importRowCount").textContent = `${rows.length} rows`;
-            document.getElementById("importMappingSummary").textContent = `Restored saved mapping for ${headers.length} source columns and ${rows.length} data rows.`;
-            document.getElementById("importMappingArea").classList.remove("hidden");
-            document.getElementById("importPreviewArea").classList.remove("hidden");
-            document.getElementById("importEmptyPreview").classList.add("hidden");
+            document.getElementById(
+              "importRowCount"
+            ).textContent = `${rows.length} rows`;
+            document.getElementById(
+              "importMappingSummary"
+            ).textContent = `Restored saved mapping for ${headers.length} source columns and ${rows.length} data rows.`;
+            document
+              .getElementById("importMappingArea")
+              .classList.remove("hidden");
+            document
+              .getElementById("importPreviewArea")
+              .classList.remove("hidden");
+            document
+              .getElementById("importEmptyPreview")
+              .classList.add("hidden");
 
             renderImportMapping();
             renderImportPreview();
@@ -5382,7 +5670,10 @@
               toast("🔄 Synced with saved mapping.", "success");
               return true;
             } else {
-              toast("⚠️ Saved mapping missing 'Title' – please check import center.", "warning");
+              toast(
+                "⚠️ Saved mapping missing 'Title' – please check import center.",
+                "warning"
+              );
               return false;
             }
           } else {
@@ -5392,7 +5683,10 @@
               toast("🔄 Synced with inferred mapping.", "success");
               return true;
             } else {
-              toast("⚠️ External API loaded, but title mapping missing – please check import center.", "warning");
+              toast(
+                "⚠️ External API loaded, but title mapping missing – please check import center.",
+                "warning"
+              );
               return false;
             }
           }
@@ -5414,35 +5708,39 @@
             headers: importHeaders || [],
             sourceName: importSourceName || "",
           };
-          localStorage.setItem('import_mapping_config', JSON.stringify(config));
+          localStorage.setItem("import_mapping_config", JSON.stringify(config));
         } catch (e) {}
       }
 
       function loadMappingConfig() {
         try {
-          const raw = localStorage.getItem('import_mapping_config');
+          const raw = localStorage.getItem("import_mapping_config");
           if (!raw) return null;
           return JSON.parse(raw);
-        } catch (e) { return null; }
+        } catch (e) {
+          return null;
+        }
       }
 
       function clearMappingConfig() {
         try {
-          localStorage.removeItem('import_mapping_config');
+          localStorage.removeItem("import_mapping_config");
         } catch (e) {}
       }
 
+      // ===== CLEAR FUNCTIONS =====
       function clearAllOrders() {
         openConfirmationModal({
           title: "Clear all orders",
-          message: "This will permanently remove all current work orders from the dashboard. This action cannot be undone.",
+          message:
+            "This will permanently remove all current work orders from the dashboard. This action cannot be undone.",
           confirmText: "Clear Orders",
           confirmClass: "bg-red-600 hover:bg-red-700",
           onConfirm: () => {
             orders = [];
             history = [];
-            users = [];               // Clear users
-            importedHeaders = [];     // Clear imported headers
+            users = [];
+            importedHeaders = [];
             saveOrders();
             saveHistory();
             saveUsers();
@@ -5460,7 +5758,8 @@
       function clearAllAndStopSync() {
         openConfirmationModal({
           title: "⚠️ Permanently clear all data",
-          message: "This will remove ALL work orders, users, history AND clear the saved API URL. Auto-sync will be disabled on refresh. Are you sure?",
+          message:
+            "This will remove ALL work orders, users, history AND clear the saved API URL. Auto-sync will be disabled on refresh. Are you sure?",
           confirmText: "Clear Everything",
           confirmClass: "bg-red-600 hover:bg-red-700",
           onConfirm: () => {
@@ -5468,25 +5767,28 @@
             history = [];
             users = [];
             importedHeaders = [];
-            
+
             clearMappingConfig();
-            localStorage.removeItem('import_api_url');
-            
+            localStorage.removeItem("import_api_url");
+
             document.getElementById("importApiUrl").value = "";
-            
+
             saveOrders();
             saveHistory();
             saveUsers();
             saveImportedHeaders();
-            
+
             resetImportCenter(false);
-            
+
             updateUndoButtons();
             render();
             closeConfirmationModal();
             closeImportModal();
-            
-            toast("✅ All data cleared. Auto-sync disabled. Refresh will NOT restore from API.", "error");
+
+            toast(
+              "✅ All data cleared. Auto-sync disabled. Refresh will NOT restore from API.",
+              "error"
+            );
           },
         });
       }
@@ -5508,7 +5810,7 @@
       }
 
       function applyImport(skipAuth = false) {
-      if (!skipAuth && !requireLogin()) return;
+        if (!skipAuth && !requireLogin()) return;
         if (!importRows.length) {
           toast("Load a file or paste rows first.", "error");
           return;
@@ -5535,42 +5837,36 @@
           const key = String(n.id).trim().toLowerCase();
           if (existing.has(key)) {
             const old = existing.get(key);
-            // Start with the old order
             const merged = { ...old };
-            
-            // Only overwrite fields that have truthy (non-empty) values in the new order
+
             for (let k in n) {
               const newVal = n[k];
-              // Skip undefined, null, or empty strings
-              if (newVal !== undefined && newVal !== null && newVal !== '') {
-                // Special handling for arrays/objects
-                if (Array.isArray(newVal) && k === 'activity') {
-                  // Activity needs merging (append)
-                  merged.activity = [...(old.activity || []), ...(newVal)];
-                } else if (Array.isArray(newVal) && k === 'customFields') {
-                  // CustomFields are handled separately below
-                } else if (typeof newVal === 'object' && !Array.isArray(newVal) && k !== 'customFields' && k !== 'activity') {
-                  // For other objects, shallow copy
+              if (newVal !== undefined && newVal !== null && newVal !== "") {
+                if (Array.isArray(newVal) && k === "activity") {
+                  merged.activity = [...(old.activity || []), ...newVal];
+                } else if (Array.isArray(newVal) && k === "customFields") {
+                } else if (
+                  typeof newVal === "object" &&
+                  !Array.isArray(newVal) &&
+                  k !== "customFields" &&
+                  k !== "activity"
+                ) {
                   merged[k] = { ...newVal };
                 } else {
-                  // For strings, numbers, booleans, and arrays
                   merged[k] = newVal;
                 }
               }
-              // If newVal is empty, we keep the old value (do nothing)
             }
-            
-            // Handle customFields with the dedicated merge function
-            merged.customFields = mergeCustomFields(old.customFields, n.customFields);
-            
-            // Handle activity merging (append new activities)
+
+            merged.customFields = mergeCustomFields(
+              old.customFields,
+              n.customFields
+            );
             merged.activity = [...(old.activity || []), ...(n.activity || [])];
-            
-            // Preserve import headers and raw data
-            merged._importHeaders = n._importHeaders || old._importHeaders || [];
+            merged._importHeaders =
+              n._importHeaders || old._importHeaders || [];
             merged._rawData = n._rawData || old._rawData || {};
 
-            // Ensure the ID stays consistent
             const idx = orders.findIndex(
               (o) => String(o.id).trim().toLowerCase() === key
             );
@@ -5637,18 +5933,16 @@
 
         hideSectionPage();
 
-        // After successful import, save the URL AND the mapping
         const apiUrl = document.getElementById("importApiUrl").value.trim();
         if (apiUrl) {
           saveApiUrl(apiUrl);
-          saveMappingConfig(); // <- THIS IS NEW
+          saveMappingConfig();
         }
         closeImportModal();
         resetImportCenter(true);
         render();
         toast("🌐 API URL and mapping saved for auto‑sync on refresh.", "info");
 
-        // Update users from imported assignees
         const importedAssignees = new Set(
           orders.map((o) => o.assignee).filter((a) => a && a !== "Unassigned")
         );
@@ -5677,6 +5971,7 @@
         }, 100);
       }
 
+      // ===== FILE/API IMPORT =====
       async function handleImportFile(file) {
         if (!file) return;
         const ext = (file.name || "").split(".").pop().toLowerCase();
@@ -5859,7 +6154,7 @@
         }
       }
 
-      // ========================= UI HELPERS =========================
+      // ===== UI HELPERS =====
       function toast(message, type = "info") {
         const colors = {
           success: "border-emerald-500 bg-emerald-500 text-black",
@@ -5896,7 +6191,7 @@
           validCount > 0 ? `(${validCount})` : "";
       }
 
-      // ========================= SECTION PAGES =========================
+      // ===== SECTION PAGES =====
       function showSectionPage(page) {
         if (page === "dashboard") {
           hideSectionPage();
@@ -5926,7 +6221,6 @@
           sub.textContent =
             "Complete work-order register. Search, filter, edit and manage every record.";
 
-          // Get unique assignees from orders
           const assignees = [
             ...new Set(
               orders
@@ -5938,20 +6232,34 @@
             .map((a) => `<option value="${esc(a)}">${esc(a)}</option>`)
             .join("");
 
+          const fieldConfigs = getAllFieldConfigs();
+          const tableColumns = Object.keys(fieldConfigs).filter((key) => {
+            return fieldConfigs[key].showInTable !== false;
+          });
+
+          let headersHTML = "";
+          tableColumns.forEach((key) => {
+            const cfg = fieldConfigs[key];
+            headersHTML += `<th class="px-4 py-3 text-left text-black/60">${esc(
+              cfg.label || key
+            )}</th>`;
+          });
+
           body.innerHTML = `<div class="bg-white text-black border border-black/10 rounded-2xl shadow-sm overflow-hidden">
-                <div class="p-5 border-b border-black/10">
-                  <div class="flex flex-wrap gap-3">
-                    <input id="allOrdersSearch" class="flex-1 min-w-[150px] rounded-xl border border-black/10 bg-white text-black placeholder:text-black/40 px-4 py-3 text-sm" placeholder="Search all work orders..." value="">
-                    <select id="allOrdersStatus" class="rounded-xl border border-black/10 bg-white text-black px-3 py-3 text-sm"><option value="all">All Status</option><option>Open</option><option>In Progress</option><option>On Hold</option><option>Completed</option><option>Overdue</option><option>Cancelled</option></select>
-                    <select id="allOrdersAssignee" class="rounded-xl border border-black/10 bg-white text-black px-3 py-3 text-sm"><option value="all">All Assignees</option>${assigneeOpts}</select>
-                    <input id="allOrdersDate" type="date" class="rounded-xl border border-black/10 bg-white text-black px-3 py-3 text-sm" />
-                    <button id="allOrdersRefresh" class="px-4 py-3 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white text-sm font-bold transition">↻ Refresh</button>
-                  </div>
-                </div>
-                <div class="overflow-x-auto"><table class="w-full min-w-[1000px] text-xs"><thead class="bg-black/5"><tr>
-                  <th class="px-4 py-3 text-left text-black/60">Work Order</th><th class="px-4 py-3 text-left text-black/60">Title</th><th class="px-4 py-3 text-left text-black/60">Status</th><th class="px-4 py-3 text-left text-black/60">Priority</th><th class="px-4 py-3 text-left text-black/60">Assigned To</th><th class="px-4 py-3 text-left text-black/60">Location</th><th class="px-4 py-3 text-left text-black/60">Created</th><th class="px-4 py-3 text-left text-black/60">Due</th><th class="px-4 py-3 text-right text-black/60">Action</th>
-                </tr></thead><tbody id="allOrdersBody"></tbody></table></div>
-              </div>`;
+        <div class="p-5 border-b border-black/10">
+          <div class="flex flex-wrap gap-3">
+            <input id="allOrdersSearch" class="flex-1 min-w-[150px] rounded-xl border border-black/10 bg-white text-black placeholder:text-black/40 px-4 py-3 text-sm" placeholder="Search all work orders..." value="">
+            <select id="allOrdersStatus" class="rounded-xl border border-black/10 bg-white text-black px-3 py-3 text-sm"><option value="all">All Status</option><option>Open</option><option>In Progress</option><option>On Hold</option><option>Completed</option><option>Overdue</option><option>Cancelled</option></select>
+            <select id="allOrdersAssignee" class="rounded-xl border border-black/10 bg-white text-black px-3 py-3 text-sm"><option value="all">All Assignees</option>${assigneeOpts}</select>
+            <input id="allOrdersDate" type="date" class="rounded-xl border border-black/10 bg-white text-black px-3 py-3 text-sm" />
+            <button id="allOrdersRefresh" class="px-4 py-3 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white text-sm font-bold transition">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="overflow-x-auto"><table class="w-full min-w-[1000px] text-xs"><thead class="bg-black/5"><tr>
+          ${headersHTML}
+          <th class="px-4 py-3 text-right text-black/60">Action</th>
+        </tr></thead><tbody id="allOrdersBody"></tbody></table></div>
+      </div>`;
 
           const paint = () => {
             const q = normalize(
@@ -5961,7 +6269,7 @@
             const assignee = document.getElementById("allOrdersAssignee").value;
             const date = document.getElementById("allOrdersDate").value;
 
-            const rows = orders
+            const filteredOrders = orders
               .filter((o) => {
                 const search = normalize(
                   [
@@ -5990,42 +6298,46 @@
                 String(b.created || "").localeCompare(String(a.created || ""))
               );
 
-            document.getElementById("allOrdersBody").innerHTML =
-              rows
-                .map(
-                  (o) =>
-                    `<tr class="border-t border-black/10 hover:bg-black/5">
-                      <td class="px-4 py-3 font-bold text-brand-orange">${esc(
-                        o.id
-                      )}</td>
-                      <td class="px-4 py-3 font-semibold text-black/80">${esc(
-                        o.title
-                      )}</td>
-                      <td class="px-4 py-3"><span class="px-2 py-1 rounded-full border ${statusClass(
-                        o.status
-                      )}">${esc(o.status)}</span></td>
-                      <td class="px-4 py-3 text-black/70">${esc(
-                        o.priority
-                      )}</td>
-                      <td class="px-4 py-3 text-black/70">${esc(
-                        o.assignee
-                      )}</td>
-                      <td class="px-4 py-3 text-black/70">${esc(
-                        o.location
-                      )}</td>
-                      <td class="px-4 py-3 text-black/70">${esc(
-                        formatDate(o.created)
-                      )}</td>
-                      <td class="px-4 py-3 text-black/70">${esc(
-                        formatDate(o.dueDate)
-                      )}</td>
-                      <td class="px-4 py-3 text-right"><button data-all-open="${esc(
-                        o.id
-                      )}" class="px-3 py-1.5 rounded-lg bg-brand-teal/20 text-brand-teal font-bold hover:bg-brand-teal/30 transition">Open</button></td>
-                    </tr>`
-                )
-                .join("") ||
-              `<tr><td colspan="9" class="p-12 text-center text-black/40">No work orders found.</td></tr>`;
+            let rowsHTML = "";
+            if (filteredOrders.length === 0) {
+              rowsHTML = `<tr><td colspan="${
+                tableColumns.length + 1
+              }" class="p-12 text-center text-black/40">No work orders found.</td></tr>`;
+            } else {
+              filteredOrders.forEach((o) => {
+                let rowHTML = `<tr class="border-t border-black/10 hover:bg-black/5">`;
+                tableColumns.forEach((key) => {
+                  const cfg = fieldConfigs[key];
+                  let val = displayValue(o, cfg.source);
+                  if (key === "status") {
+                    val = `<span class="px-2 py-1 rounded-full border ${statusClass(
+                      val
+                    )}">${esc(val)}</span>`;
+                  } else if (
+                    key === "created" ||
+                    key === "dueDate" ||
+                    key === "custom_" ||
+                    (key && key.startsWith("custom_"))
+                  ) {
+                    val = formatDate(val);
+                  } else {
+                    val = esc(val || "—");
+                  }
+                  rowHTML += `<td class="px-4 py-3 ${
+                    key === "title"
+                      ? "font-semibold text-black/80"
+                      : "text-black/70"
+                  }">${val}</td>`;
+                });
+                rowHTML += `<td class="px-4 py-3 text-right"><button data-all-open="${esc(
+                  o.id
+                )}" class="px-3 py-1.5 rounded-lg bg-brand-teal/20 text-brand-teal font-bold hover:bg-brand-teal/30 transition">Open</button></td>`;
+                rowHTML += `</tr>`;
+                rowsHTML += rowHTML;
+              });
+            }
+
+            document.getElementById("allOrdersBody").innerHTML = rowsHTML;
 
             document
               .querySelectorAll("[data-all-open]")
@@ -6050,7 +6362,6 @@
             .getElementById("allOrdersRefresh")
             .addEventListener("click", () => {
               orders = loadOrders();
-              // Update assignee dropdown
               const assignees = [
                 ...new Set(
                   orders
@@ -6075,85 +6386,128 @@
         if (page === "calendar") {
           title.textContent = "Calendar";
           sub.textContent =
-            "Work order due dates and upcoming maintenance activity.";
-          const month = new Date().getMonth(),
-            year = new Date().getFullYear();
-          const days = new Date(year, month + 1, 0).getDate();
-          const events = orders.filter((o) =>
-            String(o.dueDate || "").startsWith(
-              `${year}-${String(month + 1).padStart(2, "0")}`
-            )
-          );
-          body.innerHTML = `<div class="bg-white/5 text-white border border-white/10 rounded-2xl p-5">
-                <div class="flex items-center justify-between mb-4"><h3 class="font-black text-white">${new Date(
+            "Work orders grouped by date. Select which date to use below.";
+
+          const dateFields = getAvailableDateFields();
+          const currentSource = displayConfig.calendarDateSource || "created";
+
+          let dropdownHTML = `<select id="calendarDateSource" class="rounded-xl border border-white/10 bg-white/5 text-white px-3 py-2 text-sm">`;
+          dateFields.forEach((f) => {
+            dropdownHTML += `<option value="${f.value}" ${
+              f.value === currentSource ? "selected" : ""
+            }>${f.label}</option>`;
+          });
+          dropdownHTML += `</select>`;
+
+          function renderCalendar() {
+            const source = displayConfig.calendarDateSource || "created";
+            const month = new Date().getMonth(),
+              year = new Date().getFullYear();
+            const days = new Date(year, month + 1, 0).getDate();
+
+            const events = orders.filter((o) => {
+              const dateVal = displayValue(o, source);
+              return (
+                dateVal &&
+                String(dateVal).startsWith(
+                  `${year}-${String(month + 1).padStart(2, "0")}`
+                )
+              );
+            });
+
+            body.innerHTML = `<div class="bg-white/5 text-white border border-white/10 rounded-2xl p-5">
+              <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <h3 class="font-black text-white">${new Date(
                   year,
                   month,
                   1
                 ).toLocaleDateString(undefined, {
                   month: "long",
                   year: "numeric",
-                })}</h3><span class="text-xs text-white/40">${
-            events.length
-          } due this month</span></div>
-                <div class="grid grid-cols-7 gap-2 text-center text-xs font-bold text-white/40 mb-2">${[
-                  "Sun",
-                  "Mon",
-                  "Tue",
-                  "Wed",
-                  "Thu",
-                  "Fri",
-                  "Sat",
-                ]
-                  .map((x) => `<div>${x}</div>`)
-                  .join("")}</div>
-                <div class="grid grid-cols-7 gap-2">${Array.from(
-                  { length: new Date(year, month, 1).getDay() },
-                  () => "<div></div>"
-                ).join("")}${Array.from({ length: days }, (_, i) => {
-            const day = i + 1,
-              key = `${year}-${String(month + 1).padStart(2, "0")}-${String(
-                day
-              ).padStart(2, "0")}`,
-              ds = events.filter((o) => o.dueDate === key);
-            return `<button type="button" data-calendar-date="${key}" class="min-h-24 text-left p-2 rounded-xl border ${
-              ds.length
-                ? "border-brand-teal/30 bg-brand-teal/10"
-                : "border-white/10 bg-white/5"
-            } hover:border-brand-teal/50 transition"><span class="text-xs font-black text-white/70">${day}</span>${ds
-              .slice(0, 3)
-              .map(
-                (o) =>
-                  `<span class="block mt-2 text-[10px] font-bold text-white/60 truncate">${esc(
-                    o.title
-                  )}</span>`
-              )
-              .join("")}${
-              ds.length > 3
-                ? `<span class="text-[9px] text-brand-teal">${
-                    ds.length - 3
-                  } more</span>`
-                : ""
-            }</button>`;
-          }).join("")}</div></div>`;
-          body.querySelectorAll("[data-calendar-date]").forEach((b) =>
-            b.addEventListener("click", () => {
-              const date = b.dataset.calendarDate;
-              // Switch to All Work Orders page with date filter
-              document.querySelector('[data-nav-page="all-orders"]').click();
-              // Set date filter after page renders
-              setTimeout(() => {
-                const dateInput = document.getElementById("allOrdersDate");
-                if (dateInput) dateInput.value = date;
-                // Trigger paint
-                const searchInput = document.getElementById("allOrdersSearch");
-                if (searchInput) {
-                  const evt = new Event("input", { bubbles: true });
-                  searchInput.dispatchEvent(evt);
-                }
-              }, 100);
-            })
-          );
-        } else if (page === "reports") {
+                })}</h3>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-white/40">${
+                    events.length
+                  } orders</span>
+                  ${dropdownHTML}
+                </div>
+              </div>
+              <div class="grid grid-cols-7 gap-2 text-center text-xs font-bold text-white/40 mb-2">${[
+                "Sun",
+                "Mon",
+                "Tue",
+                "Wed",
+                "Thu",
+                "Fri",
+                "Sat",
+              ]
+                .map((x) => `<div>${x}</div>`)
+                .join("")}</div>
+              <div class="grid grid-cols-7 gap-2">${Array.from(
+                { length: new Date(year, month, 1).getDay() },
+                () => "<div></div>"
+              ).join("")}${Array.from({ length: days }, (_, i) => {
+              const day = i + 1,
+                key = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+                  day
+                ).padStart(2, "0")}`,
+                ds = events.filter((o) => {
+                  const dateVal = displayValue(o, source);
+                  return dateVal === key;
+                });
+              return `<button type="button" data-calendar-date="${key}" class="min-h-24 text-left p-2 rounded-xl border ${
+                ds.length
+                  ? "border-brand-teal/30 bg-brand-teal/10"
+                  : "border-white/10 bg-white/5"
+              } hover:border-brand-teal/50 transition"><span class="text-xs font-black text-white/70">${day}</span>${ds
+                .slice(0, 3)
+                .map(
+                  (o) =>
+                    `<span class="block mt-2 text-[10px] font-bold text-white/60 truncate">${esc(
+                      o.title
+                    )}</span>`
+                )
+                .join("")}${
+                ds.length > 3
+                  ? `<span class="text-[9px] text-brand-teal">${
+                      ds.length - 3
+                    } more</span>`
+                  : ""
+              }</button>`;
+            }).join("")}</div></div>`;
+
+            body.querySelectorAll("[data-calendar-date]").forEach((b) =>
+              b.addEventListener("click", () => {
+                const date = b.dataset.calendarDate;
+                document.querySelector('[data-nav-page="all-orders"]').click();
+                setTimeout(() => {
+                  const dateInput = document.getElementById("allOrdersDate");
+                  if (dateInput) dateInput.value = date;
+                  const searchInput =
+                    document.getElementById("allOrdersSearch");
+                  if (searchInput) {
+                    const evt = new Event("input", { bubbles: true });
+                    searchInput.dispatchEvent(evt);
+                  }
+                }, 100);
+              })
+            );
+
+            const dropdown = document.getElementById("calendarDateSource");
+            if (dropdown) {
+              dropdown.addEventListener("change", function () {
+                displayConfig.calendarDateSource = this.value;
+                saveDisplayConfig();
+                renderCalendar();
+              });
+            }
+          }
+
+          renderCalendar();
+          return;
+        }
+
+        if (page === "reports") {
           title.textContent = "Reports";
           sub.textContent =
             "Operational summary based on the current local work-order data.";
@@ -6173,11 +6527,13 @@
             statusCounts.Completed
           }</p></div></div>
               <div class="bg-white/5 border border-white/10 rounded-2xl overflow-hidden"><div class="p-5 font-black text-white">Status Distribution</div><table class="w-full text-sm"><thead class="bg-white/5"><tr><th class="px-4 py-3 text-left text-white/60">Status</th><th class="px-4 py-3 text-right text-white/60">Count</th><th class="px-4 py-3 text-right text-white/60">Share</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-        } else if (page === "analytics") {
+          return;
+        }
+
+        if (page === "analytics") {
           title.textContent = "Analytics";
           sub.textContent = "Filter work orders and analyze the data.";
 
-          // Build filter options
           const assignees = [
             ...new Set(
               orders
@@ -6257,7 +6613,6 @@
               );
             });
 
-            // Status chart
             const statusCounts = {};
             filtered.forEach((o) => {
               statusCounts[o.status] = (statusCounts[o.status] || 0) + 1;
@@ -6288,7 +6643,6 @@
                   .join("")
               : '<p class="text-white/40 text-sm">No data matching filters.</p>';
 
-            // Priority chart
             const priorityCounts = { Critical: 0, High: 0, Medium: 0, Low: 0 };
             filtered.forEach((o) => {
               if (priorityCounts[o.priority] !== undefined)
@@ -6316,7 +6670,6 @@
               )
               .join("");
 
-            // Assignee chart
             const assigneeCounts = {};
             filtered.forEach((o) => {
               const a = o.assignee || "Unassigned";
@@ -6353,9 +6706,11 @@
               document.getElementById("analyticsDateTo").value = "";
               renderAnalytics();
             });
-          // Initial render
           setTimeout(renderAnalytics, 50);
-        } else if (page === "activity") {
+          return;
+        }
+
+        if (page === "activity") {
           title.textContent = "Activity Log";
           sub.textContent =
             "Most recent actions recorded by this frontend prototype.";
@@ -6401,7 +6756,10 @@
                 openDrawer(b.dataset.activityId)
               )
             );
-        } else if (page === "users") {
+          return;
+        }
+
+        if (page === "users") {
           title.textContent = "Users";
           sub.textContent =
             "Assigned users detected from the current work-order records. Manage assignees here.";
@@ -6453,17 +6811,108 @@
               deleteUserFromList(name);
             })
           );
-        } else if (page === "settings") {
+          return;
+        }
+
+        if (page === "settings") {
           title.textContent = "Settings";
           sub.textContent = "Prototype settings and local data controls.";
-          body.innerHTML = `<div class="max-w-3xl space-y-4"><div class="bg-white/5 border border-white/10 rounded-2xl p-5"><h3 class="font-black text-white">Local Data</h3><p class="text-sm text-white/50 mt-1">Work orders and undo history are stored in this browser until a backend is connected.</p><div class="flex flex-wrap gap-2 mt-4"><button id="settingsRefresh" class="px-4 py-2.5 rounded-xl border border-white/10 hover:bg-white/10 text-white font-bold text-sm transition">Reload Saved Data</button><button id="settingsReset" class="px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/10 transition">Reset Demo Data</button></div></div><div class="bg-white/5 border border-white/10 rounded-2xl p-5"><h3 class="font-black text-white">Import Behavior</h3><p class="text-sm text-white/50 mt-1">Existing Work Order IDs are updated; new IDs are added. Imported records are sorted newest-created first.</p></div>
-          <!-- NEW: Change Password Section -->
-          <div class="bg-white/5 border border-white/10 rounded-2xl p-5">
-            <h3 class="font-black text-white">Security</h3>
-            <p class="text-sm text-white/50 mt-1">Change your admin password. This will be stored in the cloud (KV) and synced across devices.</p>
-            <button id="openChangePasswordBtn" class="mt-4 px-4 py-2.5 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white font-bold text-sm transition">Change Password</button>
-          </div>
+
+          const fieldConfigs = getAllFieldConfigs();
+          const allHeaders = allAvailableHeaders();
+
+          let fieldConfigHTML = `<div class="bg-white/5 border border-white/10 rounded-2xl p-5 mt-4">
+            <h3 class="font-black text-white">Field Configuration</h3>
+            <p class="text-sm text-white/50 mt-1">Customize which fields appear on cards and in the All Work Orders table. Rename fields and map them to different headers.</p>
+            <div class="overflow-x-auto mt-4">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b border-white/10">
+                    <th class="px-3 py-2 text-left text-white/60">Field</th>
+                    <th class="px-3 py-2 text-left text-white/60">Label</th>
+                    <th class="px-3 py-2 text-left text-white/60">Source</th>
+                    <th class="px-3 py-2 text-center text-white/60">Show on Card</th>
+                    <th class="px-3 py-2 text-center text-white/60">Show in Table</th>
+                    <th class="px-3 py-2 text-center text-white/60">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="fieldConfigTable">
+                  ${Object.keys(fieldConfigs)
+                    .map((key) => {
+                      const cfg = fieldConfigs[key];
+                      const isCustom = key.startsWith("custom_");
+                      return `<tr class="border-b border-white/10">
+                        <td class="px-3 py-2 text-white/70">${esc(key)}</td>
+                        <td class="px-3 py-2"><input class="field-input-sm bg-white/5 text-white border-white/10" data-field-key="${esc(
+                          key
+                        )}" data-field-property="label" value="${esc(
+                        cfg.label || key
+                      )}" placeholder="Label"></td>
+                        <td class="px-3 py-2">
+                          <select class="field-input-sm bg-black/30 text-white border-white/20" data-field-key="${esc(key)}" data-field-property="source">
+                            <option value="${esc(cfg.source)}" selected>${esc(
+                        cfg.source
+                      )}</option>
+                            ${allHeaders
+                              .map(
+                                (h) =>
+                                  `<option value="${esc(h)}">${esc(h)}</option>`
+                              )
+                              .join("")}
+                          </select>
+                        </td>
+                        <td class="px-3 py-2 text-center"><input type="checkbox" data-field-key="${esc(
+                          key
+                        )}" data-field-property="showOnCard" ${
+                        cfg.showOnCard !== false ? "checked" : ""
+                      } class="rounded"></td>
+                        <td class="px-3 py-2 text-center"><input type="checkbox" data-field-key="${esc(
+                          key
+                        )}" data-field-property="showInTable" ${
+                        cfg.showInTable !== false ? "checked" : ""
+                      } class="rounded"></td>
+                        <td class="px-3 py-2 text-center">
+                          ${
+                            isCustom
+                              ? `<button data-remove-field="${esc(
+                                  key
+                                )}" class="text-red-500 hover:text-red-400">✕</button>`
+                              : '<span class="text-black/30 text-xs">—</span>'
+                          }
+                        </td>
+                      </tr>`;
+                    })
+                    .join("")}
+                </tbody>
+              </table>
+            </div>
+            <div class="mt-4 flex gap-2">
+              <button id="addFieldConfigBtn" class="px-4 py-2 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white font-bold text-sm transition">+ Add Field</button>
+              <button id="saveFieldConfigBtn" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-sm transition">Save Changes</button>
+            </div>
           </div>`;
+
+          body.innerHTML = `<div class="max-w-3xl space-y-4">
+            <div class="bg-white/5 border border-white/10 rounded-2xl p-5">
+              <h3 class="font-black text-white">Local Data</h3>
+              <p class="text-sm text-white/50 mt-1">Work orders and undo history are stored in this browser until a backend is connected.</p>
+              <div class="flex flex-wrap gap-2 mt-4">
+                <button id="settingsRefresh" class="px-4 py-2.5 rounded-xl border border-white/10 hover:bg-white/10 text-white font-bold text-sm transition">Reload Saved Data</button>
+                <button id="settingsReset" class="px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/10 transition">Reset Demo Data</button>
+              </div>
+            </div>
+            <div class="bg-white/5 border border-white/10 rounded-2xl p-5">
+              <h3 class="font-black text-white">Import Behavior</h3>
+              <p class="text-sm text-white/50 mt-1">Existing Work Order IDs are updated; new IDs are added. Imported records are sorted newest-created first.</p>
+            </div>
+            <div class="bg-white/5 border border-white/10 rounded-2xl p-5">
+              <h3 class="font-black text-white">Security</h3>
+              <p class="text-sm text-white/50 mt-1">Change your admin password. This will be stored in the cloud (KV) and synced across devices.</p>
+              <button id="openChangePasswordBtn" class="mt-4 px-4 py-2.5 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white font-bold text-sm transition">Change Password</button>
+            </div>
+            ${fieldConfigHTML}
+          </div>`;
+
           document
             .getElementById("settingsRefresh")
             .addEventListener("click", () => {
@@ -6471,6 +6920,7 @@
               render();
               toast("Saved data reloaded.", "success");
             });
+
           document
             .getElementById("settingsReset")
             .addEventListener("click", () => {
@@ -6490,6 +6940,72 @@
                 },
               });
             });
+
+          // ===== FIELD CONFIGURATION EVENT LISTENERS =====
+          document.addEventListener("change", function (e) {
+            const target = e.target;
+            if (target.dataset.fieldKey && target.dataset.fieldProperty) {
+              const key = target.dataset.fieldKey;
+              const property = target.dataset.fieldProperty;
+              let value =
+                target.type === "checkbox" ? target.checked : target.value;
+              updateFieldConfig(key, { [property]: value });
+            }
+          });
+
+          document.addEventListener("input", function (e) {
+            const target = e.target;
+            if (
+              target.dataset.fieldKey &&
+              target.dataset.fieldProperty &&
+              target.type !== "checkbox"
+            ) {
+              const key = target.dataset.fieldKey;
+              const property = target.dataset.fieldProperty;
+              updateFieldConfig(key, { [property]: target.value });
+            }
+          });
+
+          document.addEventListener("click", function (e) {
+            const target = e.target.closest("#addFieldConfigBtn");
+            if (target) {
+              const label = prompt(
+                "Enter field label (e.g., 'Completion Date'):"
+              );
+              if (label) {
+                const source = prompt(
+                  "Enter source header name (the column from your data):"
+                );
+                if (source) {
+                  addCustomFieldConfig(label, source);
+                  showSectionPage("settings");
+                  toast(`Added field: ${label}`, "success");
+                }
+              }
+            }
+          });
+
+          document.addEventListener("click", function (e) {
+            const target = e.target.closest("[data-remove-field]");
+            if (target) {
+              const key = target.dataset.removeField;
+              if (confirm(`Remove field "${key}"?`)) {
+                removeCustomFieldConfig(key);
+                showSectionPage("settings");
+                toast(`Removed field: ${key}`, "info");
+              }
+            }
+          });
+
+          document.addEventListener("click", function (e) {
+            const target = e.target.closest("#saveFieldConfigBtn");
+            if (target) {
+              saveDisplayConfig();
+              render();
+              toast("Field configuration saved.", "success");
+            }
+          });
+          return;
         }
       }
 
@@ -6521,34 +7037,37 @@
           window.scrollTo({ top: 0, behavior: "smooth" });
         }
       });
-      document.getElementById("refreshBtn").addEventListener("click", async () => {
-        const btn = document.getElementById("refreshBtn");
-        const icon = document.getElementById("refreshIcon");
-        const apiUrl = document.getElementById("importApiUrl").value.trim();
-        btn.disabled = true;
-        icon.classList.add("animate-spin");
-        try {
-          if (apiUrl) {
-            // Use the saved mapping (works without login)
-            await fetchAndApplyWithSavedMapping(apiUrl);
-          } else {
-            // Sync from Cloudflare KV (works without login)
-            await loadSharedState();
-            currentPage = 1;
-            render();
-            if (selectedId && orders.some((o) => o.id === selectedId))
-              renderDrawer(selectedId);
-            else if (selectedId) closeDrawer();
-            toast("Dashboard synced from the cloud.", "success");
+      document
+        .getElementById("refreshBtn")
+        .addEventListener("click", async () => {
+          const btn = document.getElementById("refreshBtn");
+          const icon = document.getElementById("refreshIcon");
+          const apiUrl = document.getElementById("importApiUrl").value.trim();
+          btn.disabled = true;
+          icon.classList.add("animate-spin");
+          try {
+            if (apiUrl) {
+              await fetchAndApplyWithSavedMapping(apiUrl);
+            } else {
+              await loadSharedState();
+              currentPage = 1;
+              render();
+              if (selectedId && orders.some((o) => o.id === selectedId))
+                renderDrawer(selectedId);
+              else if (selectedId) closeDrawer();
+              toast("Dashboard synced from the cloud.", "success");
+            }
+          } catch (err) {
+            console.error(err);
+            toast(
+              "Could not sync. Check your connection or the Worker.",
+              "error"
+            );
+          } finally {
+            btn.disabled = false;
+            icon.classList.remove("animate-spin");
           }
-        } catch (err) {
-          console.error(err);
-          toast("Could not sync. Check your connection or the Worker.", "error");
-        } finally {
-          btn.disabled = false;
-          icon.classList.remove("animate-spin");
-        }
-      });
+        });
 
       document.getElementById("importTopBtn").addEventListener("click", () => {
         hideSectionPage();
@@ -6577,7 +7096,9 @@
       document
         .getElementById("clearOrdersBtn")
         .addEventListener("click", clearAllOrders);
-      document.getElementById("clearEverythingBtn").addEventListener("click", clearAllAndStopSync);
+      document
+        .getElementById("clearEverythingBtn")
+        .addEventListener("click", clearAllAndStopSync);
       document
         .getElementById("confirmImportBtn")
         .addEventListener("click", applyImport);
@@ -7029,7 +7550,6 @@
         return true;
       }
 
-      // Use event delegation – works for both existing and future elements
       document.addEventListener("click", function (e) {
         const target = e.target.closest("#openChangePasswordBtn");
         if (!target) return;
@@ -7077,7 +7597,6 @@
         render();
         await autoSyncFromStoredApi();
 
-        // Mobile sidebar toggle (with auto-close toggle)
         const hamburger = document.getElementById("hamburgerBtn");
         const sidebar = document.getElementById("sidebarNav");
         let autoCloseEnabled = true;
@@ -7110,7 +7629,6 @@
           }
         });
 
-        // Admin section toggle
         const adminToggleBtn = document.getElementById("adminToggleBtn");
         const adminNav = document.getElementById("adminNav");
         const adminArrow = document.getElementById("adminArrow");
@@ -7119,14 +7637,12 @@
           adminToggleBtn.addEventListener("click", function () {
             adminNav.classList.toggle("collapsed");
             adminArrow.classList.toggle("rotated");
-            // Store preference if desired
             const isCollapsed = adminNav.classList.contains("collapsed");
             localStorage.setItem(
               "adminCollapsed",
               isCollapsed ? "true" : "false"
             );
           });
-          // Restore state from localStorage
           const saved = localStorage.getItem("adminCollapsed");
           if (saved === "true") {
             adminNav.classList.add("collapsed");
@@ -7141,7 +7657,6 @@
           toggleAutoCloseBtn.addEventListener("click", function (e) {
             e.stopPropagation();
             autoCloseEnabled = !autoCloseEnabled;
-            // Update icon appearance
             if (autoCloseEnabled) {
               pinIcon.classList.remove("text-black/30");
               pinIcon.classList.add("text-black/80");
