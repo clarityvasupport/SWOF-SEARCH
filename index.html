@@ -2018,10 +2018,10 @@
 
     <script>
       // =========================================================
-      // WORK ORDER APP — v1.5.3
+      // WORK ORDER APP — v1.5.4
       // =========================================================
 
-      const APP_VERSION = "1.5.3";
+      const APP_VERSION = "1.5.4";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -5499,14 +5499,42 @@
           const key = String(n.id).trim().toLowerCase();
           if (existing.has(key)) {
             const old = existing.get(key);
-            const merged = {
-              ...old,
-              ...n,
-              customFields: mergeCustomFields(old.customFields, n.customFields),
-              activity: [...(old.activity || []), ...(n.activity || [])],
-              _importHeaders: n._importHeaders || [],
-              _rawData: n._rawData || {},
-            };
+            // Start with the old order
+            const merged = { ...old };
+            
+            // Only overwrite fields that have truthy (non-empty) values in the new order
+            for (let k in n) {
+              const newVal = n[k];
+              // Skip undefined, null, or empty strings
+              if (newVal !== undefined && newVal !== null && newVal !== '') {
+                // Special handling for arrays/objects
+                if (Array.isArray(newVal) && k === 'activity') {
+                  // Activity needs merging (append)
+                  merged.activity = [...(old.activity || []), ...(newVal)];
+                } else if (Array.isArray(newVal) && k === 'customFields') {
+                  // CustomFields are handled separately below
+                } else if (typeof newVal === 'object' && !Array.isArray(newVal) && k !== 'customFields' && k !== 'activity') {
+                  // For other objects, shallow copy
+                  merged[k] = { ...newVal };
+                } else {
+                  // For strings, numbers, booleans, and arrays
+                  merged[k] = newVal;
+                }
+              }
+              // If newVal is empty, we keep the old value (do nothing)
+            }
+            
+            // Handle customFields with the dedicated merge function
+            merged.customFields = mergeCustomFields(old.customFields, n.customFields);
+            
+            // Handle activity merging (append new activities)
+            merged.activity = [...(old.activity || []), ...(n.activity || [])];
+            
+            // Preserve import headers and raw data
+            merged._importHeaders = n._importHeaders || old._importHeaders || [];
+            merged._rawData = n._rawData || old._rawData || {};
+
+            // Ensure the ID stays consistent
             const idx = orders.findIndex(
               (o) => String(o.id).trim().toLowerCase() === key
             );
