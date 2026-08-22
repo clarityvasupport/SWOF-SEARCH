@@ -6376,8 +6376,8 @@
             const header = importMapping[field];
             if (header) {
               const currentConfig = getFieldConfig(field);
-              // Only update if the user hasn't customized the source
-              if (currentConfig.source === field) {
+              // Only update if the header is different from the current source
+              if (currentConfig.source !== header) {
                 updateFieldConfig(field, { source: header });
                 updated = true;
               }
