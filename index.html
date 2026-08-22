@@ -2082,10 +2082,10 @@
 
     <script>
       // =========================================================
-      // WORK ORDER APP — v1.5.9
+      // WORK ORDER APP — v1.5.10
       // =========================================================
 
-      const APP_VERSION = "1.5.9";
+      const APP_VERSION = "1.5.10";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -5136,6 +5136,39 @@
         );
       }
 
+      // ===== GENERATE STABLE ID FROM ROW DATA =====
+      function generateStableId(row) {
+        // Combine key fields that are likely to be unique and stable
+        const fields = [
+          "title",
+          "location",
+          "assignee",
+          "requester",
+          "category",
+          "created",
+          "description"
+        ];
+        
+        // Build a string from the row's values (or fallback to empty string)
+        const combined = fields
+          .map(f => String(row[f] || "").trim())
+          .join("|");
+        
+        // If the combined string is empty, use the row index as fallback
+        if (!combined) return `EMPTY-${Date.now()}`;
+        
+        // Simple hash function to create a stable ID from the combined string
+        let hash = 0;
+        for (let i = 0; i < combined.length; i++) {
+          const char = combined.charCodeAt(i);
+          hash = ((hash << 5) - hash) + char;
+          hash = hash & hash; // Convert to 32bit integer
+        }
+        // Use absolute value and convert to base36 for a shorter ID
+        const stableId = Math.abs(hash).toString(36);
+        return `STABLE-${stableId}`;
+      }
+
       function makeMappedOrder(row, i) {
         const get = (f) => {
           if (importManualValues && importManualValues[f] !== undefined) {
@@ -5144,8 +5177,11 @@
           if (!importMapping[f]) return "";
           return resolveRowValueByHeader(row, importMapping[f]);
         };
+
         const rawId = String(get("id") || "").trim();
-        const id = rawId || `IMPORT-${Date.now()}-${i + 1}`;
+        // Use stable ID generator instead of Date.now()
+        const id = rawId || generateStableId(row);
+        
         const rawStatus = String(get("status") || "").trim();
         const rawPriority = String(get("priority") || "").trim();
         const mappedSources = new Set(
