@@ -4090,28 +4090,27 @@
         return text;
       }
 
-      // ===== DETECT PDF URLs (MORE ROBUST) =====
+      // ===== DETECT PDF URLs (STRICT) =====
       function isPdfUrl(value) {
         const text = String(value ?? "").trim();
         if (!/^https?:\/\//i.test(text)) return false;
         
-        // Check for .pdf extension
+        // Check for .pdf extension (case insensitive)
         if (/\.pdf(\?.*)?$/i.test(text)) return true;
         
-        // Check for Google Drive patterns
+        // Check for Google Drive patterns that indicate a PDF
+        // Only match if it's a preview/view link that could be a PDF
+        if (/drive\.google\.com\/file\/d\/[^\/]+\/preview/i.test(text)) return true;
         if (/drive\.google\.com\/file\/d\/[^\/]+\/view/i.test(text)) return true;
         if (/drive\.google\.com\/uc\?export=view&id=/i.test(text)) return true;
-        if (/drive\.google\.com\/open\?id=/i.test(text)) return true;
-        if (/drive\.google\.com\/thumbnail\?id=/i.test(text)) return true;
-        if (/drive\.google\.com\/view/i.test(text)) return true;
-        if (/drive\.google\.com\/preview/i.test(text)) return true;
         
-        // Check for common cloud storage PDF patterns
+        // Check for docs.google.com (typically PDFs or documents)
         if (/docs\.google\.com\/[^\/]+\/d\//i.test(text)) return true;
+        
+        // Check for Dropbox PDF pattern
         if (/dropbox\.com\/s\/[^\/]+\/[^\/]+\.pdf/i.test(text)) return true;
         
-        // Check if the URL contains "pdf" in the path or query
-        if (/[\/?&]pdf/i.test(text)) return true;
+        // Remove the generic /[\/?&]pdf/i pattern - it was too aggressive
         
         return false;
       }
@@ -4173,7 +4172,14 @@
             const thumbUrl = normalizeThumbnailMediaUrl(urls[0]) || normalizeMediaUrl(urls[0]);
             const fullPreview = normalizeFullMediaUrl(urls[0]) || thumbUrl;
             
-            // ===== CHECK PDF FIRST =====
+            // ===== CHECK IMAGE FIRST =====
+            if (isImageUrl(thumbUrl)) {
+              return `<button type="button" data-image-preview="${esc(fullPreview)}" data-image-alt="Attachment preview" class="inline-flex rounded-lg border border-black/10 bg-white p-1 shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-teal/30">
+                <img src="${esc(thumbUrl)}" alt="Attachment preview" class="h-24 w-auto max-w-full rounded-md object-cover" />
+              </button>`;
+            }
+            
+            // ===== CHECK PDF SECOND =====
             if (isPdfUrl(urls[0])) {
               const viewerUrl = getPdfViewerUrl(urls[0]);
               return `<button type="button" data-pdf-preview="${esc(viewerUrl)}" data-image-alt="PDF Preview" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 font-bold hover:bg-red-100 transition shadow-sm">
@@ -4185,18 +4191,11 @@
               </button>`;
             }
             
-            // Check if it's an image
-            if (isImageUrl(thumbUrl)) {
-              return `<button type="button" data-image-preview="${esc(fullPreview)}" data-image-alt="Attachment preview" class="inline-flex rounded-lg border border-black/10 bg-white p-1 shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-teal/30">
-                <img src="${esc(thumbUrl)}" alt="Attachment preview" class="h-24 w-auto max-w-full rounded-md object-cover" />
-              </button>`;
-            }
-            
             // If not image or PDF, show as plain link
             return `<a href="${esc(text)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-brand-teal font-bold underline underline-offset-2 break-all hover:text-brand-teal/80">${esc(text)}</a>`;
           }
           
-          // MULTIPLE URLS – Check if any URL is an image or PDF
+          // MULTIPLE URLS - Check images first, then PDFs
           const hasImage = urls.some(u => isImageUrl(u));
           const hasPdf = urls.some(u => isPdfUrl(u));
           
@@ -4219,7 +4218,6 @@
           return urls.map((url, idx) => {
             if (isPdfUrl(url)) {
               const viewerUrl = getPdfViewerUrl(url);
-              // PDF in list – also opens in modal
               return `<button type="button" data-pdf-preview="${esc(viewerUrl)}" data-image-alt="PDF ${idx + 1}" class="inline-flex items-center gap-2 px-3 py-1 my-1 rounded-lg bg-red-50 border border-red-200 text-red-600 font-bold hover:bg-red-100 transition text-sm">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-width="2" stroke-linecap="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
