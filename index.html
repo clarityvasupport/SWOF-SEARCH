@@ -2113,10 +2113,10 @@
 
     <script>
       // =========================================================
-      // WORK ORDER APP — v1.5.14
+      // WORK ORDER APP — v1.5.15
       // =========================================================
 
-      const APP_VERSION = "1.5.14";
+      const APP_VERSION = "1.5.15";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -6129,13 +6129,27 @@
           localStorage.removeItem("import_mapping_config");
         } catch (e) {}
       }
+      
+      // ===== CLEAR FIELD CONFIGURATION =====
+      function clearFieldConfig() {
+        if (displayConfig.fieldConfig) {
+          // Only clear custom fields, keep core fields with default settings
+          const coreFields = ["title", "status", "priority", "category", "location", "assignee", "requester", "created", "dueDate", "description"];
+          const newFieldConfig = {};
+          coreFields.forEach(field => {
+            // Keep core fields but reset their source to default
+            newFieldConfig[field] = { label: field.charAt(0).toUpperCase() + field.slice(1), source: field };
+          });
+          displayConfig.fieldConfig = newFieldConfig;
+          saveDisplayConfig();
+        }
+      }
 
       // ===== CLEAR FUNCTIONS =====
       function clearAllOrders() {
         openConfirmationModal({
           title: "Clear all orders",
-          message:
-            "This will permanently remove all current work orders from the dashboard. This action cannot be undone.",
+          message: "This will permanently remove all current work orders from the dashboard. This action cannot be undone.",
           confirmText: "Clear Orders",
           confirmClass: "bg-red-600 hover:bg-red-700",
           onConfirm: () => {
@@ -6143,6 +6157,7 @@
             history = [];
             users = [];
             importedHeaders = [];
+            clearFieldConfig(); // <-- ADD THIS LINE
             saveOrders();
             saveHistory();
             saveUsers();
@@ -6160,8 +6175,7 @@
       function clearAllAndStopSync() {
         openConfirmationModal({
           title: "⚠️ Permanently clear all data",
-          message:
-            "This will remove ALL work orders, users, history AND clear the saved API URL. Auto-sync will be disabled on refresh. Are you sure?",
+          message: "This will remove ALL work orders, users, history AND clear the saved API URL. Auto-sync will be disabled on refresh. Are you sure?",
           confirmText: "Clear Everything",
           confirmClass: "bg-red-600 hover:bg-red-700",
           onConfirm: () => {
@@ -6172,6 +6186,7 @@
 
             clearMappingConfig();
             localStorage.removeItem("import_api_url");
+            clearFieldConfig(); // <-- ADD THIS LINE
 
             document.getElementById("importApiUrl").value = "";
 
@@ -7372,7 +7387,7 @@
             <div class="mt-4 flex flex-wrap gap-2">
               <button id="addFieldConfigBtn" class="px-4 py-2 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white font-bold text-sm transition">+ Add Field</button>
               <button id="saveFieldConfigBtn" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-sm transition">Save Changes</button>
-              <button id="resetFieldConfigBtn" class="px-4 py-2 rounded-xl border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/10 transition">Reset Sources to Default</button>
+              <button id="resetFieldConfigBtn" class="px-4 py-2 rounded-xl border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/10 transition">Reset All to Defaults</button>
             </div>
           </div>`;
 
@@ -7455,15 +7470,81 @@
           document.addEventListener("click", function (e) {
             const target = e.target.closest("#resetFieldConfigBtn");
             if (target) {
-              if (confirm("Reset all field sources to default internal field names?\n\nThis will change the 'Source' dropdown for all core fields back to the default internal names (title, status, priority, etc.).")) {
-                const coreFields = ["title", "status", "priority", "category", "location", "assignee", "requester", "created", "dueDate", "description"];
+              if (confirm(
+                "Reset all field configuration to defaults?\n\n" +
+                "This will:\n" +
+                "• Reset all core field labels and sources to defaults\n" +
+                "• Remove ALL custom fields\n" +
+                "• Reset visibility toggles on cards and tables\n\n" +
+                "Your work order data will NOT be affected."
+              )) {
+                // ===== RESET FIELD CONFIG TO DEFAULTS =====
+                const coreFields = [
+                  "title", "status", "priority", "category",
+                  "location", "assignee", "requester",
+                  "created", "dueDate", "description"
+                ];
+                
+                const defaultLabels = {
+                  title: "Title",
+                  status: "Status",
+                  priority: "Priority",
+                  category: "Category",
+                  location: "Location",
+                  assignee: "Assigned To",
+                  requester: "Requester",
+                  created: "Created Date",
+                  dueDate: "Due Date",
+                  description: "Description"
+                };
+                
+                const defaultShowOnCard = {
+                  title: true,
+                  status: true,
+                  priority: false,
+                  category: false,
+                  location: true,
+                  assignee: true,
+                  requester: false,
+                  created: false,
+                  dueDate: true,
+                  description: true
+                };
+                
+                const defaultShowInTable = {
+                  title: true,
+                  status: true,
+                  priority: true,
+                  category: false,
+                  location: true,
+                  assignee: true,
+                  requester: false,
+                  created: true,
+                  dueDate: true,
+                  description: false
+                };
+                
+                // Reset each core field
                 coreFields.forEach((field) => {
-                  updateFieldConfig(field, { source: field });
+                  displayConfig.fieldConfig[field] = {
+                    label: defaultLabels[field] || field.charAt(0).toUpperCase() + field.slice(1),
+                    source: field,
+                    showOnCard: defaultShowOnCard[field] !== undefined ? defaultShowOnCard[field] : true,
+                    showInTable: defaultShowInTable[field] !== undefined ? defaultShowInTable[field] : true,
+                  };
                 });
+                
+                // ===== REMOVE ALL CUSTOM FIELDS =====
+                Object.keys(displayConfig.fieldConfig).forEach((key) => {
+                  if (key.startsWith("custom_")) {
+                    delete displayConfig.fieldConfig[key];
+                  }
+                });
+                
+                // Save and refresh
                 saveDisplayConfig();
-                // Re-render the Settings page to update the dropdowns
                 showSectionPage("settings");
-                toast("Field sources reset to defaults.", "success");
+                toast("✅ Field configuration reset to defaults. Custom fields removed.", "success");
               }
             }
           });
