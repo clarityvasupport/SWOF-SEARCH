@@ -992,10 +992,7 @@
                 </div>
               </div>
 
-              <div
-                id="workOrderGrid"
-                class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
-              ></div>
+              <div id="workOrderGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch"></div>
               <div
                 id="emptyState"
                 class="hidden bg-white border border-dashed border-black/20 rounded-xl py-16 text-center"
@@ -2116,10 +2113,10 @@
 
     <script>
       // =========================================================
-      // WORK ORDER APP — v1.5.13
+      // WORK ORDER APP — v1.5.14
       // =========================================================
 
-      const APP_VERSION = "1.5.13";
+      const APP_VERSION = "1.5.14";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -2487,6 +2484,12 @@
             showOnCard: true,
             showInTable: true,
           },
+          description: {
+            label: "Description",
+            source: "description",
+            showOnCard: true,
+            showInTable: false,
+          },
         };
 
         const fromConfig =
@@ -2508,29 +2511,30 @@
           "requester",
           "created",
           "dueDate",
+          "description",
         ];
         const configs = {};
 
+        // Always include core fields
         coreFields.forEach((f) => {
           configs[f] = getFieldConfig(f);
         });
 
-        const customLabels = allKnownCustomLabels();
-        customLabels.forEach((label, idx) => {
-          const key = `custom_${idx + 1}`;
-          const existing =
-            displayConfig.fieldConfig && displayConfig.fieldConfig[key];
-          if (existing) {
-            configs[key] = { ...existing };
-          } else {
-            configs[key] = {
-              label: label,
-              source: `custom:${label}`,
-              showOnCard: true,
-              showInTable: true,
-            };
-          }
-        });
+        // ===== CUSTOM FIELDS – ONLY SHOW IF THEY HAVE A SAVED CONFIG =====
+        if (displayConfig.fieldConfig) {
+          Object.keys(displayConfig.fieldConfig).forEach((key) => {
+            if (key.startsWith("custom_")) {
+              const config = displayConfig.fieldConfig[key];
+              // Ensure the config has all required properties
+              configs[key] = {
+                label: config.label || key,
+                source: config.source || `custom:${config.label}`,
+                showOnCard: config.showOnCard !== undefined ? config.showOnCard : true,
+                showInTable: config.showInTable !== undefined ? config.showInTable : true,
+              };
+            }
+          });
+        }
 
         return configs;
       }
@@ -3488,60 +3492,52 @@
       function cardHTML(o) {
         const fieldConfigs = getAllFieldConfigs();
 
-        const cardDateSource =
-          o.cardDateSource || displayConfig.cardDateSource || "dueDate";
+        // Determine which fields to show on the card (excluding title and status which are always shown)
+        const fieldsToShow = Object.keys(fieldConfigs).filter(key => {
+          return fieldConfigs[key].showOnCard !== false && !["title", "status"].includes(key);
+        });
+
+        const cardDateSource = o.cardDateSource || displayConfig.cardDateSource || "dueDate";
         const cardDateRaw = displayValue(o, cardDateSource);
         const due = cardDateRaw ? formatDate(cardDateRaw) : "—";
-        const cardDateLabel =
-          o.cardDateLabel || displayConfig.cardDateLabel || "Due Date";
+        const cardDateLabel = o.cardDateLabel || displayConfig.cardDateLabel || "Due Date";
         const created = formatDate(o.created);
-        const overdue =
-          o.dueDate &&
-          o.status !== "Completed" &&
-          o.status !== "Cancelled" &&
-          o.dueDate < nowDate();
-        const statusOpts = [
-          "Open",
-          "In Progress",
-          "On Hold",
-          "Completed",
-          "Overdue",
-          "Cancelled",
-        ];
+        const overdue = o.dueDate && o.status !== "Completed" && o.status !== "Cancelled" && o.dueDate < nowDate();
+        const statusOpts = ["Open", "In Progress", "On Hold", "Completed", "Overdue", "Cancelled"];
         const disabledAttr = !isLoggedIn ? 'disabled="disabled"' : "";
 
+        // Get the location field (or fallback)
+        const locationConfig = fieldConfigs.location;
         let locationValue = "—";
         let locationLabel = "Location";
-        let dateValue = due;
-        let dateLabel = cardDateLabel;
-
-        const locationConfig = fieldConfigs.location;
         if (locationConfig && locationConfig.showOnCard !== false) {
           locationValue = displayValue(o, locationConfig.source) || "—";
           locationLabel = locationConfig.label || "Location";
         }
 
+        // Get the due date field (or fallback)
         const dueDateConfig = fieldConfigs.dueDate;
+        let dateValue = due;
+        let dateLabel = cardDateLabel;
         if (dueDateConfig && dueDateConfig.showOnCard !== false) {
           const rawDate = displayValue(o, dueDateConfig.source);
           dateValue = rawDate ? formatDate(rawDate) : "—";
           dateLabel = dueDateConfig.label || "Due Date";
         }
 
-        let extraFieldsHTML = "";
+        // Build extra fields – exclude fields that are already shown elsewhere
+        const skipFields = ["title", "status", "location", "dueDate", "assignee", "priority", "category", "created", "requester", "description"];
         const extraFields = Object.keys(fieldConfigs)
-          .filter((key) => {
+          .filter(key => {
             const cfg = fieldConfigs[key];
-            return (
-              cfg.showOnCard !== false &&
-              !["title", "status", "location", "dueDate"].includes(key)
-            );
+            return cfg.showOnCard !== false && !skipFields.includes(key);
           })
           .slice(0, 4);
 
+        let extraFieldsHTML = "";
         if (extraFields.length) {
           extraFieldsHTML = `<div class="mt-2 grid grid-cols-2 gap-2">`;
-          extraFields.forEach((key) => {
+          extraFields.forEach(key => {
             const cfg = fieldConfigs[key];
             const val = displayValue(o, cfg.source);
             extraFieldsHTML += `<div class="bg-black/5 rounded-lg p-2.5"><p class="text-black/40 truncate">${esc(cfg.label || key)}</p><div class="font-bold text-black/80 mt-0.5 break-words">${formatFieldValue(val)}</div></div>`;
@@ -3549,96 +3545,75 @@
           extraFieldsHTML += `</div>`;
         }
 
+        // Build the description
+        const descriptionConfig = fieldConfigs.description;
+        let descriptionHTML = "";
+        if (descriptionConfig && descriptionConfig.showOnCard !== false) {
+          const descVal = displayValue(o, descriptionConfig.source);
+          if (descVal) {
+            descriptionHTML = `<p class="mt-3 text-sm leading-5 text-black/60 line-clamp-2">${esc(descVal)}</p>`;
+          }
+        } else {
+          // Fallback to o.description if description field is not configured
+          if (o.description) {
+            descriptionHTML = `<p class="mt-3 text-sm leading-5 text-black/60 line-clamp-2">${esc(o.description)}</p>`;
+          }
+        }
+
         return `
-        <article data-open="${esc(
-          o.id
-        )}" class="group bg-white border border-black/10 rounded-2xl p-5 cursor-pointer shadow-sm hover:shadow-soft hover:-translate-y-0.5 hover:border-brand-teal/30 transition-all text-black">
-          <div class="flex items-start justify-between gap-3">
-            <div class="min-w-0">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="text-[11px] font-bold text-black/40">${esc(
-                  o.id
-                )}</span>
-                <span class="w-1 h-1 rounded-full bg-black/20"></span>
-                <span class="text-[11px] text-black/40">${esc(
-                  o.category || "General"
-                )}</span>
-              </div>
-              <h3 class="font-black text-black group-hover:text-brand-teal transition truncate">${esc(
-                o.title || "Untitled Work Order"
-              )}</h3>
-            </div>
-            <div class="status-dropdown-wrap shrink-0" onclick="event.stopPropagation();">
-              <select data-status-select="${esc(
-                o.id
-              )}" class="status-dropdown-trigger ${statusClass(
-          o.status
-        ).replace("border-", "")}" style="${statusClass(o.status)
-          .split(" ")
-          .map((c) => (c.startsWith("bg-") ? `background-color:${c};` : ""))
-          .join("")}" ${disabledAttr}>
-                ${statusOpts
-                  .map(
-                    (s) =>
-                      `<option value="${s}" ${
-                        o.status === s ? "selected" : ""
-                      }>${s}</option>`
-                  )
-                  .join("")}
-              </select>
-            </div>
-          </div>
-
-          <p class="mt-3 text-sm leading-5 text-black/60 line-clamp-2">${esc(
-            o.description || "No description provided."
-          )}</p>
-
-          <div class="bg-black/5 rounded-lg p-2.5">
-            <p class="text-black/40">${esc(locationLabel)}</p>
-            <div class="font-bold text-black/80 mt-0.5 truncate">${formatFieldValue(locationValue)}</div>
-          </div>
-          <div class="bg-black/5 rounded-lg p-2.5">
-            <p class="text-black/40">${esc(dateLabel)}</p>
-            <div class="font-bold ${overdue ? "text-red-600" : "text-black/80"} mt-0.5">${formatFieldValue(dateValue)}</div>
-          </div>
-
-          ${extraFieldsHTML}
-
-          <div class="mt-3 flex items-center gap-2 text-[11px] text-black/40">
-            <span>Created ${esc(created)}</span>
-            ${
-              o.requester
-                ? `<span>•</span><span class="truncate">By ${esc(
-                    o.requester
-                  )}</span>`
-                : ""
-            }
-          </div>
-
-          <div class="mt-4 pt-4 border-t border-black/10 flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2 min-w-0">
-              <div class="w-8 h-8 rounded-full bg-brand-teal/20 text-brand-teal flex items-center justify-center text-[10px] font-black shrink-0">${esc(
-                initials(o.assignee)
-              )}</div>
+          <article data-open="${esc(o.id)}" class="group bg-white border border-black/10 rounded-2xl p-5 cursor-pointer shadow-sm hover:shadow-soft hover:-translate-y-0.5 hover:border-brand-teal/30 transition-all text-black h-full flex flex-col">
+            <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <p class="text-xs font-bold text-black/80 truncate">${esc(
-                  o.assignee || "Unassigned"
-                )}</p>
-                <p class="text-[10px] text-black/40">Assigned user</p>
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="text-[11px] font-bold text-black/40">${esc(o.id)}</span>
+                  <span class="w-1 h-1 rounded-full bg-black/20"></span>
+                  <span class="text-[11px] text-black/40">${esc(o.category || "General")}</span>
+                </div>
+                <h3 class="font-black text-black group-hover:text-brand-teal transition truncate">${esc(o.title || "Untitled Work Order")}</h3>
+              </div>
+              <div class="status-dropdown-wrap shrink-0" onclick="event.stopPropagation();">
+                <select data-status-select="${esc(o.id)}" class="status-dropdown-trigger ${statusClass(o.status).replace("border-", "")}" style="${statusClass(o.status).split(" ").map(c => c.startsWith("bg-") ? `background-color:${c};` : "").join("")}" ${disabledAttr}>
+                  ${statusOpts.map(s => `<option value="${s}" ${o.status === s ? "selected" : ""}>${s}</option>`).join("")}
+                </select>
               </div>
             </div>
-            <span class="px-2 py-1 rounded-md text-[10px] font-bold ${priorityClass(
-              o.priority
-            )}">${esc(o.priority || "Medium")}</span>
-          </div>
 
-          <div class="mt-3 flex items-center justify-between">
-            <span class="text-[11px] font-bold text-brand-teal opacity-0 group-hover:opacity-100 transition">View details →</span>
-            <span class="text-[10px] text-black/30">${
-              o.activity?.length || 0
-            } activity</span>
-          </div>
-        </article>`;
+            ${descriptionHTML}
+
+            <div class="mt-4 grid grid-cols-2 gap-2 text-xs">
+              <div class="bg-black/5 rounded-lg p-2.5">
+                <p class="text-black/40">${esc(locationLabel)}</p>
+                <div class="font-bold text-black/80 mt-0.5 truncate">${formatFieldValue(locationValue)}</div>
+              </div>
+              <div class="bg-black/5 rounded-lg p-2.5">
+                <p class="text-black/40">${esc(dateLabel)}</p>
+                <div class="font-bold ${overdue ? "text-red-600" : "text-black/80"} mt-0.5">${formatFieldValue(dateValue)}</div>
+              </div>
+            </div>
+
+            ${extraFieldsHTML}
+
+            <div class="mt-3 flex items-center gap-2 text-[11px] text-black/40">
+              <span>Created ${esc(created)}</span>
+              ${o.requester ? `<span>•</span><span class="truncate">By ${esc(o.requester)}</span>` : ""}
+            </div>
+
+            <div class="mt-4 pt-4 border-t border-black/10 flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="w-8 h-8 rounded-full bg-brand-teal/20 text-brand-teal flex items-center justify-center text-[10px] font-black shrink-0">${esc(initials(o.assignee))}</div>
+                <div class="min-w-0">
+                  <p class="text-xs font-bold text-black/80 truncate">${esc(o.assignee || "Unassigned")}</p>
+                  <p class="text-[10px] text-black/40">Assigned user</p>
+                </div>
+              </div>
+              <span class="px-2 py-1 rounded-md text-[10px] font-bold ${priorityClass(o.priority)}">${esc(o.priority || "Medium")}</span>
+            </div>
+
+            <div class="mt-3 flex items-center justify-between">
+              <span class="text-[11px] font-bold text-brand-teal opacity-0 group-hover:opacity-100 transition">View details →</span>
+              <span class="text-[10px] text-black/30">${o.activity?.length || 0} activity</span>
+            </div>
+          </article>`;
       }
 
       // ===== DRAWER =====
@@ -6378,6 +6353,7 @@
             "requester",
             "created",
             "dueDate",
+            "description",
           ];
           let updated = false;
 
@@ -7477,20 +7453,17 @@
           });
 
           document.addEventListener("click", function (e) {
-            const target = e.target.closest("#addFieldConfigBtn");
+            const target = e.target.closest("#resetFieldConfigBtn");
             if (target) {
-              const label = prompt(
-                "Enter field label (e.g., 'Completion Date'):"
-              );
-              if (label) {
-                const source = prompt(
-                  "Enter source header name (the column from your data):"
-                );
-                if (source) {
-                  addCustomFieldConfig(label, source);
-                  showSectionPage("settings");
-                  toast(`Added field: ${label}`, "success");
-                }
+              if (confirm("Reset all field sources to default internal field names?\n\nThis will change the 'Source' dropdown for all core fields back to the default internal names (title, status, priority, etc.).")) {
+                const coreFields = ["title", "status", "priority", "category", "location", "assignee", "requester", "created", "dueDate", "description"];
+                coreFields.forEach((field) => {
+                  updateFieldConfig(field, { source: field });
+                });
+                saveDisplayConfig();
+                // Re-render the Settings page to update the dropdowns
+                showSectionPage("settings");
+                toast("Field sources reset to defaults.", "success");
               }
             }
           });
