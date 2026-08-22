@@ -2101,6 +2101,7 @@
                 class="mx-auto block max-w-full rounded-xl bg-white shadow-sm transition-transform duration-150 ease-out cursor-grab active:cursor-grabbing select-none"
                 style="touch-action: none; user-select: none"
               />
+              <!-- PDF iframe will be inserted here dynamically -->
             </div>
           </div>
         </div>
@@ -2115,10 +2116,10 @@
 
     <script>
       // =========================================================
-      // WORK ORDER APP — v1.5.11
+      // WORK ORDER APP — v1.5.12
       // =========================================================
 
-      const APP_VERSION = "1.5.11";
+      const APP_VERSION = "1.5.12";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -3541,11 +3542,7 @@
           extraFields.forEach((key) => {
             const cfg = fieldConfigs[key];
             const val = displayValue(o, cfg.source);
-            extraFieldsHTML += `<div class="bg-black/5 rounded-lg p-2.5"><p class="text-black/40 truncate">${esc(
-              cfg.label || key
-            )}</p><p class="font-bold text-black/80 mt-0.5 truncate">${esc(
-              val || "—"
-            )}</p></div>`;
+            extraFieldsHTML += `<div class="bg-black/5 rounded-lg p-2.5"><p class="text-black/40 truncate">${esc(cfg.label || key)}</p><div class="font-bold text-black/80 mt-0.5 break-words">${formatFieldValue(val)}</div></div>`;
           });
           extraFieldsHTML += `</div>`;
         }
@@ -3594,19 +3591,13 @@
             o.description || "No description provided."
           )}</p>
 
-          <div class="mt-4 grid grid-cols-2 gap-2 text-xs">
-            <div class="bg-black/5 rounded-lg p-2.5">
-              <p class="text-black/40">${esc(locationLabel)}</p>
-              <p class="font-bold text-black/80 mt-0.5 truncate">${esc(
-                locationValue
-              )}</p>
-            </div>
-            <div class="bg-black/5 rounded-lg p-2.5">
-              <p class="text-black/40">${esc(dateLabel)}</p>
-              <p class="font-bold ${
-                overdue ? "text-red-600" : "text-black/80"
-              } mt-0.5">${esc(dateValue)}</p>
-            </div>
+          <div class="bg-black/5 rounded-lg p-2.5">
+            <p class="text-black/40">${esc(locationLabel)}</p>
+            <div class="font-bold text-black/80 mt-0.5 truncate">${formatFieldValue(locationValue)}</div>
+          </div>
+          <div class="bg-black/5 rounded-lg p-2.5">
+            <p class="text-black/40">${esc(dateLabel)}</p>
+            <div class="font-bold ${overdue ? "text-red-600" : "text-black/80"} mt-0.5">${formatFieldValue(dateValue)}</div>
           </div>
 
           ${extraFieldsHTML}
@@ -4099,16 +4090,30 @@
         return text;
       }
 
-      // ===== DETECT PDF URLs =====
+      // ===== DETECT PDF URLs (MORE ROBUST) =====
       function isPdfUrl(value) {
         const text = String(value ?? "").trim();
         if (!/^https?:\/\//i.test(text)) return false;
-        return (
-          /\.pdf(\?.*)?$/i.test(text) ||
-          /drive\.google\.com\/file\/d\/.*\/view/i.test(text) ||
-          /drive\.google\.com\/uc\?export=view&id=.*/i.test(text) ||
-          /drive\.google\.com\/open\?id=.*/i.test(text)
-        );
+        
+        // Check for .pdf extension
+        if (/\.pdf(\?.*)?$/i.test(text)) return true;
+        
+        // Check for Google Drive patterns
+        if (/drive\.google\.com\/file\/d\/[^\/]+\/view/i.test(text)) return true;
+        if (/drive\.google\.com\/uc\?export=view&id=/i.test(text)) return true;
+        if (/drive\.google\.com\/open\?id=/i.test(text)) return true;
+        if (/drive\.google\.com\/thumbnail\?id=/i.test(text)) return true;
+        if (/drive\.google\.com\/view/i.test(text)) return true;
+        if (/drive\.google\.com\/preview/i.test(text)) return true;
+        
+        // Check for common cloud storage PDF patterns
+        if (/docs\.google\.com\/[^\/]+\/d\//i.test(text)) return true;
+        if (/dropbox\.com\/s\/[^\/]+\/[^\/]+\.pdf/i.test(text)) return true;
+        
+        // Check if the URL contains "pdf" in the path or query
+        if (/[\/?&]pdf/i.test(text)) return true;
+        
+        return false;
       }
 
       // ===== GENERATE PDF VIEWER URL =====
@@ -4117,6 +4122,17 @@
         if (fileId) {
           return `https://drive.google.com/file/d/${fileId}/preview`;
         }
+        
+        // Check if it's already a preview/embed URL
+        if (url.includes('/preview') || url.includes('/embed')) {
+          return url;
+        }
+        
+        // If it's a Google Drive view URL, convert to preview
+        if (url.includes('/view') && url.includes('drive.google.com')) {
+          return url.replace('/view', '/preview');
+        }
+        
         return url;
       }
 
@@ -4150,13 +4166,24 @@
           const urls = parseMultipleUrls(text);
           
           if (urls.length === 0) {
-            // Not a valid URL
             return esc(text);
           }
           
           if (urls.length === 1) {
             const thumbUrl = normalizeThumbnailMediaUrl(urls[0]) || normalizeMediaUrl(urls[0]);
             const fullPreview = normalizeFullMediaUrl(urls[0]) || thumbUrl;
+            
+            // ===== CHECK PDF FIRST =====
+            if (isPdfUrl(urls[0])) {
+              const viewerUrl = getPdfViewerUrl(urls[0]);
+              return `<button type="button" data-pdf-preview="${esc(viewerUrl)}" data-image-alt="PDF Preview" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 font-bold hover:bg-red-100 transition shadow-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-width="2" stroke-linecap="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  <path stroke-width="2" stroke-linecap="round" d="M15 3v5a1 1 0 001 1h5" />
+                </svg>
+                View PDF
+              </button>`;
+            }
             
             // Check if it's an image
             if (isImageUrl(thumbUrl)) {
@@ -4165,28 +4192,15 @@
               </button>`;
             }
             
-            // Check if it's a PDF
-            if (isPdfUrl(urls[0])) {
-              const viewerUrl = getPdfViewerUrl(urls[0]);
-              return `<a href="${esc(viewerUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 font-bold hover:bg-red-100 transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-width="2" stroke-linecap="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  <path stroke-width="2" stroke-linecap="round" d="M15 3v5a1 1 0 001 1h5" />
-                </svg>
-                View PDF
-              </a>`;
-            }
-            
             // If not image or PDF, show as plain link
             return `<a href="${esc(text)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-brand-teal font-bold underline underline-offset-2 break-all hover:text-brand-teal/80">${esc(text)}</a>`;
           }
           
-          // MULTIPLE URLS - Check if any URL is an image or PDF
+          // MULTIPLE URLS – Check if any URL is an image or PDF
           const hasImage = urls.some(u => isImageUrl(u));
           const hasPdf = urls.some(u => isPdfUrl(u));
           
           if (hasImage) {
-            // Show first image as gallery preview
             const firstImageUrl = urls.find(u => isImageUrl(u)) || urls[0];
             const thumbUrl = normalizeThumbnailMediaUrl(firstImageUrl) || normalizeMediaUrl(firstImageUrl);
             const fullPreviews = urls.map(u => normalizeFullMediaUrl(u) || normalizeMediaUrl(u));
@@ -4205,13 +4219,14 @@
           return urls.map((url, idx) => {
             if (isPdfUrl(url)) {
               const viewerUrl = getPdfViewerUrl(url);
-              return `<a href="${esc(viewerUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-3 py-1 my-1 rounded-lg bg-red-50 border border-red-200 text-red-600 font-bold hover:bg-red-100 transition text-sm">
+              // PDF in list – also opens in modal
+              return `<button type="button" data-pdf-preview="${esc(viewerUrl)}" data-image-alt="PDF ${idx + 1}" class="inline-flex items-center gap-2 px-3 py-1 my-1 rounded-lg bg-red-50 border border-red-200 text-red-600 font-bold hover:bg-red-100 transition text-sm">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-width="2" stroke-linecap="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   <path stroke-width="2" stroke-linecap="round" d="M15 3v5a1 1 0 001 1h5" />
                 </svg>
                 PDF ${idx + 1}
-              </a>`;
+              </button>`;
             }
             return `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="block text-brand-teal font-bold underline underline-offset-2 break-all hover:text-brand-teal/80 text-sm">${esc(url)}</a>`;
           }).join('');
@@ -4842,16 +4857,60 @@
 
       let imageGallery = [];
       let currentImageIndex = 0;
+      let currentIsPdf = false;
 
-      function openImagePreviewModal(srcOrGallery, alt = "Attachment preview") {
+      function openImagePreviewModal(srcOrGallery, alt = "Attachment preview", isPdf = false) {
         const modal = document.getElementById("imagePreviewModal");
         const image = document.getElementById("imagePreviewModalImg");
+        const viewport = document.getElementById("imagePreviewModalViewport");
         const counter = document.getElementById("imagePreviewCounter");
         const prevBtn = document.getElementById("imagePreviewPrevBtn");
         const nextBtn = document.getElementById("imagePreviewNextBtn");
         
         if (!modal || !image) return;
 
+        // Handle PDF preview
+        if (isPdf || (typeof srcOrGallery === 'string' && isPdfUrl(srcOrGallery))) {
+          // Single PDF
+          const pdfUrl = typeof srcOrGallery === 'string' ? srcOrGallery : String(srcOrGallery);
+          imageGallery = [pdfUrl];
+          currentImageIndex = 0;
+          currentIsPdf = true;
+          
+          // Hide the image, show iframe
+          image.style.display = "none";
+          
+          // Create or update iframe for PDF
+          let iframe = document.getElementById("pdfPreviewIframe");
+          if (!iframe) {
+            iframe = document.createElement("iframe");
+            iframe.id = "pdfPreviewIframe";
+            iframe.className = "w-full h-full min-h-[70vh] rounded-lg";
+            iframe.style.border = "none";
+            viewport.appendChild(iframe);
+          }
+          iframe.style.display = "block";
+          iframe.src = pdfUrl;
+          
+          // Update counter
+          if (counter) counter.textContent = "";
+          
+          // Hide navigation
+          if (prevBtn) prevBtn.style.display = "none";
+          if (nextBtn) nextBtn.style.display = "none";
+          
+          modal.classList.remove("hidden");
+          document.body.classList.add("overflow-hidden");
+          return;
+        }
+
+        // ===== IMAGE GALLERY LOGIC =====
+        currentIsPdf = false;
+        
+        // Hide iframe if present
+        const iframe = document.getElementById("pdfPreviewIframe");
+        if (iframe) iframe.style.display = "none";
+        
         // Check if we received a gallery (JSON string) or a single URL
         if (typeof srcOrGallery === 'string' && srcOrGallery.startsWith('[')) {
           try {
@@ -4901,6 +4960,13 @@
         currentImageIndex = Math.max(0, Math.min(index, imageGallery.length - 1));
         const src = imageGallery[currentImageIndex];
         
+        // Hide iframe
+        const iframe = document.getElementById("pdfPreviewIframe");
+        if (iframe) iframe.style.display = "none";
+        
+        // Show image
+        image.style.display = "block";
+        
         // Reset zoom and position
         imagePreviewTranslate = { x: 0, y: 0 };
         imagePreviewZoom = 1;
@@ -4940,8 +5006,21 @@
         const modal = document.getElementById("imagePreviewModal");
         if (!modal) return;
         modal.classList.add("hidden");
+        
         const image = document.getElementById("imagePreviewModalImg");
         if (image) image.src = "";
+        
+        // Clean up PDF iframe
+        const iframe = document.getElementById("pdfPreviewIframe");
+        if (iframe) {
+          iframe.src = "";
+          iframe.style.display = "none";
+        }
+        
+        currentIsPdf = false;
+        imageGallery = [];
+        currentImageIndex = 0;
+        
         if (
           document.getElementById("editModal").classList.contains("hidden") &&
           document.getElementById("statusModal").classList.contains("hidden") &&
@@ -7786,6 +7865,15 @@
           );
           return;
         }
+        
+        // ===== NEW: Check for PDF preview =====
+        trigger = event.target.closest("[data-pdf-preview]");
+        if (trigger) {
+          const url = trigger.dataset.pdfPreview;
+          // Open PDF in modal as a single PDF
+          openImagePreviewModal(url, trigger.dataset.imageAlt || "PDF Preview", true);
+          return;
+        }
       });
       // ===== IMAGE GALLERY NAVIGATION =====
       document.getElementById("imagePreviewPrevBtn").addEventListener("click", function(e) {
@@ -7807,12 +7895,22 @@
         const modal = document.getElementById("imagePreviewModal");
         if (modal.classList.contains("hidden")) return;
         
+        // If it's a PDF, don't navigate with arrows
+        if (currentIsPdf) {
+          if (e.key === "Escape") {
+            closeImagePreviewModal();
+          }
+          return;
+        }
+        
         if (e.key === "ArrowLeft") {
           e.preventDefault();
           if (currentImageIndex > 0) showImageAtIndex(currentImageIndex - 1);
         } else if (e.key === "ArrowRight") {
           e.preventDefault();
           if (currentImageIndex < imageGallery.length - 1) showImageAtIndex(currentImageIndex + 1);
+        } else if (e.key === "Escape") {
+          closeImagePreviewModal();
         }
       });
       document.addEventListener("keydown", (e) => {
