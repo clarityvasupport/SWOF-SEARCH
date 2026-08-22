@@ -32,6 +32,21 @@
     </script>
 
     <style>
+      /* ===== ASSIGNEE COLORS ===== */
+      .assignee-color-1 { background-color: #FF6B6B; color: white; }
+      .assignee-color-2 { background-color: #4ECDC4; color: white; }
+      .assignee-color-3 { background-color: #FFE66D; color: #333; }
+      .assignee-color-4 { background-color: #A8E6CF; color: #333; }
+      .assignee-color-5 { background-color: #FF8A5C; color: white; }
+      .assignee-color-6 { background-color: #6C5CE7; color: white; }
+      .assignee-color-7 { background-color: #FD79A8; color: white; }
+      .assignee-color-8 { background-color: #00CEC9; color: white; }
+      .assignee-color-9 { background-color: #FDCB6E; color: #333; }
+      .assignee-color-10 { background-color: #E17055; color: white; }
+      .assignee-color-11 { background-color: #0984E3; color: white; }
+      .assignee-color-12 { background-color: #00B894; color: white; }
+      .assignee-color-default { background-color: #636E72; color: white; }
+
       #adminImportSection {
         display: none !important;
       }
@@ -862,7 +877,7 @@
                 <input
                   id="searchInput"
                   type="search"
-                  placeholder="Search..."
+                  placeholder="Search SWOF NO, Location, Corporate..."
                   class="w-full pl-8 pr-2 py-1.5 lg:py-2.5 rounded-lg border-0 bg-white text-black placeholder:text-black/40 text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal"
                 />
               </div>
@@ -2381,6 +2396,32 @@
         });
 
         return fields;
+      }
+
+      // ===== GENERATE CONSISTENT ASSIGNEE COLOR =====
+      function getAssigneeColor(name) {
+        if (!name || name === "Unassigned") {
+          return "assignee-color-default";
+        }
+        
+        // Use a hash to consistently assign the same color to the same name
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) {
+          hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const colorIndex = Math.abs(hash) % 12 + 1;
+        return `assignee-color-${colorIndex}`;
+      }
+
+      // ===== GET PRIORITY COLOR CLASS =====
+      function getPriorityColor(priority) {
+        const colors = {
+          "Critical": "bg-red-600 text-white",
+          "High": "bg-orange-500 text-white", 
+          "Medium": "bg-yellow-400 text-black",
+          "Low": "bg-green-500 text-white"
+        };
+        return colors[priority] || "bg-gray-400 text-white";
       }
 
       // ===== FIELD CONFIGURATION =====
@@ -4055,6 +4096,27 @@
         return text;
       }
 
+      // ===== DETECT PDF URLs =====
+      function isPdfUrl(value) {
+        const text = String(value ?? "").trim();
+        if (!/^https?:\/\//i.test(text)) return false;
+        return (
+          /\.pdf(\?.*)?$/i.test(text) ||
+          /drive\.google\.com\/file\/d\/.*\/view/i.test(text) ||
+          /drive\.google\.com\/uc\?export=view&id=.*/i.test(text) ||
+          /drive\.google\.com\/open\?id=.*/i.test(text)
+        );
+      }
+
+      // ===== GENERATE PDF VIEWER URL =====
+      function getPdfViewerUrl(url) {
+        const fileId = extractDriveFileId(url);
+        if (fileId) {
+          return `https://drive.google.com/file/d/${fileId}/preview`;
+        }
+        return url;
+      }
+
       function isImageUrl(value) {
         const text = String(value ?? "").trim();
         if (!/^https?:\/\//i.test(text)) return false;
@@ -4090,36 +4152,66 @@
           }
           
           if (urls.length === 1) {
-            // Single image – existing behavior
             const thumbUrl = normalizeThumbnailMediaUrl(urls[0]) || normalizeMediaUrl(urls[0]);
             const fullPreview = normalizeFullMediaUrl(urls[0]) || thumbUrl;
+            
+            // Check if it's an image
             if (isImageUrl(thumbUrl)) {
               return `<button type="button" data-image-preview="${esc(fullPreview)}" data-image-alt="Attachment preview" class="inline-flex rounded-lg border border-black/10 bg-white p-1 shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-teal/30">
                 <img src="${esc(thumbUrl)}" alt="Attachment preview" class="h-24 w-auto max-w-full rounded-md object-cover" />
               </button>`;
             }
+            
+            // Check if it's a PDF
+            if (isPdfUrl(urls[0])) {
+              const viewerUrl = getPdfViewerUrl(urls[0]);
+              return `<a href="${esc(viewerUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 font-bold hover:bg-red-100 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-width="2" stroke-linecap="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  <path stroke-width="2" stroke-linecap="round" d="M15 3v5a1 1 0 001 1h5" />
+                </svg>
+                View PDF
+              </a>`;
+            }
+            
+            // If not image or PDF, show as plain link
             return `<a href="${esc(text)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-brand-teal font-bold underline underline-offset-2 break-all hover:text-brand-teal/80">${esc(text)}</a>`;
           }
           
-          // MULTIPLE IMAGES – NEW BEHAVIOR
-          // Show first image thumbnail with count badge
-          const firstUrl = urls[0];
-          const thumbUrl = normalizeThumbnailMediaUrl(firstUrl) || normalizeMediaUrl(firstUrl);
-          const fullPreviews = urls.map(u => normalizeFullMediaUrl(u) || normalizeMediaUrl(u));
+          // MULTIPLE URLS - Check if any URL is an image or PDF
+          const hasImage = urls.some(u => isImageUrl(u));
+          const hasPdf = urls.some(u => isPdfUrl(u));
           
-          if (isImageUrl(thumbUrl)) {
-            return `<button type="button" data-image-gallery="${esc(JSON.stringify(fullPreviews))}" data-image-alt="Attachment preview" class="inline-flex rounded-lg border border-black/10 bg-white p-1 shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-teal/30">
-              <div class="relative">
-                <img src="${esc(thumbUrl)}" alt="Attachment preview" class="h-24 w-auto max-w-full rounded-md object-cover" />
-                <span class="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">+${urls.length - 1}</span>
-              </div>
-            </button>`;
+          if (hasImage) {
+            // Show first image as gallery preview
+            const firstImageUrl = urls.find(u => isImageUrl(u)) || urls[0];
+            const thumbUrl = normalizeThumbnailMediaUrl(firstImageUrl) || normalizeMediaUrl(firstImageUrl);
+            const fullPreviews = urls.map(u => normalizeFullMediaUrl(u) || normalizeMediaUrl(u));
+            
+            if (isImageUrl(thumbUrl)) {
+              return `<button type="button" data-image-gallery="${esc(JSON.stringify(fullPreviews))}" data-image-alt="Attachment preview" class="inline-flex rounded-lg border border-black/10 bg-white p-1 shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-teal/30">
+                <div class="relative">
+                  <img src="${esc(thumbUrl)}" alt="Attachment preview" class="h-24 w-auto max-w-full rounded-md object-cover" />
+                  <span class="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">+${urls.length - 1}</span>
+                </div>
+              </button>`;
+            }
           }
           
-          // If first URL isn't an image, show as a list of links
-          return urls.map(url => 
-            `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="block text-brand-teal font-bold underline underline-offset-2 break-all hover:text-brand-teal/80">${esc(url)}</a>`
-          ).join('');
+          // Show as list of links (PDFs and other files)
+          return urls.map((url, idx) => {
+            if (isPdfUrl(url)) {
+              const viewerUrl = getPdfViewerUrl(url);
+              return `<a href="${esc(viewerUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-3 py-1 my-1 rounded-lg bg-red-50 border border-red-200 text-red-600 font-bold hover:bg-red-100 transition text-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-width="2" stroke-linecap="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  <path stroke-width="2" stroke-linecap="round" d="M15 3v5a1 1 0 001 1h5" />
+                </svg>
+                PDF ${idx + 1}
+              </a>`;
+            }
+            return `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="block text-brand-teal font-bold underline underline-offset-2 break-all hover:text-brand-teal/80 text-sm">${esc(url)}</a>`;
+          }).join('');
         }
         
         return esc(text);
@@ -6410,8 +6502,7 @@
 
         if (page === "all-orders") {
           title.textContent = "All Work Orders";
-          sub.textContent =
-            "Complete work-order register. Search, filter, edit and manage every record.";
+          sub.textContent = "Complete work-order register. Search, filter, edit and manage every record.";
 
           const assignees = [
             ...new Set(
@@ -6438,28 +6529,38 @@
           });
 
           body.innerHTML = `<div class="bg-white text-black border border-black/10 rounded-2xl shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-black/10">
-          <div class="flex flex-wrap gap-3">
-            <input id="allOrdersSearch" class="flex-1 min-w-[150px] rounded-xl border border-black/10 bg-white text-black placeholder:text-black/40 px-4 py-3 text-sm" placeholder="Search all work orders..." value="">
-            <select id="allOrdersStatus" class="rounded-xl border border-black/10 bg-white text-black px-3 py-3 text-sm"><option value="all">All Status</option><option>Open</option><option>In Progress</option><option>On Hold</option><option>Completed</option><option>Overdue</option><option>Cancelled</option></select>
-            <select id="allOrdersAssignee" class="rounded-xl border border-black/10 bg-white text-black px-3 py-3 text-sm"><option value="all">All Assignees</option>${assigneeOpts}</select>
-            <input id="allOrdersDate" type="date" class="rounded-xl border border-black/10 bg-white text-black px-3 py-3 text-sm" />
-            <button id="allOrdersRefresh" class="px-4 py-3 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white text-sm font-bold transition">↻ Refresh</button>
-          </div>
-        </div>
-        <div class="overflow-x-auto"><table class="w-full min-w-[1000px] text-xs"><thead class="bg-black/5"><tr>
-          ${headersHTML}
-          <th class="px-4 py-3 text-right text-black/60">Action</th>
-        </tr></thead><tbody id="allOrdersBody"></tbody></table></div>
-      </div>`;
+            <div class="p-5 border-b border-black/10">
+              <div class="flex flex-wrap gap-3 items-center">
+                <input id="allOrdersSearch" class="flex-1 min-w-[150px] rounded-xl border border-black/10 bg-white text-black placeholder:text-black/40 px-4 py-3 text-sm" placeholder="Search SWOF NO, Location, Corporate...">
+                <select id="allOrdersStatus" class="rounded-xl border border-black/10 bg-white text-black px-3 py-3 text-sm"><option value="all">All Status</option><option>Open</option><option>In Progress</option><option>On Hold</option><option>Completed</option><option>Overdue</option><option>Cancelled</option></select>
+                <select id="allOrdersAssignee" class="rounded-xl border border-black/10 bg-white text-black px-3 py-3 text-sm"><option value="all">All Assignees</option>${assigneeOpts}</select>
+                
+                <!-- Date Range Picker -->
+                <div class="flex items-center gap-1 bg-white border border-black/10 rounded-xl px-2 py-1">
+                  <span class="text-xs text-black/40 px-1">From</span>
+                  <input id="allOrdersDateFrom" type="date" class="border-0 bg-transparent text-black text-sm py-2 px-1 focus:outline-none focus:ring-0" />
+                  <span class="text-xs text-black/40 px-1">To</span>
+                  <input id="allOrdersDateTo" type="date" class="border-0 bg-transparent text-black text-sm py-2 px-1 focus:outline-none focus:ring-0" />
+                </div>
+                
+                <div class="flex gap-2">
+                  <button id="allOrdersRefresh" class="px-4 py-3 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white text-sm font-bold transition">↻ Refresh</button>
+                  <button id="allOrdersClearFilters" class="px-4 py-3 rounded-xl border border-black/10 hover:bg-black/5 text-black/60 text-sm font-bold transition">✕ Clear</button>
+                </div>
+              </div>
+            </div>
+            <div class="overflow-x-auto"><table class="w-full min-w-[1000px] text-xs"><thead class="bg-black/5"><tr>
+              ${headersHTML}
+              <th class="px-4 py-3 text-right text-black/60">Action</th>
+            </tr></thead><tbody id="allOrdersBody"></tbody></table></div>
+          </div>`;
 
           const paint = () => {
-            const q = normalize(
-              document.getElementById("allOrdersSearch").value
-            );
+            const q = normalize(document.getElementById("allOrdersSearch").value);
             const st = document.getElementById("allOrdersStatus").value;
             const assignee = document.getElementById("allOrdersAssignee").value;
-            const date = document.getElementById("allOrdersDate").value;
+            const dateFrom = document.getElementById("allOrdersDateFrom").value;
+            const dateTo = document.getElementById("allOrdersDateTo").value;
 
             const filteredOrders = orders
               .filter((o) => {
@@ -6477,8 +6578,23 @@
                 const matchesStatus = st === "all" || o.status === st;
                 const matchesAssignee =
                   assignee === "all" || o.assignee === assignee;
-                const matchesDate =
-                  !date || o.created === date || o.dueDate === date;
+                
+                // Date range filter (checks both created and dueDate)
+                let matchesDate = true;
+                if (dateFrom || dateTo) {
+                  const checkDate = (dateVal) => {
+                    if (!dateVal) return true;
+                    const d = String(dateVal);
+                    if (!d) return true;
+                    if (dateFrom && d < dateFrom) return false;
+                    if (dateTo && d > dateTo) return false;
+                    return true;
+                  };
+                  const createdMatch = checkDate(o.created);
+                  const dueMatch = checkDate(o.dueDate);
+                  matchesDate = createdMatch || dueMatch;
+                }
+                
                 return (
                   matchesSearch &&
                   matchesStatus &&
@@ -6501,10 +6617,19 @@
                 tableColumns.forEach((key) => {
                   const cfg = fieldConfigs[key];
                   let val = displayValue(o, cfg.source);
+                  
                   if (key === "status") {
                     val = `<span class="px-2 py-1 rounded-full border ${statusClass(
                       val
                     )}">${esc(val)}</span>`;
+                  } else if (key === "priority") {
+                    // Priority with color
+                    const colorClass = getPriorityColor(val);
+                    val = `<span class="px-2 py-1 rounded-md text-[10px] font-bold ${colorClass}">${esc(val)}</span>`;
+                  } else if (key === "assignee") {
+                    // Assignee with color
+                    const colorClass = getAssigneeColor(val);
+                    val = `<span class="px-2 py-1 rounded-md text-[10px] font-bold ${colorClass}">${esc(val)}</span>`;
                   } else if (
                     key === "created" ||
                     key === "dueDate" ||
@@ -6538,39 +6663,45 @@
               );
           };
 
-          document
-            .getElementById("allOrdersSearch")
-            .addEventListener("input", paint);
-          document
-            .getElementById("allOrdersStatus")
-            .addEventListener("change", paint);
-          document
-            .getElementById("allOrdersAssignee")
-            .addEventListener("change", paint);
-          document
-            .getElementById("allOrdersDate")
-            .addEventListener("change", paint);
-          document
-            .getElementById("allOrdersRefresh")
-            .addEventListener("click", () => {
-              orders = loadOrders();
-              const assignees = [
-                ...new Set(
-                  orders
-                    .map((o) => o.assignee)
-                    .filter((a) => a && a !== "Unassigned")
-                ),
-              ];
-              const sel = document.getElementById("allOrdersAssignee");
-              const currentVal = sel.value;
-              sel.innerHTML = `<option value="all">All Assignees</option>${assignees
-                .map((a) => `<option value="${esc(a)}">${esc(a)}</option>`)
-                .join("")}`;
-              sel.value = currentVal;
-              paint();
-              render();
-              toast("All Work Orders refreshed.", "success");
-            });
+          // ===== EVENT LISTENERS =====
+          document.getElementById("allOrdersSearch").addEventListener("input", paint);
+          document.getElementById("allOrdersStatus").addEventListener("change", paint);
+          document.getElementById("allOrdersAssignee").addEventListener("change", paint);
+          document.getElementById("allOrdersDateFrom").addEventListener("change", paint);
+          document.getElementById("allOrdersDateTo").addEventListener("change", paint);
+          
+          // ===== CLEAR FILTERS BUTTON =====
+          document.getElementById("allOrdersClearFilters").addEventListener("click", () => {
+            document.getElementById("allOrdersSearch").value = "";
+            document.getElementById("allOrdersStatus").value = "all";
+            document.getElementById("allOrdersAssignee").value = "all";
+            document.getElementById("allOrdersDateFrom").value = "";
+            document.getElementById("allOrdersDateTo").value = "";
+            paint();
+            toast("Filters cleared.", "info");
+          });
+
+          // ===== REFRESH BUTTON =====
+          document.getElementById("allOrdersRefresh").addEventListener("click", () => {
+            orders = loadOrders();
+            const assignees = [
+              ...new Set(
+                orders
+                  .map((o) => o.assignee)
+                  .filter((a) => a && a !== "Unassigned")
+              ),
+            ];
+            const sel = document.getElementById("allOrdersAssignee");
+            const currentVal = sel.value;
+            sel.innerHTML = `<option value="all">All Assignees</option>${assignees
+              .map((a) => `<option value="${esc(a)}">${esc(a)}</option>`)
+              .join("")}`;
+            sel.value = currentVal;
+            paint();
+            render();
+            toast("All Work Orders refreshed.", "success");
+          });
+          
           paint();
           return;
         }
