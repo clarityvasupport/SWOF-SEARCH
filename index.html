@@ -2082,10 +2082,10 @@
 
     <script>
       // =========================================================
-      // WORK ORDER APP — v1.5.8
+      // WORK ORDER APP — v1.5.9
       // =========================================================
 
-      const APP_VERSION = "1.5.8";
+      const APP_VERSION = "1.5.9";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -2192,15 +2192,13 @@
         const payload = {
           orders: Array.isArray(orders) ? orders : [],
           history: Array.isArray(history) ? history : [],
-          displayConfig:
-            displayConfig && typeof displayConfig === "object"
-              ? displayConfig
-              : {},
+          displayConfig: displayConfig && typeof displayConfig === "object" ? displayConfig : {},
           users: Array.isArray(users) ? users : [],
-          importedHeaders: Array.isArray(importedHeaders)
-            ? importedHeaders
-            : [],
+          importedHeaders: Array.isArray(importedHeaders) ? importedHeaders : [],
           password: storedPassword || "password",
+          // ===== NEW: Import configuration =====
+          importApiUrl: document.getElementById("importApiUrl").value.trim() || loadApiUrl(),
+          importMappingConfig: loadMappingConfig() || {},
         };
 
         try {
@@ -2272,31 +2270,62 @@
           const res = await fetch("/api/data", { cache: "no-store" });
           if (!res.ok) throw new Error("shared load failed");
           const data = await res.json();
+
+          // Restore orders
           if (data && data.orders)
             orders = Array.isArray(data.orders) ? data.orders : orders;
-          if (
-            data &&
-            data.displayConfig &&
-            typeof data.displayConfig === "object"
-          )
+
+          // Restore displayConfig
+          if (data && data.displayConfig && typeof data.displayConfig === "object")
             displayConfig = data.displayConfig;
+
+          // Restore users
           if (data && data.users)
             users = Array.isArray(data.users) ? data.users : users;
+
+          // Restore importedHeaders
           if (data && data.importedHeaders)
             importedHeaders = Array.isArray(data.importedHeaders)
               ? data.importedHeaders
               : importedHeaders;
+
+          // Restore password
           if (data && data.password) storedPassword = data.password;
+
+          // Restore history
           if (data && data.history)
             history = Array.isArray(data.history) ? data.history : history;
+
+          // ===== NEW: Restore import configuration from cloud =====
+          if (data && data.importApiUrl) {
+            const input = document.getElementById("importApiUrl");
+            if (input) input.value = data.importApiUrl;
+            saveApiUrl(data.importApiUrl);
+          }
+
+          if (data && data.importMappingConfig) {
+            const config = data.importMappingConfig;
+            // Restore the mapping data
+            importMapping = config.mapping || {};
+            importFieldLabels = config.fieldLabels || {};
+            importFieldTypes = config.fieldTypes || {};
+            importCustomMappings = config.customMappings || [];
+            importHeaders = config.headers || [];
+            importSourceName = config.sourceName || "";
+            // Save locally so it persists across page reloads
+            saveMappingConfig();
+          }
+
           isOnline = true;
           updateStorageBadge();
         } catch {
+          // Fallback to localStorage
           orders = loadOrders();
           history = loadHistory();
           displayConfig = loadDisplayConfig();
           users = loadUsers();
           importedHeaders = loadImportedHeaders();
+          // keep default storedPassword
           isOnline = false;
           updateStorageBadge();
         }
@@ -5622,9 +5651,13 @@
       }
 
       async function autoSyncFromStoredApi() {
-        const url = loadApiUrl();
+        // Try to load from localStorage first, then from the input field (which may have been restored from cloud)
+        let url = loadApiUrl();
+        if (!url) {
+          const input = document.getElementById("importApiUrl");
+          if (input) url = input.value.trim();
+        }
         if (!url) return;
-        const input = document.getElementById("importApiUrl");
         if (input) input.value = url;
         await fetchAndApplyWithSavedMapping(url);
       }
@@ -5667,7 +5700,6 @@
 
             if (importMapping.title) {
               applyImport(true);
-              toast("🔄 Synced with saved mapping.", "success");
               return true;
             } else {
               toast(
@@ -5937,11 +5969,14 @@
         if (apiUrl) {
           saveApiUrl(apiUrl);
           saveMappingConfig();
+          syncSharedStorage();
         }
         closeImportModal();
         resetImportCenter(true);
         render();
-        toast("🌐 API URL and mapping saved for auto‑sync on refresh.", "info");
+        if (!isApiImport) {
+          toast("🌐 API URL and mapping saved for auto‑sync on refresh.", "info");
+        }
 
         const importedAssignees = new Set(
           orders.map((o) => o.assignee).filter((a) => a && a !== "Unassigned")
