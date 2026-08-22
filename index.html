@@ -2115,10 +2115,10 @@
 
     <script>
       // =========================================================
-      // WORK ORDER APP — v1.5.10
+      // WORK ORDER APP — v1.5.11
       // =========================================================
 
-      const APP_VERSION = "1.5.10";
+      const APP_VERSION = "1.5.11";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -2415,13 +2415,16 @@
 
       // ===== GET PRIORITY COLOR CLASS =====
       function getPriorityColor(priority) {
+        // Normalize the priority value
+        const normalized = normalizePriority(priority);
+        
         const colors = {
           "Critical": "bg-red-600 text-white",
           "High": "bg-orange-500 text-white", 
           "Medium": "bg-yellow-400 text-black",
           "Low": "bg-green-500 text-white"
         };
-        return colors[priority] || "bg-gray-400 text-white";
+        return colors[normalized] || "bg-gray-400 text-white";
       }
 
       // ===== FIELD CONFIGURATION =====
@@ -6214,12 +6217,45 @@
 
         hideSectionPage();
 
+        // ===== SAVE API URL AND MAPPING =====
         const apiUrl = document.getElementById("importApiUrl").value.trim();
         if (apiUrl) {
           saveApiUrl(apiUrl);
           saveMappingConfig();
+
+          // ===== NEW: Sync fieldConfig with importMapping =====
+          const coreFields = [
+            "title",
+            "status",
+            "priority",
+            "category",
+            "location",
+            "assignee",
+            "requester",
+            "created",
+            "dueDate",
+          ];
+          let updated = false;
+
+          coreFields.forEach((field) => {
+            const header = importMapping[field];
+            if (header) {
+              const currentConfig = getFieldConfig(field);
+              // Only update if the user hasn't customized the source
+              if (currentConfig.source === field) {
+                updateFieldConfig(field, { source: header });
+                updated = true;
+              }
+            }
+          });
+
+          if (updated) {
+            saveDisplayConfig();
+          }
+
           syncSharedStorage();
         }
+
         closeImportModal();
         resetImportCenter(true);
         render();
@@ -6227,6 +6263,7 @@
           toast("🌐 API URL and mapping saved for auto‑sync on refresh.", "info");
         }
 
+        // Update users from imported assignees
         const importedAssignees = new Set(
           orders.map((o) => o.assignee).filter((a) => a && a !== "Unassigned")
         );
@@ -7137,7 +7174,7 @@
           return;
         }
 
-        if (page === "settings") {
+        else if (page === "settings") {
           title.textContent = "Settings";
           sub.textContent = "Prototype settings and local data controls.";
 
@@ -7147,6 +7184,7 @@
           let fieldConfigHTML = `<div class="bg-white/5 border border-white/10 rounded-2xl p-5 mt-4">
             <h3 class="font-black text-white">Field Configuration</h3>
             <p class="text-sm text-white/50 mt-1">Customize which fields appear on cards and in the All Work Orders table. Rename fields and map them to different headers.</p>
+            <p class="text-xs text-white/40 mt-1">Note: Sources are auto‑updated from import mappings. Customize them here if needed.</p>
             <div class="overflow-x-auto mt-4">
               <table class="w-full text-sm">
                 <thead>
@@ -7166,13 +7204,15 @@
                       const isCustom = key.startsWith("custom_");
                       return `<tr class="border-b border-white/10">
                         <td class="px-3 py-2 text-white/70">${esc(key)}</td>
-                        <td class="px-3 py-2"><input class="field-input-sm bg-white/5 text-white border-white/10" data-field-key="${esc(
+                        <td class="px-3 py-2"><input class="field-input-sm bg-black/20 text-white border-white/20" data-field-key="${esc(
                           key
                         )}" data-field-property="label" value="${esc(
                         cfg.label || key
                       )}" placeholder="Label"></td>
                         <td class="px-3 py-2">
-                          <select class="field-input-sm bg-black/30 text-white border-white/20" data-field-key="${esc(key)}" data-field-property="source">
+                          <select class="field-input-sm bg-black/30 text-white border-white/20" data-field-key="${esc(
+                            key
+                          )}" data-field-property="source">
                             <option value="${esc(cfg.source)}" selected>${esc(
                         cfg.source
                       )}</option>
@@ -7209,9 +7249,10 @@
                 </tbody>
               </table>
             </div>
-            <div class="mt-4 flex gap-2">
+            <div class="mt-4 flex flex-wrap gap-2">
               <button id="addFieldConfigBtn" class="px-4 py-2 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white font-bold text-sm transition">+ Add Field</button>
               <button id="saveFieldConfigBtn" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-sm transition">Save Changes</button>
+              <button id="resetFieldConfigBtn" class="px-4 py-2 rounded-xl border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/10 transition">Reset Sources to Default</button>
             </div>
           </div>`;
 
@@ -7236,6 +7277,7 @@
             ${fieldConfigHTML}
           </div>`;
 
+          // ===== SETTINGS EVENT LISTENERS =====
           document
             .getElementById("settingsRefresh")
             .addEventListener("click", () => {
@@ -7250,7 +7292,8 @@
               if (!requireLogin()) return;
               openConfirmationModal({
                 title: "Reset demo data",
-                message: "Reset all local work-order data to the demo records?",
+                message:
+                  "Reset all local work-order data to the demo records?",
                 confirmText: "Reset",
                 confirmClass: "bg-red-600 hover:bg-red-700",
                 onConfirm: () => {
@@ -7328,7 +7371,36 @@
               toast("Field configuration saved.", "success");
             }
           });
-          return;
+
+          // ===== RESET SOURCES TO DEFAULT BUTTON =====
+          document.addEventListener("click", function (e) {
+            const target = e.target.closest("#resetFieldConfigBtn");
+            if (target) {
+              if (
+                confirm(
+                  "Reset all field sources to default internal field names?\n\nThis will change the 'Source' dropdown for all core fields back to the default internal names (title, status, priority, etc.)."
+                )
+              ) {
+                const coreFields = [
+                  "title",
+                  "status",
+                  "priority",
+                  "category",
+                  "location",
+                  "assignee",
+                  "requester",
+                  "created",
+                  "dueDate",
+                ];
+                coreFields.forEach((field) => {
+                  updateFieldConfig(field, { source: field });
+                });
+                saveDisplayConfig();
+                showSectionPage("settings");
+                toast("Field sources reset to defaults.", "success");
+              }
+            }
+          });
         }
       }
 
