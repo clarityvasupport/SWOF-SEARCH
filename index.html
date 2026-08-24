@@ -2205,10 +2205,11 @@
           users: Array.isArray(users) ? users : [],
           importedHeaders: Array.isArray(importedHeaders) ? importedHeaders : [],
           password: storedPassword || "password",
-          // ===== NEW: Import configuration =====
           importApiUrl: document.getElementById("importApiUrl").value.trim() || loadApiUrl(),
           importMappingConfig: loadMappingConfig() || {},
         };
+        console.log('[syncSharedStorage] Sending payload with orders count:', payload.orders.length);
+        console.log('[syncSharedStorage] First 3 orders being sent:', payload.orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
 
         try {
           const res = await fetch("/api/data", {
@@ -2218,13 +2219,14 @@
           });
           if (!res.ok) throw new Error("shared sync failed");
           const data = await res.json();
+          console.log('[syncSharedStorage] Response from cloud:', data);
+          // The cloud worker returns { status: 'ok' } – it does NOT return data.
+          // If it ever does, we would overwrite orders.
           if (data && data.data) {
+            console.warn('[syncSharedStorage] Cloud returned data – overwriting orders!');
             if (Array.isArray(data.data.orders)) orders = data.data.orders;
             if (Array.isArray(data.data.history)) history = data.data.history;
-            if (
-              data.data.displayConfig &&
-              typeof data.data.displayConfig === "object"
-            )
+            if (data.data.displayConfig && typeof data.data.displayConfig === "object")
               displayConfig = data.data.displayConfig;
             if (Array.isArray(data.data.users)) users = data.data.users;
             if (Array.isArray(data.data.importedHeaders))
@@ -2232,19 +2234,15 @@
           }
           isOnline = true;
           updateStorageBadge();
+          console.log('[syncSharedStorage] After sync, orders are:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
         } catch {
+          console.warn('[syncSharedStorage] Sync failed – saving to localStorage fallback.');
           try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
             localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-            localStorage.setItem(
-              DISPLAY_CONFIG_KEY,
-              JSON.stringify(displayConfig)
-            );
+            localStorage.setItem(DISPLAY_CONFIG_KEY, JSON.stringify(displayConfig));
             localStorage.setItem(USERS_KEY, JSON.stringify(users));
-            localStorage.setItem(
-              IMPORTED_HEADERS_KEY,
-              JSON.stringify(importedHeaders)
-            );
+            localStorage.setItem(IMPORTED_HEADERS_KEY, JSON.stringify(importedHeaders));
             localStorage.setItem("wo_password", storedPassword);
           } catch {}
           isOnline = false;
@@ -2275,14 +2273,18 @@
       }
 
       async function loadSharedState() {
+        console.log('[loadSharedState] Called');
         try {
           const res = await fetch("/api/data", { cache: "no-store" });
           if (!res.ok) throw new Error("shared load failed");
           const data = await res.json();
+          console.log('[loadSharedState] Received data from cloud:', data);
 
           // Restore orders
-          if (data && data.orders)
+          if (data && data.orders) {
+            console.log('[loadSharedState] Cloud has orders, overwriting local with:', data.orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
             orders = Array.isArray(data.orders) ? data.orders : orders;
+          }
 
           // Restore displayConfig
           if (data && data.displayConfig && typeof data.displayConfig === "object")
@@ -2305,7 +2307,7 @@
           if (data && data.history)
             history = Array.isArray(data.history) ? data.history : history;
 
-          // ===== NEW: Restore import configuration from cloud =====
+          // Restore import configuration
           if (data && data.importApiUrl) {
             const input = document.getElementById("importApiUrl");
             if (input) input.value = data.importApiUrl;
@@ -2314,29 +2316,28 @@
 
           if (data && data.importMappingConfig) {
             const config = data.importMappingConfig;
-            // Restore the mapping data
             importMapping = config.mapping || {};
             importFieldLabels = config.fieldLabels || {};
             importFieldTypes = config.fieldTypes || {};
             importCustomMappings = config.customMappings || [];
             importHeaders = config.headers || [];
             importSourceName = config.sourceName || "";
-            // Save locally so it persists across page reloads
             saveMappingConfig();
           }
 
           isOnline = true;
           updateStorageBadge();
+          console.log('[loadSharedState] After processing, orders are:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
         } catch {
-          // Fallback to localStorage
+          console.warn('[loadSharedState] Fallback to localStorage');
           orders = loadOrders();
           history = loadHistory();
           displayConfig = loadDisplayConfig();
           users = loadUsers();
           importedHeaders = loadImportedHeaders();
-          // keep default storedPassword
           isOnline = false;
           updateStorageBadge();
+          console.log('[loadSharedState] After fallback, orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
         }
       }
 
@@ -2822,10 +2823,14 @@
 
       // ===== DATA PERSISTENCE =====
       function loadOrders() {
+        console.trace('[loadOrders] Called');
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
-          return raw ? JSON.parse(raw) : structuredClone(seedOrders);
+          const result = raw ? JSON.parse(raw) : structuredClone(seedOrders);
+          console.log('[loadOrders] Loaded orders from localStorage:', result.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+          return result;
         } catch {
+          console.warn('[loadOrders] Failed to parse, returning seed.');
           return structuredClone(seedOrders);
         }
       }
@@ -3141,6 +3146,7 @@
       }
 
       function initializeDashboardFilters() {
+        console.log('[initializeDashboardFilters] Called. Current orders count:', orders.length);
         const status = document.getElementById("statusFilter");
         const priority = document.getElementById("priorityFilter");
         const sort = document.getElementById("sortSelect");
@@ -7056,6 +7062,9 @@
         closeImportModal();
         resetImportCenter(true);
         render();
+
+        console.log('[applyImport] About to call render(). Current `orders` before render:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+        console.trace('[applyImport] Trace to see where orders might be changed');
 
         // ---------- Update assignees ----------
         const importedAssignees = new Set(
