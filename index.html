@@ -1324,77 +1324,51 @@
                   </p>
                 </section>
 
-                <section
-                  id="importMappingArea"
-                  class="hidden rounded-2xl border border-black/10 p-4"
-                >
-                  <div class="flex items-start justify-between gap-3 mb-4">
-                    <div>
-                      <h3 class="font-black text-black">
-                        Automatic column mapping
-                      </h3>
-                      <p class="text-[11px] text-black/50 mt-1">
-                        Mappings are based on header names and the contents of
-                        the columns. You can override any mapping.
-                      </p>
-                    </div>
+                <section id="importMappingArea" class="rounded-2xl border border-black/10 p-4">
+                <div class="flex items-start justify-between gap-3 mb-4">
+                  <div>
+                    <h3 class="font-black text-black">Automatic column mapping</h3>
+                    <p class="text-[11px] text-black/50 mt-1">
+                      Map columns to Work Order fields. Toggle visibility, rename, change type, and reorder. Changes reflect instantly in the preview.
+                    </p>
                   </div>
-                  <div
-                    id="importMappingGrid"
-                    class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3"
-                  ></div>
-                  <div
-                    id="importCustomMappingArea"
-                    class="mt-5 pt-5 border-t border-black/10"
-                  ></div>
-                </section>
+                </div>
+
+                <!-- Field list -->
+                <div id="importMappingGrid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3"></div>
+
+                <!-- Custom fields area -->
+                <div id="importCustomMappingArea" class="mt-5 pt-5 border-t border-black/10">
+                  <div class="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                      <h4 class="text-xs font-black text-black/70">Additional / custom fields</h4>
+                      <p class="text-[10px] text-black/40 mt-1">Add extra fields that are not part of the core Work Order structure.</p>
+                    </div>
+                    <button type="button" id="addImportCustomBtn" class="px-3 py-2 rounded-lg border border-black/10 bg-white hover:bg-black/5 text-[10px] font-black text-black/70 transition">+ Add Field</button>
+                  </div>
+                  <div id="importCustomRows" class="space-y-2"></div>
+                </div>
+              </section>
               </div>
             </div>
           </div>
 
-          <div
-            class="shrink-0 border-t border-black/10 bg-white px-5 sm:px-7 py-4 flex flex-col sm:flex-row items-center justify-between gap-3"
-          >
-            <div class="flex flex-wrap items-center gap-2">
-              <button
-                id="importClearBtn"
-                type="button"
-                class="px-4 py-2.5 rounded-xl border border-black/10 hover:bg-black/5 text-sm font-bold text-black/60 transition"
-              >
-                Clear Import
-              </button>
-              <button
-                id="clearOrdersBtn"
-                type="button"
-                class="px-4 py-2.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-sm font-bold text-red-600 transition"
-              >
-                Clear Orders
-              </button>
-              <button
-                id="clearEverythingBtn"
-                type="button"
-                class="px-4 py-2.5 rounded-xl border border-red-500 bg-red-500/10 hover:bg-red-500/20 text-sm font-bold text-red-600 transition"
-              >
-                Clear Everything
-              </button>
+          <div class="shrink-0 border-t border-black/10 bg-white px-5 sm:px-7 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="importClearBtn" type="button" class="px-4 py-2.5 rounded-xl border border-black/10 hover:bg-black/5 text-sm font-bold text-black/60 transition">Clear Import</button>
+            <button id="clearOrdersBtn" type="button" class="px-4 py-2.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-sm font-bold text-red-600 transition">Clear Orders</button>
+            <button id="clearEverythingBtn" type="button" class="px-4 py-2.5 rounded-xl border border-red-500 bg-red-500/10 hover:bg-red-500/20 text-sm font-bold text-red-600 transition">Clear Everything</button>
+          </div>
+          <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            <div class="flex items-center gap-2">
+              <input type="checkbox" id="replaceOrdersCheckbox" class="rounded border-black/20" />
+              <label for="replaceOrdersCheckbox" class="text-xs font-bold text-black/60">Replace all existing orders</label>
             </div>
             <div class="flex gap-2 w-full sm:w-auto">
-              <button
-                id="closeImportBottomBtn"
-                type="button"
-                class="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-black/10 hover:bg-black/5 text-sm font-bold text-black/60 transition"
-              >
-                Cancel
-              </button>
-              <button
-                id="confirmImportBtn"
-                type="button"
-                disabled
-                class="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white text-sm font-black disabled:opacity-40 disabled:cursor-not-allowed transition"
-              >
-                Confirm Import
-              </button>
+              <button id="closeImportBottomBtn" type="button" class="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-black/10 hover:bg-black/5 text-sm font-bold text-black/60 transition">Cancel</button>
+              <button id="confirmImportBtn" type="button" disabled class="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white text-sm font-black disabled:opacity-40 disabled:cursor-not-allowed transition">Confirm Import</button>
             </div>
+          </div>
           </div>
         </div>
       </div>
@@ -2113,10 +2087,10 @@
 
     <script>
       // =========================================================
-      // WORK ORDER APP — v1.5.15
+      // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.5.15";
+      const APP_VERSION = "1.6.7";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -2147,6 +2121,8 @@
       const driveFileTypeCache = new Map();
       let isOnline = false;
       let storedPassword = "password"; // default
+      let importFieldShowOnCard = {};  // key -> boolean
+      window._fieldOrder = [];         // (initialised in renderImportMapping)
       
 
       // ---------- LOGIN STATE ----------
@@ -2430,6 +2406,12 @@
       // ===== FIELD CONFIGURATION =====
       function getFieldConfig(fieldKey) {
         const defaults = {
+          id: {
+            label: "Work Order ID",
+            source: "id",
+            showOnCard: true,
+            showInTable: true,
+          },
           title: {
             label: "Title",
             source: "title",
@@ -2495,6 +2477,9 @@
         const fromConfig =
           displayConfig.fieldConfig && displayConfig.fieldConfig[fieldKey];
         if (fromConfig) {
+          if (!fromConfig.source && defaults[fieldKey]) {
+            fromConfig.source = defaults[fieldKey].source;
+          }
           return { ...defaults[fieldKey], ...fromConfig };
         }
         return defaults[fieldKey] || { label: fieldKey, source: fieldKey };
@@ -2502,6 +2487,7 @@
 
       function getAllFieldConfigs() {
         const coreFields = [
+          "id",
           "title",
           "status",
           "priority",
@@ -2520,12 +2506,11 @@
           configs[f] = getFieldConfig(f);
         });
 
-        // ===== CUSTOM FIELDS – ONLY SHOW IF THEY HAVE A SAVED CONFIG =====
+        // Custom fields – only show if they have a saved config
         if (displayConfig.fieldConfig) {
           Object.keys(displayConfig.fieldConfig).forEach((key) => {
             if (key.startsWith("custom_")) {
               const config = displayConfig.fieldConfig[key];
-              // Ensure the config has all required properties
               configs[key] = {
                 label: config.label || key,
                 source: config.source || `custom:${config.label}`,
@@ -3159,9 +3144,20 @@
         const status = document.getElementById("statusFilter");
         const priority = document.getElementById("priorityFilter");
         const sort = document.getElementById("sortSelect");
-        if (status && !status.options.length) {
-          status.innerHTML = `<option value="all">All Status</option><option value="Open">Open</option><option value="In Progress">In Progress</option><option value="On Hold">On Hold</option><option value="Completed">Completed</option><option value="Overdue">Overdue</option><option value="Cancelled">Cancelled</option>`;
+
+        // --- Populate status filter with unique statuses from data (raw values) ---
+        if (status) {
+          const dataStatuses = orders.map(o => o.status).filter(Boolean);
+          const uniqueStatuses = Array.from(new Set(dataStatuses)).sort();
+          // Always include "all" option
+          let options = `<option value="all">All Status</option>`;
+          uniqueStatuses.forEach(s => {
+            options += `<option value="${esc(s)}">${esc(s)}</option>`;
+          });
+          status.innerHTML = options;
+          if (!status.value) status.value = "all";
         }
+
         if (priority && !priority.options.length) {
           priority.innerHTML = `<option value="all">All Priority</option><option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option>`;
         }
@@ -3201,10 +3197,20 @@
       }
 
       function logout() {
-        isLoggedIn = false;
-        updateLoginUI();
-        render();
-        toast("🔒 Logged out", "info");
+        // Show confirmation dialog before logging out
+        openConfirmationModal({
+          title: "Confirm Logout",
+          message: "Are you sure you want to log out? Any unsaved changes will be lost.",
+          confirmText: "Logout",
+          confirmClass: "bg-red-600 hover:bg-red-700",
+          onConfirm: () => {
+            isLoggedIn = false;
+            updateLoginUI();
+            render();
+            closeConfirmationModal();
+            toast("🔒 Logged out", "info");
+          },
+        });
       }
 
       function updateLoginUI() {
@@ -3339,6 +3345,7 @@
       // ===== RENDER FUNCTIONS =====
       function render() {
         initializeDashboardFilters();
+        console.log('[render] Current `orders` array (first 3):', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
         orders = orders.filter(Boolean).map((o, i) => ({
           ...o,
           id: String(o.id ?? `WO-${i + 1}`).trim() || `WO-${i + 1}`,
@@ -3346,7 +3353,8 @@
             String(o.title ?? "Untitled Work Order").trim() ||
             "Untitled Work Order",
           description: String(o.description ?? "").trim(),
-          status: normalizeStatus(o.status || "Open"),
+          // --- CRITICAL: Do NOT normalize status – keep raw value ---
+          status: o.status || "Open",
           priority: normalizePriority(o.priority || "Medium"),
           category: String(o.category ?? "General").trim() || "General",
           location: String(o.location ?? "").trim(),
@@ -3357,9 +3365,7 @@
           activity: Array.isArray(o.activity) ? o.activity : [],
           customFields: Array.isArray(o.customFields) ? o.customFields : [],
           dateTransmitted: String(o.dateTransmitted ?? ""),
-          _importHeaders: Array.isArray(o._importHeaders)
-            ? o._importHeaders
-            : [],
+          _importHeaders: Array.isArray(o._importHeaders) ? o._importHeaders : [],
           _rawData: o._rawData || {},
         }));
 
@@ -3492,41 +3498,142 @@
       function cardHTML(o) {
         const fieldConfigs = getAllFieldConfigs();
 
-        // Determine which fields to show on the card (excluding title and status which are always shown)
-        const fieldsToShow = Object.keys(fieldConfigs).filter(key => {
-          return fieldConfigs[key].showOnCard !== false && !["title", "status"].includes(key);
-        });
+        // --- Get configured fields ---
+        const idConfig = fieldConfigs.id || { label: "ID", source: "id", showOnCard: true, type: "mapped" };
+        const titleConfig = fieldConfigs.title || { label: "Title", source: "title", showOnCard: true, type: "mapped" };
+        const statusConfig = fieldConfigs.status || { label: "Status", source: "status", showOnCard: true, type: "mapped" };
+        const categoryConfig = fieldConfigs.category || { label: "Category", source: "category", showOnCard: true, type: "mapped" };
+        const locationConfig = fieldConfigs.location || { label: "Location", source: "location", showOnCard: true, type: "mapped" };
+        const dueDateConfig = fieldConfigs.dueDate || { label: "Due Date", source: "dueDate", showOnCard: true, type: "mapped" };
+        const assigneeConfig = fieldConfigs.assignee || { label: "Assigned To", source: "assignee", showOnCard: true, type: "mapped" };
+        const priorityConfig = fieldConfigs.priority || { label: "Priority", source: "priority", showOnCard: true, type: "mapped" };
+        const requesterConfig = fieldConfigs.requester || { label: "Requester", source: "requester", showOnCard: false, type: "mapped" };
+        const descriptionConfig = fieldConfigs.description || { label: "Description", source: "description", showOnCard: true, type: "mapped" };
 
-        const cardDateSource = o.cardDateSource || displayConfig.cardDateSource || "dueDate";
-        const cardDateRaw = displayValue(o, cardDateSource);
-        const due = cardDateRaw ? formatDate(cardDateRaw) : "—";
-        const cardDateLabel = o.cardDateLabel || displayConfig.cardDateLabel || "Due Date";
+        // --- Get values using configured sources ---
+        const idVal = displayValue(o, idConfig.source) || o.id || "—";
+        const titleVal = displayValue(o, titleConfig.source) || o.title || "Untitled Work Order";
+        const statusVal = displayValue(o, statusConfig.source) || o.status || "Open";
+        const categoryVal = displayValue(o, categoryConfig.source) || o.category || "General";
+        const locationVal = displayValue(o, locationConfig.source) || o.location || "—";
+        const dueDateVal = displayValue(o, dueDateConfig.source);
+        const assigneeVal = displayValue(o, assigneeConfig.source) || o.assignee || "Unassigned";
+        const priorityVal = displayValue(o, priorityConfig.source) || o.priority || "Medium";
+        const requesterVal = displayValue(o, requesterConfig.source) || o.requester || "";
+        const descriptionVal = displayValue(o, descriptionConfig.source) || o.description || "";
+
+        const due = dueDateVal ? formatDate(dueDateVal) : "—";
+        const dueLabel = dueDateConfig.label || "Due Date";
+        const locationLabel = locationConfig.label || "Location";
         const created = formatDate(o.created);
         const overdue = o.dueDate && o.status !== "Completed" && o.status !== "Cancelled" && o.dueDate < nowDate();
-        const statusOpts = ["Open", "In Progress", "On Hold", "Completed", "Overdue", "Cancelled"];
         const disabledAttr = !isLoggedIn ? 'disabled="disabled"' : "";
 
-        // Get the location field (or fallback)
-        const locationConfig = fieldConfigs.location;
-        let locationValue = "—";
-        let locationLabel = "Location";
-        if (locationConfig && locationConfig.showOnCard !== false) {
-          locationValue = displayValue(o, locationConfig.source) || "—";
-          locationLabel = locationConfig.label || "Location";
+        // --- DYNAMIC STATUS OPTIONS: ONLY from the data (raw values) ---
+        // Get unique statuses from ALL orders (the raw status values)
+        const dataStatuses = orders.map(o => o.status).filter(Boolean);
+        const uniqueStatuses = Array.from(new Set(dataStatuses)).sort();
+        // Use the raw statuses – NO hardcoded defaults
+        const statusOpts = uniqueStatuses.length ? uniqueStatuses : ["Open"];
+
+        // --- Determine if the status field is a dropdown or header ---
+        const statusType = statusConfig.type || "mapped";
+        const isStatusDropdown = (statusType === "dropdown");
+
+        // --- Description ---
+        let descriptionHTML = "";
+        if (descriptionConfig.showOnCard !== false && descriptionVal) {
+          descriptionHTML = `<p class="mt-3 text-sm leading-5 text-black/60 line-clamp-2">${esc(descriptionVal)}</p>`;
         }
 
-        // Get the due date field (or fallback)
-        const dueDateConfig = fieldConfigs.dueDate;
-        let dateValue = due;
-        let dateLabel = cardDateLabel;
-        if (dueDateConfig && dueDateConfig.showOnCard !== false) {
-          const rawDate = displayValue(o, dueDateConfig.source);
-          dateValue = rawDate ? formatDate(rawDate) : "—";
-          dateLabel = dueDateConfig.label || "Due Date";
+        // --- Created line with requester ---
+        let createdLine = `Created ${esc(created)}`;
+        if (requesterVal && requesterConfig.showOnCard !== false) {
+          createdLine += ` • By ${esc(requesterVal)}`;
         }
 
-        // Build extra fields – exclude fields that are already shown elsewhere
-        const skipFields = ["title", "status", "location", "dueDate", "assignee", "priority", "category", "created", "requester", "description"];
+        // --- Header: Only show ID and Category if they are set to show on card ---
+        let headerTopHTML = "";
+        const showId = idConfig.showOnCard !== false;
+        const showCategory = categoryConfig.showOnCard !== false;
+        const showStatus = statusConfig.showOnCard !== false;
+        const showTitle = titleConfig.showOnCard !== false;
+        const showLocation = locationConfig.showOnCard !== false;
+        const showDueDate = dueDateConfig.showOnCard !== false;
+        const showAssignee = assigneeConfig.showOnCard !== false;
+        const showPriority = priorityConfig.showOnCard !== false;
+
+        if (showId || showCategory) {
+          headerTopHTML = `<div class="flex items-center gap-2 mb-2">`;
+          if (showId) {
+            headerTopHTML += `<span class="text-[11px] font-bold text-black/40">${esc(idVal)}</span>`;
+          }
+          if (showId && showCategory) {
+            headerTopHTML += `<span class="w-1 h-1 rounded-full bg-black/20"></span>`;
+          }
+          if (showCategory) {
+            headerTopHTML += `<span class="text-[11px] text-black/40">${esc(categoryVal)}</span>`;
+          }
+          headerTopHTML += `</div>`;
+        }
+
+        // --- Title ---
+        let titleHTML = "";
+        if (showTitle) {
+          titleHTML = `<h3 class="font-black text-black group-hover:text-brand-teal transition truncate">${esc(titleVal)}</h3>`;
+        }
+
+        // --- Status badge or dropdown ---
+        let statusHTML = "";
+        if (showStatus) {
+          if (isStatusDropdown) {
+            // Show dropdown with unique statuses from data
+            const optionsHTML = statusOpts.map(s =>
+              `<option value="${esc(s)}" ${statusVal === s ? "selected" : ""}>${esc(s)}</option>`
+            ).join("");
+            const currentStatusClass = statusClass(statusVal);
+            statusHTML = `
+              <div class="status-dropdown-wrap shrink-0" onclick="event.stopPropagation();">
+                <select data-status-select="${esc(o.id)}" class="status-dropdown-trigger ${currentStatusClass.replace("border-", "")}" style="${currentStatusClass.split(" ").map(c => c.startsWith("bg-") ? `background-color:${c};` : "").join("")}" ${disabledAttr}>
+                  ${optionsHTML}
+                </select>
+              </div>
+            `;
+          } else {
+            // Show a badge (header type)
+            statusHTML = `<span class="shrink-0 px-2.5 py-1 rounded-full border text-[11px] font-bold ${statusClass(statusVal)}">${esc(statusVal)}</span>`;
+          }
+        }
+
+        // --- Location and Due Date boxes ---
+        let locationDueHTML = "";
+        if (showLocation || showDueDate) {
+          locationDueHTML = `<div class="mt-4 grid grid-cols-2 gap-2 text-xs">`;
+          if (showLocation) {
+            locationDueHTML += `
+              <div class="bg-black/5 rounded-lg p-2.5">
+                <p class="text-black/40">${esc(locationLabel)}</p>
+                <div class="font-bold text-black/80 mt-0.5 truncate">${formatFieldValue(locationVal)}</div>
+              </div>
+            `;
+          } else {
+            locationDueHTML += `<div></div>`;
+          }
+          if (showDueDate) {
+            locationDueHTML += `
+              <div class="bg-black/5 rounded-lg p-2.5">
+                <p class="text-black/40">${esc(dueLabel)}</p>
+                <div class="font-bold ${overdue ? "text-red-600" : "text-black/80"} mt-0.5">${formatFieldValue(due)}</div>
+              </div>
+            `;
+          } else {
+            locationDueHTML += `<div></div>`;
+          }
+          locationDueHTML += `</div>`;
+        }
+
+        // --- Extra fields (grid) – only fields not already shown elsewhere ---
+        const skipFields = ["id", "title", "status", "location", "dueDate", "assignee", "priority", "category", "created", "requester", "description"];
         const extraFields = Object.keys(fieldConfigs)
           .filter(key => {
             const cfg = fieldConfigs[key];
@@ -3540,74 +3647,53 @@
           extraFields.forEach(key => {
             const cfg = fieldConfigs[key];
             const val = displayValue(o, cfg.source);
-            extraFieldsHTML += `<div class="bg-black/5 rounded-lg p-2.5"><p class="text-black/40 truncate">${esc(cfg.label || key)}</p><div class="font-bold text-black/80 mt-0.5 break-words">${formatFieldValue(val)}</div></div>`;
+            let formatted = formatFieldValue(val);
+            // If it's a dropdown type, we could show a dropdown here too, but we'll keep it simple for extra fields.
+            // We'll just show the value as text for now.
+            extraFieldsHTML += `<div class="bg-black/5 rounded-lg p-2.5"><p class="text-black/40 truncate">${esc(cfg.label || key)}</p><div class="font-bold text-black/80 mt-0.5 break-words">${formatted}</div></div>`;
           });
           extraFieldsHTML += `</div>`;
         }
 
-        // Build the description
-        const descriptionConfig = fieldConfigs.description;
-        let descriptionHTML = "";
-        if (descriptionConfig && descriptionConfig.showOnCard !== false) {
-          const descVal = displayValue(o, descriptionConfig.source);
-          if (descVal) {
-            descriptionHTML = `<p class="mt-3 text-sm leading-5 text-black/60 line-clamp-2">${esc(descVal)}</p>`;
-          }
-        } else {
-          // Fallback to o.description if description field is not configured
-          if (o.description) {
-            descriptionHTML = `<p class="mt-3 text-sm leading-5 text-black/60 line-clamp-2">${esc(o.description)}</p>`;
-          }
+        // --- Footer: Assignee and Priority ---
+        let footerHTML = "";
+        if (showAssignee || showPriority) {
+          footerHTML = `
+            <div class="mt-4 pt-4 border-t border-black/10 flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="w-8 h-8 rounded-full bg-brand-teal/20 text-brand-teal flex items-center justify-center text-[10px] font-black shrink-0">${esc(initials(assigneeVal))}</div>
+                <div class="min-w-0">
+                  <p class="text-xs font-bold text-black/80 truncate">${esc(assigneeVal)}</p>
+                  <p class="text-[10px] text-black/40">Assigned user</p>
+                </div>
+              </div>
+              ${showPriority ? `<span class="px-2 py-1 rounded-md text-[10px] font-bold ${priorityClass(priorityVal)}">${esc(priorityVal)}</span>` : ''}
+            </div>
+          `;
         }
 
+        // --- Build the card ---
         return `
           <article data-open="${esc(o.id)}" class="group bg-white border border-black/10 rounded-2xl p-5 cursor-pointer shadow-sm hover:shadow-soft hover:-translate-y-0.5 hover:border-brand-teal/30 transition-all text-black h-full flex flex-col">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <div class="flex items-center gap-2 mb-2">
-                  <span class="text-[11px] font-bold text-black/40">${esc(o.id)}</span>
-                  <span class="w-1 h-1 rounded-full bg-black/20"></span>
-                  <span class="text-[11px] text-black/40">${esc(o.category || "General")}</span>
-                </div>
-                <h3 class="font-black text-black group-hover:text-brand-teal transition truncate">${esc(o.title || "Untitled Work Order")}</h3>
+                ${headerTopHTML}
+                ${titleHTML}
               </div>
-              <div class="status-dropdown-wrap shrink-0" onclick="event.stopPropagation();">
-                <select data-status-select="${esc(o.id)}" class="status-dropdown-trigger ${statusClass(o.status).replace("border-", "")}" style="${statusClass(o.status).split(" ").map(c => c.startsWith("bg-") ? `background-color:${c};` : "").join("")}" ${disabledAttr}>
-                  ${statusOpts.map(s => `<option value="${s}" ${o.status === s ? "selected" : ""}>${s}</option>`).join("")}
-                </select>
-              </div>
+              ${statusHTML}
             </div>
 
             ${descriptionHTML}
 
-            <div class="mt-4 grid grid-cols-2 gap-2 text-xs">
-              <div class="bg-black/5 rounded-lg p-2.5">
-                <p class="text-black/40">${esc(locationLabel)}</p>
-                <div class="font-bold text-black/80 mt-0.5 truncate">${formatFieldValue(locationValue)}</div>
-              </div>
-              <div class="bg-black/5 rounded-lg p-2.5">
-                <p class="text-black/40">${esc(dateLabel)}</p>
-                <div class="font-bold ${overdue ? "text-red-600" : "text-black/80"} mt-0.5">${formatFieldValue(dateValue)}</div>
-              </div>
-            </div>
+            ${locationDueHTML}
 
             ${extraFieldsHTML}
 
             <div class="mt-3 flex items-center gap-2 text-[11px] text-black/40">
-              <span>Created ${esc(created)}</span>
-              ${o.requester ? `<span>•</span><span class="truncate">By ${esc(o.requester)}</span>` : ""}
+              <span>${createdLine}</span>
             </div>
 
-            <div class="mt-4 pt-4 border-t border-black/10 flex items-center justify-between gap-3">
-              <div class="flex items-center gap-2 min-w-0">
-                <div class="w-8 h-8 rounded-full bg-brand-teal/20 text-brand-teal flex items-center justify-center text-[10px] font-black shrink-0">${esc(initials(o.assignee))}</div>
-                <div class="min-w-0">
-                  <p class="text-xs font-bold text-black/80 truncate">${esc(o.assignee || "Unassigned")}</p>
-                  <p class="text-[10px] text-black/40">Assigned user</p>
-                </div>
-              </div>
-              <span class="px-2 py-1 rounded-md text-[10px] font-bold ${priorityClass(o.priority)}">${esc(o.priority || "Medium")}</span>
-            </div>
+            ${footerHTML}
 
             <div class="mt-3 flex items-center justify-between">
               <span class="text-[11px] font-bold text-brand-teal opacity-0 group-hover:opacity-100 transition">View details →</span>
@@ -3660,8 +3746,16 @@
         ).textContent = `Created ${formatDate(o.created)}${
           o.requester ? " • Requested by " + o.requester : ""
         }`;
+
+        // --- DYNAMIC STATUS OPTIONS: ONLY from the data (raw values) ---
+        const dataStatuses = orders.map(o => o.status).filter(Boolean);
+        const uniqueStatuses = Array.from(new Set(dataStatuses)).sort();
+        const statusOpts = uniqueStatuses.length ? uniqueStatuses : ["Open"];
+
         const drawerStatus = document.getElementById("drawerStatusSelect");
-        if (drawerStatus) drawerStatus.value = o.status;
+        drawerStatus.innerHTML = statusOpts.map(s =>
+          `<option value="${esc(s)}" ${o.status === s ? "selected" : ""}>${esc(s)}</option>`
+        ).join("");
 
         const activity = (o.activity || [])
           .filter(
@@ -3737,11 +3831,9 @@
         const body = document.getElementById("drawerBody");
         body.innerHTML = `
             <div class="space-y-6 text-black">
-              <div class="rounded-xl border p-4 ${
-                priorityClass(o.priority)
-                  .replace("text-", "border-")
-                  .split(" ")[0]
-              }">
+              <div class="rounded-xl border p-4 ${priorityClass(o.priority)
+                .replace("text-", "border-")
+                .split(" ")[0]}">
                 <div class="flex items-center justify-between gap-3">
                   <div><p class="text-[10px] uppercase tracking-wider font-bold text-black/40">Priority</p><p class="mt-1 font-black ${
                     priorityClass(o.priority).split(" ")[1] || "text-black/80"
@@ -5244,12 +5336,14 @@
         const mapping = {};
         const used = new Set();
         const candidates = [];
+        
         Object.keys(FIELD_DEFS).forEach((field) =>
           headers.forEach((h, i) => {
             const score = headerFieldScore(field, h);
             if (score >= 82) candidates.push({ field, h, i, score });
           })
         );
+        
         candidates.sort((a, b) => b.score - a.score);
         candidates.forEach((c) => {
           if (!mapping[c.field] && !used.has(c.i)) {
@@ -5302,6 +5396,54 @@
             used.add(pick.i);
           }
         }
+
+        // --- NEW: If status wasn't mapped, try to find a column with status-like values ---
+        if (!mapping.status) {
+          const statusCandidates = headers
+            .map((h, i) => {
+              const vals = rows
+                .slice(0, 80)
+                .map((r) => String(r[h] ?? "").trim())
+                .filter(Boolean);
+              if (!vals.length) return { h, i, score: 0 };
+              
+              // Check if values look like statuses
+              let score = 0;
+              const statusKeywords = [
+                /completed|approved|accepted|finished|done|closed|resolved/,
+                /cancelled|canceled|void|terminated|disapproved|rejected/,
+                /overdue|late|past due/,
+                /in progress|progress|ongoing|working|started|active/,
+                /on hold|hold|pending|waiting|paused|suspended/,
+                /open|new|created|submitted|raised/,
+              ];
+              
+              vals.forEach(v => {
+                const lower = v.toLowerCase();
+                statusKeywords.forEach(pattern => {
+                  if (pattern.test(lower)) score += 15;
+                });
+              });
+              
+              // Bonus if header contains status-related words
+              const hLower = h.toLowerCase();
+              if (/status|state|stage|phase|progress/.test(hLower)) score += 30;
+              
+              // Bonus if column has low cardinality (2-8 unique values)
+              const uniqueVals = new Set(vals);
+              if (uniqueVals.size >= 2 && uniqueVals.size <= 10) score += 20;
+              
+              return { h, i, score };
+            })
+            .sort((a, b) => b.score - a.score);
+          
+          const pick = statusCandidates.find((c) => c.score >= 40 && !used.has(c.i));
+          if (pick) {
+            mapping.status = pick.h;
+            used.add(pick.i);
+          }
+        }
+
         return mapping;
       }
 
@@ -5311,22 +5453,51 @@
           .map((r) => String(r[header] ?? "").trim())
           .filter(Boolean);
         if (!vals.length) return 0;
-        const ratio = (re) =>
-          vals.filter((v) => re.test(v)).length / vals.length;
+        
+        const ratio = (re) => vals.filter((v) => re.test(v)).length / vals.length;
         const avg = vals.reduce((s, v) => s + v.length, 0) / vals.length;
-        const numericRatio =
-          vals.filter((v) => /^-?\d+(?:\.\d+)?$/.test(v)).length / vals.length;
-
+        const numericRatio = vals.filter((v) => /^-?\d+(?:\.\d+)?$/.test(v)).length / vals.length;
+        
+        // --- ENHANCED STATUS DETECTION ---
+        if (field === "status") {
+          // Strong status keywords
+          const statusWords = [
+            /^(open|new|created|submitted|raised)$/i,
+            /^(in progress|progress|ongoing|working|started|active)$/i,
+            /^(on hold|hold|pending|waiting|paused|suspended)$/i,
+            /^(complete|completed|done|finished|closed|resolved|approved)$/i,
+            /^(overdue|late|past due|delayed)$/i,
+            /^(cancel|cancelled|void|terminated)$/i,
+          ];
+          
+          let score = 0;
+          for (const pattern of statusWords) {
+            const matchRatio = ratio(pattern);
+            if (matchRatio > 0.2) {
+              score += matchRatio * 50;
+            }
+          }
+          
+          // Bonus: if the header itself contains "status", "state", or "stage"
+          const headerNorm = normalize(header);
+          if (/status|state|stage|phase|progress/.test(headerNorm)) {
+            score += 30;
+          }
+          
+          // Bonus: if the column has low cardinality (few unique values, like statuses)
+          const uniqueVals = new Set(vals);
+          if (uniqueVals.size >= 2 && uniqueVals.size <= 8) {
+            score += 20;
+          }
+          
+          return Math.min(score, 100);
+        }
+        
+        // --- EXISTING DETECTION FOR OTHER FIELDS ---
         if (field === "id")
           return Math.max(
             ratio(/^(?:WO|W0|JOB|REQ|TKT|SR)[-_# ]?\d+/i) * 90,
             ratio(/^\d{3,}$/) * 55
-          );
-        if (field === "status")
-          return (
-            ratio(
-              /^(open|new|in progress|progress|ongoing|working|started|on hold|hold|pending|completed|complete|done|closed|resolved|overdue|late|cancelled|canceled)$/i
-            ) * 95
           );
         if (field === "priority")
           return (
@@ -5382,13 +5553,45 @@
       }
 
       function normalizeStatus(v) {
+        if (!v) return "Open";
         const n = normalize(v);
-        if (/progress|ongoing|working|started|in progress/.test(n))
+        
+        // --- Simple keyword matching ---
+        if (/completed|finished|done|approved|accepted|signed off|finalized|resolved|closed/.test(n)) {
+          return "Completed";
+        }
+        if (/cancelled|canceled|void|terminated|aborted|disapproved|rejected|denied|declined/.test(n)) {
+          return "Cancelled";
+        }
+        if (/overdue|late|past due|delayed|over due/.test(n)) {
+          return "Overdue";
+        }
+        if (/in progress|progress|ongoing|working|started|active|wip/.test(n)) {
           return "In Progress";
-        if (/complete|closed|done|resolved|finish/.test(n)) return "Completed";
-        if (/hold|pending/.test(n)) return "On Hold";
-        if (/overdue|late|past due/.test(n)) return "Overdue";
-        if (/cancel/.test(n)) return "Cancelled";
+        }
+        if (/on hold|hold|pending|waiting|paused|suspended/.test(n)) {
+          return "On Hold";
+        }
+        if (/open|new|created|submitted|raised|initiated/.test(n)) {
+          return "Open";
+        }
+        
+        // If the value contains any status keyword in a longer string
+        const statusMap = [
+          { pattern: /completed|finish|done|approved|accepted|resolved|closed|signed off|final/, value: "Completed" },
+          { pattern: /cancel|void|terminate|abort|disapprov|reject|denied|declined/, value: "Cancelled" },
+          { pattern: /overdue|late|past due|delayed/, value: "Overdue" },
+          { pattern: /progress|ongoing|working|started|active|wip/, value: "In Progress" },
+          { pattern: /hold|pending|waiting|paused|suspended/, value: "On Hold" },
+          { pattern: /open|new|created|submitted|raised|initiated/, value: "Open" },
+        ];
+        
+        for (const entry of statusMap) {
+          if (entry.pattern.test(n)) {
+            return entry.value;
+          }
+        }
+        
         return "Open";
       }
 
@@ -5512,28 +5715,51 @@
         };
 
         const rawId = String(get("id") || "").trim();
-        // Use stable ID generator instead of Date.now()
         const id = rawId || generateStableId(row);
-        
-        const rawStatus = String(get("status") || "").trim();
-        const rawPriority = String(get("priority") || "").trim();
-        const mappedSources = new Set(
-          Object.values(importMapping).filter(Boolean)
-        );
-        const customFields = buildImportCustomFieldsForRow(row);
 
+        // --- Step 1: Get raw status from the mapped column (EXEC APPROVAL) ---
+        const rawStatus = String(get("status") || "").trim() || "Open";
+
+        // --- Step 2: Get the value from the mapped "dueDate" field (should be REMARKS) ---
+        let remarksValue = String(get("dueDate") || "").trim();
+
+        // --- Step 3: If that's empty, search the raw row for any key containing "remarks" ---
+        if (!remarksValue) {
+          const remarksKey = Object.keys(row).find(k => /remarks?/i.test(k));
+          if (remarksKey) {
+            remarksValue = String(row[remarksKey] || "").trim();
+          }
+        }
+
+        // --- DEBUG: Log what we found (remove after confirmation) ---
+        console.log(`[DEBUG] Row ${i} – remarksValue: "${remarksValue}"`);
+
+        // --- Step 4: Override status to COMPLETED ONLY if the remarks field contains "complete" ---
+        let finalStatus;
+        if (/complete/i.test(remarksValue)) {
+          finalStatus = "COMPLETED";
+        } else {
+          finalStatus = rawStatus;
+        }
+
+        // --- DEBUG: Log the final status ---
+        console.log(`[DEBUG] Row ${i} – finalStatus: "${finalStatus}"`);
+
+        // --- Get other fields ---
+        const rawPriority = String(get("priority") || "").trim();
+        const customFields = buildImportCustomFieldsForRow(row);
         const dueDate = parseDateValue(get("dueDate"));
         const importedDueLabel = importFieldLabels.dueDate || "Due Date";
+
         return {
           id,
           title: String(get("title") || "Untitled Work Order").trim(),
           description: String(get("description") || "").trim(),
-          status: rawStatus ? normalizeStatus(rawStatus) : "Open",
+          status: finalStatus,
           priority: rawPriority ? normalizePriority(rawPriority) : "Medium",
           category: String(get("category") || "General").trim() || "General",
           location: String(get("location") || "").trim(),
-          assignee:
-            String(get("assignee") || "Unassigned").trim() || "Unassigned",
+          assignee: String(get("assignee") || "Unassigned").trim() || "Unassigned",
           requester: String(get("requester") || "").trim(),
           created: parseDateValue(get("created")) || nowDate(),
           dueDate: dueDate,
@@ -5568,12 +5794,45 @@
         importSourceType = sourceType;
         importMapping = inferMapping(importHeaders, importRows);
         importManualValues = {};
-        importFieldLabels = {};
+        
+        // --- FIX: Set default labels for ALL core fields including id ---
+        const defaultLabels = {
+          id: "Work Order ID",
+          title: "Title",
+          description: "Description",
+          status: "Status",
+          priority: "Priority",
+          category: "Category",
+          location: "Location",
+          assignee: "Assigned To",
+          requester: "Requester",
+          created: "Created Date",
+          dueDate: "Due Date",
+        };
+        importFieldLabels = { ...defaultLabels };
+        
         importFieldTypes = { dueDate: "date" };
-        const mappedSources = new Set(
-          Object.values(importMapping).filter(Boolean)
-        );
         importCustomMappings = [];
+
+        // Smart type detection
+        Object.keys(importMapping).forEach((field) => {
+          const header = importMapping[field];
+          if (header) {
+            const detectedType = detectColumnType(header, importRows);
+            if (detectedType && detectedType !== "mapped") {
+              importFieldTypes[field] = detectedType;
+            }
+          }
+        });
+
+        // Reset visibility
+        importFieldShowOnCard = {};
+        ["id","title","description","status","priority","category","location","assignee","requester","created","dueDate"].forEach(f => {
+          importFieldShowOnCard[f] = true;
+        });
+
+        // Reset field order to only core fields
+        window._fieldOrder = ["id","title","description","status","priority","category","location","assignee","requester","created","dueDate"];
 
         importedHeaders = importHeaders.slice();
         saveImportedHeaders();
@@ -5592,8 +5851,79 @@
         renderImportPreview();
       }
 
+      function detectColumnType(columnName, rows) {
+        if (!rows || !rows.length) return "mapped";
+        const values = rows.map(r => String(r[columnName] || "").trim()).filter(v => v !== "");
+        if (values.length === 0) return "mapped";
+
+        // Date patterns (more comprehensive)
+        const datePatterns = [
+          /^\d{4}-\d{1,2}-\d{1,2}$/,               // 2024-01-01
+          /^\d{1,2}\/\d{1,2}\/\d{2,4}$/,          // 1/1/2024
+          /^\d{1,2}-\d{1,2}-\d{2,4}$/,            // 1-1-2024
+          /^[A-Za-z]{3,9}\s+\d{1,2}(?:,|\s)\s*\d{2,4}$/, // Jan 1, 2024
+          /^\d{1,2}\s+[A-Za-z]{3,9}\s+\d{2,4}$/,  // 1 Jan 2024
+          /^[A-Za-z]{3,9}\s+\d{1,2}$/,            // Jan 1 (no year)
+          /^\d{1,2}\s+[A-Za-z]{3,9}$/,            // 1 Jan
+          /^\d{4}-\d{1,2}-\d{1,2}T\d{2}:\d{2}:\d{2}/, // ISO datetime
+        ];
+        const dateMatch = values.filter(v => datePatterns.some(p => p.test(v))).length;
+        const dateRatio = dateMatch / values.length;
+
+        // Header name boost
+        const headerLower = columnName.toLowerCase();
+        const dateKeywords = ['date', 'created', 'due', 'transmit', 'open', 'close', 'start', 'end', 'deadline', 'target'];
+        const headerBoost = dateKeywords.some(kw => headerLower.includes(kw)) ? 0.2 : 0;
+
+        // Confidence score: dateRatio + headerBoost (but cap at 1)
+        let confidence = dateRatio + headerBoost;
+        // If confidence > 0.45, set to date
+        if (confidence > 0.45) return "date";
+
+        // Dropdown detection (unchanged)
+        const uniqueValues = new Set(values);
+        const uniqueRatio = uniqueValues.size / values.length;
+        if (uniqueValues.size >= 2 && uniqueValues.size <= 10 && uniqueRatio < 0.5) {
+          const maxFrequency = Math.max(...Array.from(uniqueValues).map(v => values.filter(x => x === v).length));
+          const freqRatio = maxFrequency / values.length;
+          if (freqRatio > 0.25) return "dropdown";
+        }
+
+        return "mapped";
+      }
+
       function renderImportMapping() {
-        const grid = document.getElementById("importMappingGrid");
+        // --- ENSURE core fields are ALWAYS present ---
+        const coreFields = [
+          "id", "title", "description", "status", "priority",
+          "category", "location", "assignee", "requester",
+          "created", "dueDate"
+        ];
+
+        if (!window._fieldOrder || window._fieldOrder.length === 0) {
+          window._fieldOrder = [...coreFields];
+          importCustomMappings.forEach((_, i) => {
+            window._fieldOrder.push(`custom_${i}`);
+          });
+        } else {
+          let coreFieldsMissing = false;
+          coreFields.forEach(f => {
+            if (!window._fieldOrder.includes(f)) {
+              window._fieldOrder.push(f);
+              coreFieldsMissing = true;
+            }
+          });
+          if (coreFieldsMissing) {
+            const newOrder = [...coreFields];
+            window._fieldOrder.forEach(k => {
+              if (!coreFields.includes(k) && !newOrder.includes(k)) {
+                newOrder.push(k);
+              }
+            });
+            window._fieldOrder = newOrder;
+          }
+        }
+
         const defaultLabels = {
           id: "Work Order ID",
           title: "Title",
@@ -5607,282 +5937,561 @@
           created: "Created Date",
           dueDate: "Due Date",
         };
-        const labels = { ...defaultLabels, ...importFieldLabels };
-        grid.innerHTML = Object.keys(FIELD_DEFS)
-          .map((field) => {
-            const mapped = importMapping[field] || "";
-            const required = field === "title";
-            const customLabel = labels[field] || defaultLabels[field] || field;
-            const manualValue = importManualValues[field] || "";
-            const type =
-              importFieldTypes[field] ||
-              (field === "dueDate" ? "date" : "mapped");
-            const typeOptions = `
+
+        const fields = [];
+        window._fieldOrder.forEach(key => {
+          if (key.startsWith("custom_")) {
+            const idx = parseInt(key.split("_")[1]);
+            const custom = importCustomMappings[idx];
+            if (custom) {
+              fields.push({
+                key: key,
+                label: custom.label || custom.source || "",
+                source: custom.source || "",
+                type: custom.type || "mapped",
+                showOnCard: custom.showOnCard !== undefined ? custom.showOnCard : true,
+                isCore: false,
+                customIndex: idx,
+              });
+            }
+          } else {
+            const mapped = importMapping[key] || "";
+            const label = importFieldLabels[key] || defaultLabels[key] || key;
+            const type = importFieldTypes[key] || "mapped";
+            const showOnCard = importFieldShowOnCard[key] !== undefined ? importFieldShowOnCard[key] : true;
+            fields.push({
+              key,
+              label,
+              source: mapped,
+              type,
+              showOnCard,
+              isCore: true,
+            });
+          }
+        });
+
+        if (fields.length === 0) {
+          window._fieldOrder = [...coreFields];
+          importCustomMappings.forEach((_, i) => {
+            window._fieldOrder.push(`custom_${i}`);
+          });
+          return renderImportMapping();
+        }
+
+        const grid = document.getElementById("importMappingGrid");
+        let html = "";
+        fields.forEach((f, idx) => {
+          const required = f.key === "title";
+          const mapped = f.source;
+          const statusText = mapped ? "MAPPED" : "UNMAPPED";
+          const statusClass = mapped ? "text-brand-success" : "text-black/40";
+
+          const typeOptions = `
+            <select data-import-field-type="${f.key}" class="w-full bg-white border border-black/10 rounded-lg px-2 py-1.5 text-[10px] font-semibold text-black/70">
+              <option value="mapped" ${f.type === "mapped" ? "selected" : ""}>Header</option>
+              <option value="date" ${f.type === "date" ? "selected" : ""}>Date</option>
+              <option value="value" ${f.type === "value" ? "selected" : ""}>Value</option>
+              <option value="dropdown" ${f.type === "dropdown" ? "selected" : ""}>Dropdown</option>
+            </select>
+          `;
+
+          let sourceSelect = `
+            <select data-import-map-field="${f.key}" class="w-full bg-white border border-black/10 rounded-lg px-2 py-2 text-xs font-semibold text-black/70">
+              <option value="">— Not mapped —</option>
+          `;
+          if (importHeaders && importHeaders.length) {
+            importHeaders.forEach(h => {
+              sourceSelect += `<option value="${esc(h)}" ${mapped === h ? "selected" : ""}>${esc(h)}</option>`;
+            });
+          }
+          sourceSelect += `</select>`;
+
+          const visibilityToggle = `
+            <label class="flex items-center gap-1.5 text-[10px] font-bold text-black/60 cursor-pointer">
+              <input type="checkbox" data-visibility="${f.key}" ${f.showOnCard ? "checked" : ""} class="rounded">
+              <span>Show on card</span>
+            </label>
+          `;
+
+          let reorderBtns = "";
+          if (fields.length > 1) {
+            reorderBtns = `
+              <div class="flex items-center gap-1">
+                <button data-move-up="${idx}" class="p-1 rounded hover:bg-black/5 text-black/40 disabled:opacity-30" ${idx === 0 ? "disabled" : ""} title="Move up">↑</button>
+                <button data-move-down="${idx}" class="p-1 rounded hover:bg-black/5 text-black/40 disabled:opacity-30" ${idx === fields.length - 1 ? "disabled" : ""} title="Move down">↓</button>
+              </div>
+            `;
+          }
+
+          const removeBtn = f.isCore ? "" : `<button data-remove-custom="${f.customIndex}" class="text-red-500 hover:text-red-700 text-sm font-bold" title="Remove this field">✕</button>`;
+
+          html += `
+            <div class="bg-black/5 border border-black/10 rounded-xl p-3 relative" data-field-key="${f.key}">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex-1">
+                  <input data-import-label-field="${f.key}" class="w-full rounded-md border border-black/10 bg-white px-2 py-1.5 text-[10px] font-black uppercase tracking-wide text-black/70 placeholder:text-black/30 focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/20" value="${esc(f.label)}" placeholder="Label">
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                  ${reorderBtns}
+                  ${removeBtn}
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between mt-2 gap-2">
+                <span class="text-[9px] font-black ${statusClass}">${statusText}${required ? " • REQUIRED" : ""}</span>
+                ${visibilityToggle}
+              </div>
+
               <div class="grid grid-cols-[76px_minmax(0,1fr)] items-center gap-2 mt-2">
                 <span class="text-[8px] font-black uppercase tracking-wide text-black/40">Type</span>
-                <select data-import-field-type="${field}" class="w-full bg-white border border-black/10 rounded-lg px-2 py-1.5 text-[10px] font-semibold text-black/70">
-                  <option value="mapped" ${
-                    type === "mapped" ? "selected" : ""
-                  }>Header</option>
-                  <option value="date" ${
-                    type === "date" ? "selected" : ""
-                  }>Date</option>
-                  <option value="value" ${
-                    type === "value" ? "selected" : ""
-                  }>Value</option>
-                  <option value="dropdown" ${
-                    type === "dropdown" ? "selected" : ""
-                  }>Dropdown</option>
-                </select>
-              </div>`;
-            const headerControl =
-              field === "dueDate" && type === "date"
-                ? `<div class="mt-2 space-y-2">
-                  <input type="date" data-import-manual-field="${field}" class="w-full rounded-lg border border-black/10 bg-white px-2 py-2 text-[10px] font-semibold text-black/70 focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/20" value="${esc(
-                    manualValue
-                  )}" aria-label="Manual due date value">
-                  <div class="grid grid-cols-[76px_minmax(0,1fr)] items-center gap-2">
-                    <span class="text-[8px] font-black uppercase tracking-wide text-black/40">Header</span>
-                    <select data-import-map-field="${field}" class="w-full bg-white border border-black/10 rounded-lg px-2 py-2 text-xs font-semibold text-black/70"><option value="">— Not mapped —</option>${importHeaders
-                    .map(
-                      (h) =>
-                        `<option value="${esc(h)}" ${
-                          importMapping[field] === h ? "selected" : ""
-                        }>${esc(h)}</option>`
-                    )
-                    .join("")}</select>
-                  </div>
-                </div>`
-                : `<div class="mt-2 grid grid-cols-[76px_minmax(0,1fr)] items-center gap-2">
-                    <span class="text-[8px] font-black uppercase tracking-wide text-black/40">Header</span>
-                    <select data-import-map-field="${field}" class="w-full bg-white border border-black/10 rounded-lg px-2 py-2 text-xs font-semibold text-black/70"><option value="">— Not mapped —</option>${importHeaders
-                    .map(
-                      (h) =>
-                        `<option value="${esc(h)}" ${
-                          importMapping[field] === h ? "selected" : ""
-                        }>${esc(h)}</option>`
-                    )
-                    .join("")}</select>
-                  </div>`;
-            return `<label class="bg-black/5 border border-black/10 rounded-xl p-3">
-              <span class="flex items-center justify-between mb-1 gap-2"><span class="block text-[10px] font-black uppercase tracking-wide text-black/40">
-                <input data-import-label-field="${field}" class="w-full min-w-0 rounded-md border border-black/10 bg-white px-2 py-1.5 text-[10px] font-black uppercase tracking-wide text-black/70 placeholder:text-black/30 focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/20" value="${esc(
-              customLabel
-            )}" aria-label="Label for ${esc(field)}">
-              </span><span data-import-status class="text-[9px] font-black ${
-                mapped ? "text-brand-success" : "text-black/40"
-              }">${mapped ? "MAPPED" : "UNMAPPED"}${
-              required ? " • REQUIRED" : ""
-            }</span></span>
-              ${typeOptions}
-              ${headerControl}
-              ${
-                mapped
-                  ? `<span class="block text-[10px] text-black/40 mt-1 truncate">Source: ${esc(
-                      mapped
-                    )}</span>`
-                  : ""
+                ${typeOptions}
+              </div>
+
+              <div class="mt-2 grid grid-cols-[76px_minmax(0,1fr)] items-center gap-2">
+                <span class="text-[8px] font-black uppercase tracking-wide text-black/40">Source</span>
+                ${sourceSelect}
+              </div>
+
+              ${mapped ? `<span class="block text-[10px] text-black/40 mt-1 truncate">Source: ${esc(mapped)}</span>` : ""}
+            </div>
+          `;
+        });
+
+        grid.innerHTML = html;
+
+        // ----- LABEL EVENT (now syncs to displayConfig and re‑renders) -----
+        grid.querySelectorAll("[data-import-label-field]").forEach(input => {
+          function updateLabel(e) {
+            const key = e.target.dataset.importLabelField;
+            const val = e.target.value.trim();
+
+            if (key.startsWith("custom_")) {
+              const idx = parseInt(key.split("_")[1]);
+              if (importCustomMappings[idx]) {
+                importCustomMappings[idx].label = val;
+                // Sync to displayConfig if this custom field already exists there
+                if (displayConfig.fieldConfig) {
+                  Object.keys(displayConfig.fieldConfig).forEach(cfgKey => {
+                    if (cfgKey.startsWith("custom_") &&
+                        displayConfig.fieldConfig[cfgKey].source === importCustomMappings[idx].source) {
+                      displayConfig.fieldConfig[cfgKey].label = val;
+                      saveDisplayConfig();
+                    }
+                  });
+                }
               }
-            </label>`;
-          })
-          .join("");
+            } else {
+              importFieldLabels[key] = val;
+              // Sync to main dashboard field config
+              if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
+              if (!displayConfig.fieldConfig[key]) {
+                displayConfig.fieldConfig[key] = {
+                  label: val,
+                  source: key,
+                  showOnCard: true,
+                  showInTable: true,
+                };
+              } else {
+                displayConfig.fieldConfig[key].label = val;
+              }
+              saveDisplayConfig();
+            }
 
-        grid.querySelectorAll("[data-import-label-field]").forEach((input) => {
-          input.addEventListener("input", (e) => {
-            const field = e.target.dataset.importLabelField;
-            importFieldLabels[field] = e.target.value.trim();
+            renderImportPreview();
+            render(); // Re‑render the main dashboard to reflect the new label
+          }
+
+          input.addEventListener("input", updateLabel);
+          input.addEventListener("change", updateLabel);
+        });
+
+        // ----- Other event bindings (unchanged) -----
+        grid.querySelectorAll("[data-import-map-field]").forEach(sel => {
+          sel.addEventListener("change", (e) => {
+            const key = e.target.dataset.importMapField;
+            const val = e.target.value || "";
+            if (key.startsWith("custom_")) {
+              const idx = parseInt(key.split("_")[1]);
+              if (importCustomMappings[idx]) {
+                importCustomMappings[idx].source = val;
+                if (!importCustomMappings[idx].label) importCustomMappings[idx].label = val;
+              }
+            } else {
+              importMapping[key] = val;
+            }
+            renderImportMapping();
             renderImportPreview();
           });
         });
 
-        grid.querySelectorAll("[data-import-map-field]").forEach((sel) =>
+        grid.querySelectorAll("[data-import-field-type]").forEach(sel => {
           sel.addEventListener("change", (e) => {
-            importMapping[e.target.dataset.importMapField] = e.target.value;
-            const mapped = new Set(
-              Object.values(importMapping).filter(Boolean)
-            );
-            importCustomMappings = importCustomMappings.filter(
-              (f) => !mapped.has(f.source)
-            );
-            renderImportMapping();
-            renderImportPreview();
-          })
-        );
-
-        grid.querySelectorAll("[data-import-field-type]").forEach((sel) =>
-          sel.addEventListener("change", (e) => {
-            const field = e.target.dataset.importFieldType;
-            importFieldTypes[field] = e.target.value;
-            renderImportMapping();
-            renderImportPreview();
-          })
-        );
-
-        grid.querySelectorAll("[data-import-manual-field]").forEach((input) => {
-          input.addEventListener("input", (e) => {
-            const field = e.target.dataset.importManualField;
-            importManualValues[field] = e.target.value;
+            const key = e.target.dataset.importFieldType;
+            const val = e.target.value;
+            if (key.startsWith("custom_")) {
+              const idx = parseInt(key.split("_")[1]);
+              if (importCustomMappings[idx]) importCustomMappings[idx].type = val;
+            } else {
+              importFieldTypes[key] = val;
+            }
             renderImportPreview();
           });
         });
 
-        const wrap = document.getElementById("importCustomMappingArea");
+        grid.querySelectorAll("[data-visibility]").forEach(cb => {
+          cb.addEventListener("change", (e) => {
+            const key = e.target.dataset.visibility;
+            const checked = e.target.checked;
+            if (key.startsWith("custom_")) {
+              const idx = parseInt(key.split("_")[1]);
+              if (importCustomMappings[idx]) importCustomMappings[idx].showOnCard = checked;
+            } else {
+              importFieldShowOnCard[key] = checked;
+            }
+            renderImportPreview();
+          });
+        });
+
+        grid.querySelectorAll("[data-move-up], [data-move-down]").forEach(btn => {
+          btn.addEventListener("click", (e) => {
+            const idx = parseInt(btn.dataset.moveUp ?? btn.dataset.moveDown);
+            const direction = btn.dataset.moveUp ? -1 : 1;
+            const newIdx = idx + direction;
+            if (newIdx < 0 || newIdx >= window._fieldOrder.length) return;
+            [window._fieldOrder[idx], window._fieldOrder[newIdx]] =
+              [window._fieldOrder[newIdx], window._fieldOrder[idx]];
+            renderImportMapping();
+            renderImportPreview();
+          });
+        });
+
+        grid.querySelectorAll("[data-remove-custom]").forEach(btn => {
+          btn.addEventListener("click", (e) => {
+            const idx = parseInt(btn.dataset.removeCustom);
+            removeCustomField(idx);
+          });
+        });
+
+        // ----- Render custom rows -----
+        renderImportCustomRows();
+
+        // ----- Add Field button handler -----
+        const addBtn = document.getElementById("addImportCustomBtn");
+        if (addBtn) {
+          const newAddBtn = addBtn.cloneNode(true);
+          addBtn.parentNode.replaceChild(newAddBtn, addBtn);
+          newAddBtn.addEventListener("click", function() {
+            const newIndex = importCustomMappings.length;
+            importCustomMappings.push({
+              label: "",
+              source: "",
+              value: "",
+              type: "mapped",
+              showOnCard: true
+            });
+            if (!window._fieldOrder) {
+              window._fieldOrder = ["id","title","description","status","priority","category","location","assignee","requester","created","dueDate"];
+            }
+            window._fieldOrder.push(`custom_${newIndex}`);
+            renderImportMapping();
+            renderImportPreview();
+            toast("New custom field added. Set its label and source.", "info");
+          });
+        }
+
+        // ----- Helper to remove custom field -----
+        function removeCustomField(idx) {
+          if (importCustomMappings.length > idx) {
+            importCustomMappings.splice(idx, 1);
+            window._fieldOrder = window._fieldOrder.filter(k => k !== `custom_${idx}`);
+            const newOrder = [];
+            window._fieldOrder.forEach(k => {
+              if (k.startsWith("custom_")) {
+                const oldIdx = parseInt(k.split("_")[1]);
+                if (oldIdx > idx) newOrder.push(`custom_${oldIdx - 1}`);
+                else if (oldIdx < idx) newOrder.push(`custom_${oldIdx}`);
+              } else {
+                newOrder.push(k);
+              }
+            });
+            window._fieldOrder = newOrder;
+            renderImportMapping();
+            renderImportPreview();
+          }
+        }
+      }
+
+      function renderImportCustomRows() {
+        const wrap = document.getElementById("importCustomRows");
         if (!wrap) return;
-        wrap.innerHTML = `<div class="flex items-center justify-between gap-3 mb-3"><div><h4 class="text-xs font-black text-black/70">Additional / custom fields</h4><p class="text-[10px] text-black/40 mt-1">Anything not mapped above can be renamed and carried into the Work Order drawer.</p></div><button type="button" id="addImportCustomBtn" class="px-3 py-2 rounded-lg border border-black/10 bg-white hover:bg-black/5 text-[10px] font-black text-black/70 transition">+ Add Field</button></div>
-          <div id="importCustomRows" class="space-y-2"></div>`;
-        const rows = document.getElementById("importCustomRows");
-        const customRows = importCustomMappings.length
-          ? importCustomMappings
-          : [];
-        customRows.forEach((f, i) => {
-          rows.insertAdjacentHTML(
-            "beforeend",
-            `<div class="import-custom-row">
-                <input data-custom-label="${i}" class="field-input-sm border-black/10" placeholder="Name" value="${esc(
-              f.label
-            )}">
-                <select data-custom-source="${i}" class="field-input-sm border-black/10">
-                  <option value="">Header from import</option>${importHeaders
-                    .map(
-                      (h) =>
-                        `<option value="${esc(h)}" ${
-                          f.source === h ? "selected" : ""
-                        }>${esc(h)}</option>`
-                    )
-                    .join("")}
-                </select>
-                <input data-custom-value="${i}" class="field-input-sm border-black/10" placeholder="Value (optional)" value="${esc(
-              f.value || ""
-            )}">
-                <button type="button" data-custom-remove="${i}" class="w-9 h-9 rounded-lg text-red-500 hover:bg-red-50 flex items-center justify-center">✕</button>
-              </div>`
-          );
+
+        let html = "";
+        importCustomMappings.forEach((f, i) => {
+          html += `
+            <div class="import-custom-row grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center" data-custom-index="${i}">
+              <input data-custom-label="${i}" class="field-input-sm border-black/10" placeholder="Name" value="${esc(f.label || "")}">
+              <select data-custom-source="${i}" class="field-input-sm border-black/10">
+                <option value="">Header from import</option>
+                ${importHeaders.map(h => `<option value="${esc(h)}" ${f.source === h ? "selected" : ""}>${esc(h)}</option>`).join("")}
+              </select>
+              <input data-custom-value="${i}" class="field-input-sm border-black/10" placeholder="Value (optional)" value="${esc(f.value || "")}">
+              <button type="button" data-custom-remove="${i}" class="w-9 h-9 rounded-lg text-red-500 hover:bg-red-50 flex items-center justify-center">✕</button>
+            </div>
+          `;
         });
-        document
-          .getElementById("addImportCustomBtn")
-          .addEventListener("click", () => {
-            importCustomMappings.push({ label: "", source: "", value: "" });
-            renderImportMapping();
-            renderImportPreview();
+
+        wrap.innerHTML = html || '<p class="text-xs text-black/40 italic">No custom fields added yet.</p>';
+
+        // Bind events for custom rows
+        wrap.querySelectorAll("[data-custom-label]").forEach(el => {
+          el.addEventListener("input", (e) => {
+            const idx = parseInt(e.target.dataset.customLabel);
+            if (importCustomMappings[idx]) {
+              importCustomMappings[idx].label = e.target.value.trim();
+              renderImportMapping();
+              renderImportPreview();
+            }
           });
-        rows.querySelectorAll("[data-custom-label]").forEach((el) =>
-          el.addEventListener("input", (e) => {
-            const index = +e.target.dataset.customLabel;
-            importCustomMappings[index] = importCustomMappings[index] || {
-              label: "",
-              source: "",
-              value: "",
-            };
-            importCustomMappings[index].label = e.target.value;
-            renderImportPreview();
-          })
-        );
-        rows.querySelectorAll("[data-custom-source]").forEach((el) =>
+        });
+
+        wrap.querySelectorAll("[data-custom-source]").forEach(el => {
           el.addEventListener("change", (e) => {
-            const index = +e.target.dataset.customSource;
-            importCustomMappings[index] = importCustomMappings[index] || {
-              label: "",
-              source: "",
-              value: "",
-            };
-            importCustomMappings[index].source = e.target.value;
-            if (!importCustomMappings[index].label && e.target.value) {
-              importCustomMappings[index].label = e.target.value;
+            const idx = parseInt(e.target.dataset.customSource);
+            if (importCustomMappings[idx]) {
+              importCustomMappings[idx].source = e.target.value;
+              if (!importCustomMappings[idx].label && e.target.value) {
+                importCustomMappings[idx].label = e.target.value;
+              }
+              renderImportMapping();
+              renderImportPreview();
             }
-            renderImportMapping();
-            renderImportPreview();
-          })
-        );
-        rows.querySelectorAll("[data-custom-value]").forEach((el) =>
+          });
+        });
+
+        wrap.querySelectorAll("[data-custom-value]").forEach(el => {
           el.addEventListener("input", (e) => {
-            const index = +e.target.dataset.customValue;
-            importCustomMappings[index] = importCustomMappings[index] || {
-              label: "",
-              source: "",
-              value: "",
-            };
-            importCustomMappings[index].value = e.target.value;
-            renderImportPreview();
-          })
-        );
-        rows.querySelectorAll("[data-custom-remove]").forEach((el) =>
-          el.addEventListener("click", (e) => {
-            const index = +e.target.dataset.customRemove;
-            importCustomMappings.splice(index, 1);
-            if (!importCustomMappings.length) {
-              importCustomMappings = [{ label: "", source: "", value: "" }];
+            const idx = parseInt(e.target.dataset.customValue);
+            if (importCustomMappings[idx]) {
+              importCustomMappings[idx].value = e.target.value.trim();
+              renderImportPreview();
             }
-            renderImportMapping();
-            renderImportPreview();
-          })
-        );
+          });
+        });
+
+        wrap.querySelectorAll("[data-custom-remove]").forEach(el => {
+          el.addEventListener("click", (e) => {
+            const idx = parseInt(e.target.dataset.customRemove);
+            if (importCustomMappings.length > idx) {
+              importCustomMappings.splice(idx, 1);
+              // Update field order (same as in grid removal)
+              window._fieldOrder = window._fieldOrder.filter(k => k !== `custom_${idx}`);
+              const newOrder = [];
+              window._fieldOrder.forEach(k => {
+                if (k.startsWith("custom_")) {
+                  const oldIdx = parseInt(k.split("_")[1]);
+                  if (oldIdx > idx) newOrder.push(`custom_${oldIdx - 1}`);
+                  else if (oldIdx < idx) newOrder.push(`custom_${oldIdx}`);
+                } else {
+                  newOrder.push(k);
+                }
+              });
+              window._fieldOrder = newOrder;
+              renderImportMapping();
+              renderImportPreview();
+            }
+          });
+        });
       }
 
       function projectedCardHTML(o) {
-        const dueLabel = importFieldLabels.dueDate || "Due";
-        const due = o.dueDate ? formatDate(o.dueDate) : "No due date";
+        let fieldOrder = window._fieldOrder || ["id","title","description","status","priority","category","location","assignee","requester","created","dueDate"];
+
+        // Filter to fields that are mapped and visible
+        const visibleFields = fieldOrder.filter(key => {
+          let mapped = false;
+          if (key.startsWith("custom_")) {
+            const idx = parseInt(key.split("_")[1]);
+            const custom = importCustomMappings[idx];
+            mapped = custom && (custom.source || custom.value);
+          } else {
+            mapped = importMapping[key] && importMapping[key].trim() !== "";
+          }
+          let show = true;
+          if (key.startsWith("custom_")) {
+            const idx = parseInt(key.split("_")[1]);
+            const custom = importCustomMappings[idx];
+            show = custom ? custom.showOnCard !== false : true;
+          } else {
+            show = importFieldShowOnCard[key] !== false;
+          }
+          return mapped && show;
+        });
+
+        const fieldsToShow = visibleFields.length ? visibleFields : ["id", "title", "status"];
+
+        function getFieldLabel(key) {
+          if (key.startsWith("custom_")) {
+            const idx = parseInt(key.split("_")[1]);
+            const custom = importCustomMappings[idx];
+            return custom ? (custom.label || custom.source || "Custom") : key;
+          }
+          return importFieldLabels[key] || key;
+        }
+
+        // --- Individual visibility booleans ---
+        const showId = fieldsToShow.includes("id");
+        const showTitle = fieldsToShow.includes("title");
+        const showStatus = fieldsToShow.includes("status");
+        const showCategory = fieldsToShow.includes("category");
+        const showDescription = fieldsToShow.includes("description");
+        const showAssignee = fieldsToShow.includes("assignee");
+        const showPriority = fieldsToShow.includes("priority");
+        const showRequester = fieldsToShow.includes("requester");
+
+        // --- Raw values ---
+        const idVal = displayValue(o, importMapping.id) || o.id || "—";
+        const catVal = displayValue(o, importMapping.category) || o.category || "General";
+        const rawStatus = displayValue(o, importMapping.status) || o.status || "Open";
+        const titleVal = displayValue(o, importMapping.title) || o.title || "Untitled";
+        const descVal = displayValue(o, importMapping.description) || o.description || "";
+        const assigneeVal = displayValue(o, importMapping.assignee) || o.assignee || "Unassigned";
+        const rawPriority = displayValue(o, importMapping.priority) || o.priority || "Medium";
+        const requesterVal = displayValue(o, importMapping.requester) || o.requester || "";
         const created = formatDate(o.created);
-        const overdue =
-          o.dueDate &&
-          o.status !== "Completed" &&
-          o.status !== "Cancelled" &&
-          o.dueDate < nowDate();
-        return `<article class="bg-white border border-brand-teal/20 rounded-2xl p-4 shadow-sm text-black">
-            <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0">
-                <div class="flex items-center gap-2 mb-1"><span class="text-[10px] font-bold text-black/40">${esc(
-                  o.id
-                )}</span><span class="w-1 h-1 rounded-full bg-black/20"></span><span class="text-[10px] text-black/40">${esc(
-          o.category
-        )}</span></div>
-                <h4 class="font-black text-sm text-black/80 truncate">${esc(
-                  o.title
-                )}</h4>
+
+        // --- Helper: format a single value based on its detected type ---
+        function formatValueByType(value, fieldKey) {
+          if (!value) return "—";
+          const type = importFieldTypes[fieldKey];
+          if (type === "date") return formatDate(value);
+          // For dropdown or plain text, just escape and return as text (card doesn't need interactive dropdown)
+          return esc(value);
+        }
+
+        // --- Status display (respect type) ---
+        let statusHTML = "";
+        if (showStatus) {
+          const statusType = importFieldTypes.status;
+          let display = formatValueByType(rawStatus, "status");
+          if (statusType !== "date") {
+            // If it's not a date, show as a badge (just like the old behaviour, but now data-driven)
+            statusHTML = `<span class="shrink-0 px-2 py-1 rounded-full border text-[9px] font-bold ${statusClass(rawStatus)}">${display}</span>`;
+          } else {
+            // If it's a date, just show the formatted text (no badge)
+            statusHTML = `<span class="shrink-0 text-[10px] font-bold text-black/70">${display}</span>`;
+          }
+        }
+
+        // --- Priority display (respect type) ---
+        let priorityHTML = "";
+        if (showPriority) {
+          const priorityType = importFieldTypes.priority;
+          let display = formatValueByType(rawPriority, "priority");
+          if (priorityType !== "date") {
+            priorityHTML = `<span class="px-2 py-1 rounded-md text-[9px] font-bold ${priorityClass(rawPriority)}">${display}</span>`;
+          } else {
+            priorityHTML = `<span class="text-[10px] font-bold text-black/70">${display}</span>`;
+          }
+        }
+
+        // --- Build the card HTML ---
+        let html = `<article class="bg-white border border-brand-teal/20 rounded-2xl p-4 shadow-sm text-black">`;
+
+        // Header
+        let headerTopHTML = "";
+        if (showId || showCategory) {
+          headerTopHTML = `<div class="flex items-center gap-2 mb-1">`;
+          if (showId) headerTopHTML += `<span class="text-[10px] font-bold text-black/40">${esc(idVal)}</span>`;
+          if (showId && showCategory) headerTopHTML += `<span class="w-1 h-1 rounded-full bg-black/20"></span>`;
+          if (showCategory) headerTopHTML += `<span class="text-[10px] text-black/40">${esc(catVal)}</span>`;
+          headerTopHTML += `</div>`;
+        }
+
+        let titleHTML = showTitle ? `<h4 class="font-black text-sm text-black/80 truncate">${esc(titleVal)}</h4>` : "";
+
+        html += `
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0">
+              ${headerTopHTML}
+              ${titleHTML}
+            </div>
+            ${statusHTML}
+          </div>
+        `;
+
+        // Description
+        if (showDescription && descVal) {
+          html += `<p class="mt-2 text-xs text-black/60 line-clamp-2">${esc(descVal)}</p>`;
+        }
+
+        // Grid fields (all visible fields except those shown in header/footer)
+        const excludeFromGrid = ["id","title","status","description","created","category","priority","assignee","requester"];
+        const gridFields = fieldsToShow.filter(k => !excludeFromGrid.includes(k) && !k.startsWith("custom_"));
+        const customGridFields = fieldsToShow.filter(k => k.startsWith("custom_"));
+        const allGridFields = [...gridFields, ...customGridFields];
+
+        if (allGridFields.length) {
+          html += `<div class="grid grid-cols-2 gap-2 mt-3">`;
+          allGridFields.forEach(key => {
+            let label = "";
+            let value = "";
+            let type = "mapped";
+            if (key.startsWith("custom_")) {
+              const idx = parseInt(key.split("_")[1]);
+              const custom = importCustomMappings[idx];
+              if (custom) {
+                label = custom.label || custom.source || "Custom";
+                value = resolveRowValueByHeader(o._rawData, custom.source) || custom.value || "—";
+                type = custom.type || "mapped";
+              }
+            } else {
+              label = importFieldLabels[key] || key;
+              const source = importMapping[key];
+              value = displayValue(o, source);
+              type = importFieldTypes[key] || "mapped";
+            }
+            let formatted;
+            if (type === "date") {
+              formatted = formatDate(value);
+            } else {
+              formatted = esc(value || "—");
+            }
+            html += `
+              <div class="bg-black/5 rounded-lg p-2">
+                <p class="text-[9px] text-black/40">${esc(label)}</p>
+                <div class="text-[10px] font-bold text-black/70 truncate">${formatted}</div>
               </div>
-              <span class="shrink-0 px-2 py-1 rounded-full border text-[9px] font-bold ${statusClass(
-                o.status
-              )}">${esc(o.status)}</span>
-            </div>
-            <p class="mt-2 text-xs text-black/60 line-clamp-2">${esc(
-              o.description || "No description provided."
-            )}</p>
-            <div class="grid grid-cols-2 gap-2 mt-3">
-              <div class="bg-black/5 rounded-lg p-2"><p class="text-[9px] text-black/40">Location</p><p class="text-[10px] font-bold text-black/70 truncate">${esc(
-                o.location || "—"
-              )}</p></div>
-              <div class="bg-black/5 rounded-lg p-2"><p class="text-[9px] text-black/40">${esc(
-                dueLabel
-              )}</p><p class="text-[10px] font-bold ${
-          overdue ? "text-red-600" : "text-black/70"
-        }">${esc(due)}</p></div>
-            </div>
-            <div class="mt-2 text-[9px] text-black/40">Created ${esc(
-              created
-            )}</div>
+            `;
+          });
+          html += `</div>`;
+        }
+
+        // Created + Requester
+        let createdLine = `Created ${esc(created)}`;
+        if (showRequester && requesterVal) {
+          createdLine += ` • By ${esc(requesterVal)}`;
+        }
+        html += `<div class="mt-2 text-[9px] text-black/40">${createdLine}</div>`;
+
+        // Footer: Assignee + Priority
+        if (showAssignee || showPriority) {
+          html += `
             <div class="mt-3 pt-3 border-t border-black/10 flex items-center justify-between gap-2">
-              <div class="flex items-center gap-2 min-w-0"><span class="w-7 h-7 rounded-full bg-brand-teal/20 text-brand-teal flex items-center justify-center text-[9px] font-black">${esc(
-                initials(o.assignee)
-              )}</span><span class="text-[10px] font-bold text-black/70 truncate">${esc(
-          o.assignee
-        )}</span></div>
-              <span class="px-2 py-1 rounded-md text-[9px] font-bold ${priorityClass(
-                o.priority
-              )}">${esc(o.priority)}</span>
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="w-7 h-7 rounded-full bg-brand-teal/20 text-brand-teal flex items-center justify-center text-[9px] font-black">${esc(initials(assigneeVal))}</span>
+                <span class="text-[10px] font-bold text-black/70 truncate">${esc(assigneeVal)}</span>
+              </div>
+              ${showPriority ? priorityHTML : ''}
             </div>
-          </article>`;
-      }
+          `;
+        }
+
+        html += `</article>`;
+        return html;
+    }
 
       function renderImportPreview() {
-        const fields = [
-          "id",
-          "title",
-          "status",
-          "priority",
-          "assignee",
-          "location",
-          "created",
-          "dueDate",
-        ];
+        const fields = ["id", "title", "status", "priority", "assignee", "location", "created", "dueDate"];
         const labels = {
           id: "WO ID",
           title: "Title",
@@ -5893,78 +6502,71 @@
           created: "Created",
           dueDate: importFieldLabels.dueDate || "Due",
         };
-        const missing = ["title"].filter((f) => !importMapping[f]);
+
+        const missing = ["title"].filter(f => !importMapping[f]);
         const badge = document.getElementById("importReadyBadge");
         const confirm = document.getElementById("confirmImportBtn");
         if (missing.length) {
-          badge.textContent = `NEEDS MAPPING: ${missing
-            .map((f) => labels[f])
-            .join(", ")}`;
-          badge.className =
-            "inline-flex items-center px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black";
+          badge.textContent = `NEEDS MAPPING: ${missing.map(f => labels[f]).join(", ")}`;
+          badge.className = "inline-flex items-center px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black";
           confirm.disabled = true;
         } else {
           badge.textContent = "✓ READY TO IMPORT";
-          badge.className =
-            "inline-flex items-center px-2 py-1 rounded-full bg-brand-success/20 text-brand-success text-[10px] font-black";
+          badge.className = "inline-flex items-center px-2 py-1 rounded-full bg-brand-success/20 text-brand-success text-[10px] font-black";
           confirm.disabled = !importRows.length || !isLoggedIn;
         }
 
         const previewLimit = 3;
-        document.getElementById(
-          "importPreviewCount"
-        ).textContent = `Showing first ${Math.min(
-          previewLimit,
-          importRows.length
-        )} of ${importRows.length}`;
-        document.getElementById("importPreviewHead").innerHTML = `<tr>${fields
-          .map(
-            (f) =>
-              `<th class="px-3 py-2 text-left font-bold text-black/50 whitespace-nowrap">${
-                labels[f]
-              }<div class="text-[9px] font-normal text-black/30">${
-                importMapping[f] ? esc(importMapping[f]) : "—"
-              }</div></th>`
-          )
-          .join("")}</tr>`;
-        const preview = importRows
-          .slice(0, previewLimit)
-          .map((r, i) => makeMappedOrder(r, i));
-        document.getElementById("importPreviewBody").innerHTML = preview
-          .map(
-            (o) =>
-              `<tr class="border-t border-black/10 hover:bg-black/5">
-              <td class="px-3 py-2 font-semibold text-black/70 whitespace-nowrap">${esc(
-                o.id
-              )}</td><td class="px-3 py-2 max-w-[260px] truncate text-black/70">${esc(
-                o.title
-              )}</td>
-              <td class="px-3 py-2"><span class="px-2 py-1 rounded-full border ${statusClass(
-                o.status
-              )}">${esc(o.status)}</span></td>
-              <td class="px-3 py-2 text-black/70">${esc(
-                o.priority
-              )}</td><td class="px-3 py-2 whitespace-nowrap text-black/70">${esc(
-                o.assignee
-              )}</td>
-              <td class="px-3 py-2 whitespace-nowrap text-black/70">${esc(
-                o.location
-              )}</td><td class="px-3 py-2 whitespace-nowrap text-black/70">${esc(
-                formatDate(o.created)
-              )}</td><td class="px-3 py-2 whitespace-nowrap text-black/70">${esc(
-                formatDate(o.dueDate)
-              )}</td>
-            </tr>`
-          )
-          .join("");
+        document.getElementById("importPreviewCount").textContent = `Showing first ${Math.min(previewLimit, importRows.length)} of ${importRows.length}`;
 
-        const projected = importRows
-          .slice(0, previewLimit)
-          .map((r, i) => makeMappedOrder(r, i));
+        const allFieldKeys = Object.keys(importMapping).filter(k => importMapping[k]);
+        const customKeys = importCustomMappings.map((f, i) => `custom_${i}`).filter(k => importMapping[k] !== undefined);
+        const displayFields = [...allFieldKeys, ...customKeys];
+        const visibleFields = displayFields.filter(k => importFieldShowOnCard[k] !== false);
+
+        let headHTML = `<tr>`;
+        visibleFields.forEach(k => {
+          let label = importFieldLabels[k] || k;
+          if (k.startsWith("custom_")) {
+            const idx = parseInt(k.split("_")[1]);
+            const custom = importCustomMappings[idx];
+            if (custom && custom.label) {
+              label = custom.label;
+            }
+          }
+          headHTML += `<th class="px-3 py-2 text-left font-bold text-black/50 whitespace-nowrap">${esc(label)}<div class="text-[9px] font-normal text-black/30">${importMapping[k] ? esc(importMapping[k]) : "—"}</div></th>`;
+        });
+        headHTML += `</tr>`;
+        document.getElementById("importPreviewHead").innerHTML = headHTML;
+
+        const preview = importRows.slice(0, previewLimit).map((r, i) => makeMappedOrder(r, i));
+        let bodyHTML = "";
+        preview.forEach(o => {
+          let rowHTML = `<tr class="border-t border-black/10 hover:bg-black/5">`;
+          visibleFields.forEach(k => {
+            let val = displayValue(o, importMapping[k] || k);
+            // Respect the detected field type (dropdown, date, or plain text)
+            if (importFieldTypes[k] === "dropdown" && importMapping[k]) {
+              const colValues = [...new Set(importRows.map(r => String(r[importMapping[k]] || "").trim()).filter(Boolean))];
+              const options = colValues.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+              val = `<select class="border border-black/10 rounded px-1 text-[10px]">${options}</select>`;
+            } else if (importFieldTypes[k] === "date") {
+              val = formatDate(val);
+            } else {
+              val = esc(val || "—");
+            }
+            rowHTML += `<td class="px-3 py-2 max-w-[200px] truncate text-black/70">${val}</td>`;
+          });
+          rowHTML += `</tr>`;
+          bodyHTML += rowHTML;
+        });
+        document.getElementById("importPreviewBody").innerHTML = bodyHTML;
+
+        const projected = importRows.slice(0, previewLimit).map((r, i) => makeMappedOrder(r, i));
         document.getElementById("projectedCards").innerHTML = projected.length
-          ? projected.map(projectedCardHTML).join("")
+          ? projected.map(o => projectedCardHTML(o)).join("")
           : '<p class="text-sm text-black/40">No rows to preview.</p>';
-      }
+    }
 
       function resetImportCenter(keepUrl = false) {
         driveFileTypeCache.clear();
@@ -5977,6 +6579,7 @@
         importSourceName = "";
         importSourceType = "file";
         importFieldTypes = {};
+        importFieldShowOnCard = {};
         document.getElementById("importSourceBadge").textContent =
           "No data loaded";
         document.getElementById("importFileName").textContent = "";
@@ -6238,7 +6841,19 @@
           return;
         }
 
+        const replace = document.getElementById('replaceOrdersCheckbox').checked;
+        console.log('[applyImport] Replace checkbox checked?', replace);
+
+        if (replace) {
+          orders = [];
+          history = [];
+          console.log('[applyImport] Orders cleared (replace mode).');
+          toast("🗑️ Existing orders cleared. New import will replace all data.", "info");
+        }
+
         const incoming = importRows.map(makeMappedOrder);
+        console.log('[applyImport] Incoming orders (first 3):', incoming.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+
         const isApiImport = importSourceType === "api";
 
         if (!isApiImport) {
@@ -6248,12 +6863,11 @@
         const existing = new Map(
           orders.map((o) => [String(o.id).trim().toLowerCase(), o])
         );
-        let added = 0,
-          updated = 0;
+        let added = 0, updated = 0;
 
         incoming.forEach((n) => {
           const key = String(n.id).trim().toLowerCase();
-          if (existing.has(key)) {
+          if (existing.has(key) && !replace) {
             const old = existing.get(key);
             const merged = { ...old };
 
@@ -6263,6 +6877,7 @@
                 if (Array.isArray(newVal) && k === "activity") {
                   merged.activity = [...(old.activity || []), ...newVal];
                 } else if (Array.isArray(newVal) && k === "customFields") {
+                  // handled separately
                 } else if (
                   typeof newVal === "object" &&
                   !Array.isArray(newVal) &&
@@ -6276,13 +6891,9 @@
               }
             }
 
-            merged.customFields = mergeCustomFields(
-              old.customFields,
-              n.customFields
-            );
+            merged.customFields = mergeCustomFields(old.customFields, n.customFields);
             merged.activity = [...(old.activity || []), ...(n.activity || [])];
-            merged._importHeaders =
-              n._importHeaders || old._importHeaders || [];
+            merged._importHeaders = n._importHeaders || old._importHeaders || [];
             merged._rawData = n._rawData || old._rawData || {};
 
             const idx = orders.findIndex(
@@ -6296,6 +6907,9 @@
           }
         });
 
+        console.log('[applyImport] After merge, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+
+        // Apply labels from import to all orders
         orders = orders.map((o, i) => {
           const rawRow = o && o._rawData ? o._rawData : {};
           const rowCustomFields = buildImportCustomFieldsForRow(rawRow);
@@ -6304,14 +6918,25 @@
             rowCustomFields
           );
 
+          if (finalCustomFields.length) {
+            finalCustomFields.forEach(field => {
+              if (field._sourceHeader) {
+                Object.keys(importFieldLabels).forEach(key => {
+                  const mappedHeader = importMapping[key];
+                  if (mappedHeader === field._sourceHeader) {
+                    field.label = importFieldLabels[key];
+                  }
+                });
+              }
+            });
+          }
+
           return {
             ...o,
             id: String(o.id ?? `WO-${i + 1}`).trim() || `WO-${i + 1}`,
-            title:
-              String(o.title ?? "Untitled Work Order").trim() ||
-              "Untitled Work Order",
+            title: String(o.title ?? "Untitled Work Order").trim() || "Untitled Work Order",
             description: String(o.description ?? "").trim(),
-            status: normalizeStatus(o.status || "Open"),
+            status: o.status || "Open",
             priority: normalizePriority(o.priority || "Medium"),
             category: String(o.category ?? "General").trim() || "General",
             location: String(o.location ?? "").trim(),
@@ -6321,12 +6946,52 @@
             dueDate: parseDateValue(o.dueDate),
             activity: Array.isArray(o.activity) ? o.activity : [],
             customFields: finalCustomFields,
-            _importHeaders: Array.isArray(o._importHeaders)
-              ? o._importHeaders
-              : [],
+            _importHeaders: Array.isArray(o._importHeaders) ? o._importHeaders : [],
             _rawData: rawRow,
           };
         });
+
+        console.log('[applyImport] After re-map, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+
+        // --- Sync core fields to displayConfig ---
+        const defaultLabels = {
+          id: "Work Order ID",
+          title: "Title",
+          description: "Description",
+          status: "Status",
+          priority: "Priority",
+          category: "Category",
+          location: "Location",
+          assignee: "Assigned To",
+          requester: "Requester",
+          created: "Created Date",
+          dueDate: "Due Date",
+        };
+
+        const coreFields = ["id","title","description","status","priority","category","location","assignee","requester","created","dueDate"];
+
+        coreFields.forEach((field) => {
+          const header = importMapping[field];
+          const importLabel = importFieldLabels[field];
+          const label = importLabel || defaultLabels[field] || field;
+          const type = importFieldTypes[field] || "mapped";
+
+          if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
+          if (!displayConfig.fieldConfig[field]) {
+            displayConfig.fieldConfig[field] = {
+              label: label,
+              source: header || field,
+              showOnCard: true,
+              showInTable: true,
+              type: type,
+            };
+          } else {
+            displayConfig.fieldConfig[field].label = label;
+            if (header) displayConfig.fieldConfig[field].source = header;
+            displayConfig.fieldConfig[field].type = type;
+          }
+        });
+        saveDisplayConfig();
 
         const timeOf = (v) => {
           const s = String(v || "");
@@ -6339,92 +7004,68 @@
             Number(b.sourceOrder ?? 0) - Number(a.sourceOrder ?? 0)
         );
 
-        saveOrders();
-        orders = loadOrders();
+        // ---------- CRITICAL FIX ----------
+        // Save to localStorage, then force a cloud sync with the NEW data,
+        // then reload from localStorage to ensure we have the correct data.
+        saveOrders();  // writes to localStorage (and calls syncSharedStorage, but we'll override)
 
-        document.getElementById("searchInput").value = "";
-        initializeDashboardFilters();
-        document.getElementById("statusFilter").value = "all";
-        document.getElementById("priorityFilter").value = "all";
-        document.getElementById("sortSelect").value = "created_desc";
-        currentPage = 1;
+        // Force a sync with the cloud, wait for it, then reload from localStorage
+        // to make sure we have the latest (which should be the new data).
+        (async () => {
+          await syncSharedStorage();
+          // After sync, reload from localStorage to get the authoritative data
+          orders = loadOrders();
+          console.log('[applyImport] After sync and reload, orders (first 3):', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
 
-        hideSectionPage();
+          // Now render
+          document.getElementById("searchInput").value = "";
+          initializeDashboardFilters();
+          document.getElementById("statusFilter").value = "all";
+          document.getElementById("priorityFilter").value = "all";
+          document.getElementById("sortSelect").value = "created_desc";
+          currentPage = 1;
 
-        // ===== SAVE API URL AND MAPPING =====
-        const apiUrl = document.getElementById("importApiUrl").value.trim();
-        if (apiUrl) {
-          saveApiUrl(apiUrl);
-          saveMappingConfig();
+          hideSectionPage();
 
-          // ===== NEW: Sync fieldConfig with importMapping =====
-          const coreFields = [
-            "title",
-            "status",
-            "priority",
-            "category",
-            "location",
-            "assignee",
-            "requester",
-            "created",
-            "dueDate",
-            "description",
-          ];
-          let updated = false;
+          const apiUrl = document.getElementById("importApiUrl").value.trim();
+          if (apiUrl) {
+            saveApiUrl(apiUrl);
+            saveMappingConfig();
+            syncSharedStorage(); // one more time just to be safe
+          }
 
-          coreFields.forEach((field) => {
-            const header = importMapping[field];
-            if (header) {
-              const currentConfig = getFieldConfig(field);
-              // Only update if the header is different from the current source
-              if (currentConfig.source !== header) {
-                updateFieldConfig(field, { source: header });
-                updated = true;
-              }
+          closeImportModal();
+          resetImportCenter(true);
+          render();
+
+          // Assignees
+          const importedAssignees = new Set(
+            orders.map((o) => o.assignee).filter((a) => a && a !== "Unassigned")
+          );
+          importedAssignees.forEach((name) => {
+            if (!users.some((u) => u.name === name)) {
+              users.push({
+                id: `USR-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                name,
+                active: true,
+              });
             }
           });
+          saveUsers();
 
-          if (updated) {
-            saveDisplayConfig();
-          }
+          document.getElementById('replaceOrdersCheckbox').checked = false;
 
-          syncSharedStorage();
-        }
-
-        closeImportModal();
-        resetImportCenter(true);
-        render();
-        if (!isApiImport) {
-          toast("🌐 API URL and mapping saved for auto‑sync on refresh.", "info");
-        }
-
-        // Update users from imported assignees
-        const importedAssignees = new Set(
-          orders.map((o) => o.assignee).filter((a) => a && a !== "Unassigned")
-        );
-        importedAssignees.forEach((name) => {
-          if (!users.some((u) => u.name === name)) {
-            users.push({
-              id: `USR-${Date.now()}-${Math.random()
-                .toString(36)
-                .substr(2, 5)}`,
-              name,
-              active: true,
-            });
-          }
-        });
-        saveUsers();
-
-        toast(
-          isApiImport
-            ? `✅ API import reflected: ${added} new, ${updated} updated. ${orders.length} work orders are now visible in the dashboard.`
-            : `✅ Import successful: ${added} new, ${updated} updated. ${orders.length} work orders now displayed.`,
-          "success"
-        );
-        setTimeout(() => {
-          const grid = document.getElementById("workOrderGrid");
-          if (grid) grid.scrollIntoView({ behavior: "smooth", block: "start" });
-        }, 100);
+          toast(
+            isApiImport
+              ? `✅ API import reflected: ${added} new, ${updated} updated. ${orders.length} work orders are now visible in the dashboard.`
+              : `✅ Import successful: ${added} new, ${updated} updated. ${orders.length} work orders now displayed.`,
+            "success"
+          );
+          setTimeout(() => {
+            const grid = document.getElementById("workOrderGrid");
+            if (grid) grid.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 100);
+        })(); // end of async IIFE
       }
 
       // ===== FILE/API IMPORT =====
@@ -7388,6 +8029,7 @@
               <button id="addFieldConfigBtn" class="px-4 py-2 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white font-bold text-sm transition">+ Add Field</button>
               <button id="saveFieldConfigBtn" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-sm transition">Save Changes</button>
               <button id="resetFieldConfigBtn" class="px-4 py-2 rounded-xl border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/10 transition">Reset All to Defaults</button>
+              <button id="resetFieldConfigBtn" class="px-4 py-2 rounded-xl border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/10 transition">Reset Sources to Defaults</button>
             </div>
           </div>`;
 
@@ -7467,136 +8109,222 @@
             }
           });
 
+          // ===== ADD FIELD BUTTON =====
           document.addEventListener("click", function (e) {
-            const target = e.target.closest("#resetFieldConfigBtn");
+            const target = e.target.closest("#addFieldConfigBtn");
             if (target) {
-              if (confirm(
-                "Reset all field configuration to defaults?\n\n" +
-                "This will:\n" +
-                "• Reset all core field labels and sources to defaults\n" +
-                "• Remove ALL custom fields\n" +
-                "• Reset visibility toggles on cards and tables\n\n" +
-                "Your work order data will NOT be affected."
-              )) {
-                // ===== RESET FIELD CONFIG TO DEFAULTS =====
-                const coreFields = [
-                  "title", "status", "priority", "category",
-                  "location", "assignee", "requester",
-                  "created", "dueDate", "description"
-                ];
-                
-                const defaultLabels = {
-                  title: "Title",
-                  status: "Status",
-                  priority: "Priority",
-                  category: "Category",
-                  location: "Location",
-                  assignee: "Assigned To",
-                  requester: "Requester",
-                  created: "Created Date",
-                  dueDate: "Due Date",
-                  description: "Description"
-                };
-                
-                const defaultShowOnCard = {
-                  title: true,
-                  status: true,
-                  priority: false,
-                  category: false,
-                  location: true,
-                  assignee: true,
-                  requester: false,
-                  created: false,
-                  dueDate: true,
-                  description: true
-                };
-                
-                const defaultShowInTable = {
-                  title: true,
-                  status: true,
-                  priority: true,
-                  category: false,
-                  location: true,
-                  assignee: true,
-                  requester: false,
-                  created: true,
-                  dueDate: true,
-                  description: false
-                };
-                
-                // Reset each core field
-                coreFields.forEach((field) => {
-                  displayConfig.fieldConfig[field] = {
-                    label: defaultLabels[field] || field.charAt(0).toUpperCase() + field.slice(1),
-                    source: field,
-                    showOnCard: defaultShowOnCard[field] !== undefined ? defaultShowOnCard[field] : true,
-                    showInTable: defaultShowInTable[field] !== undefined ? defaultShowInTable[field] : true,
-                  };
-                });
-                
-                // ===== REMOVE ALL CUSTOM FIELDS =====
-                Object.keys(displayConfig.fieldConfig).forEach((key) => {
-                  if (key.startsWith("custom_")) {
-                    delete displayConfig.fieldConfig[key];
-                  }
-                });
-                
-                // Save and refresh
-                saveDisplayConfig();
-                showSectionPage("settings");
-                toast("✅ Field configuration reset to defaults. Custom fields removed.", "success");
+              if (!requireLogin()) {
+                toast("Please log in to add a field.", "warning");
+                return;
               }
+              const label = prompt("Enter the name of the new field:", "Custom Field");
+              if (label && label.trim()) {
+                const newKey = `custom_${Date.now()}`;
+                if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
+                displayConfig.fieldConfig[newKey] = {
+                  label: label.trim(),
+                  source: "",
+                  showOnCard: true,
+                  showInTable: true,
+                };
+                saveDisplayConfig();
+                if (document.getElementById("sectionPageTitle")?.textContent === "Settings") {
+                  showSectionPage("settings");
+                }
+                toast(`✅ Field "${label.trim()}" added.`, "success");
+              }
+              return;
             }
           });
 
+          // ===== RESET FIELD CONFIG TO DEFAULTS (Full Reset) =====
+          document.addEventListener("click", function (e) {
+            const target = e.target.closest("#resetFieldConfigBtn");
+            if (target) {
+              // Check if the button text indicates it's the "Reset All to Defaults" button
+              const btnText = target.textContent.trim();
+              if (!btnText.includes("Reset All") && btnText !== "Reset All to Defaults") {
+                // This is the "Reset Sources" button – handled below
+                return;
+              }
+              
+              if (!requireLogin()) {
+                toast("Please log in to reset field configuration.", "warning");
+                return;
+              }
+              
+              openConfirmationModal({
+                title: "Reset All Field Configurations",
+                message: "This will:\n• Reset all core field labels and sources to defaults\n• Remove ALL custom fields\n• Reset visibility toggles on cards and tables\n\nYour work order data will NOT be affected.",
+                confirmText: "Reset All",
+                confirmClass: "bg-red-600 hover:bg-red-700",
+                onConfirm: () => {
+                  const coreFields = [
+                    "id",
+                    "title", "status", "priority", "category",
+                    "location", "assignee", "requester",
+                    "created", "dueDate", "description"
+                  ];
+                  
+                  const defaultLabels = {
+                    id: "Work Order ID",
+                    title: "Title",
+                    status: "Status",
+                    priority: "Priority",
+                    category: "Category",
+                    location: "Location",
+                    assignee: "Assigned To",
+                    requester: "Requester",
+                    created: "Created Date",
+                    dueDate: "Due Date",
+                    description: "Description"
+                  };
+                  
+                  const defaultShowOnCard = {
+                    id: true,
+                    title: true,
+                    status: true,
+                    priority: false,
+                    category: false,
+                    location: true,
+                    assignee: true,
+                    requester: false,
+                    created: false,
+                    dueDate: true,
+                    description: true
+                  };
+                  
+                  const defaultShowInTable = {
+                    id: true,
+                    title: true,
+                    status: true,
+                    priority: true,
+                    category: false,
+                    location: true,
+                    assignee: true,
+                    requester: false,
+                    created: true,
+                    dueDate: true,
+                    description: false
+                  };
+                  
+                  coreFields.forEach((field) => {
+                    displayConfig.fieldConfig[field] = {
+                      label: defaultLabels[field] || field.charAt(0).toUpperCase() + field.slice(1),
+                      source: field,
+                      showOnCard: defaultShowOnCard[field] !== undefined ? defaultShowOnCard[field] : true,
+                      showInTable: defaultShowInTable[field] !== undefined ? defaultShowInTable[field] : true,
+                    };
+                  });
+                  
+                  Object.keys(displayConfig.fieldConfig).forEach((key) => {
+                    if (key.startsWith("custom_")) {
+                      delete displayConfig.fieldConfig[key];
+                    }
+                  });
+                  
+                  saveDisplayConfig();
+                  showSectionPage("settings");
+                  toast("✅ Field configuration reset to defaults. Custom fields removed.", "success");
+                  closeConfirmationModal();
+                },
+              });
+              return;
+            }
+          });
+
+          // ===== RESET SOURCES TO DEFAULTS =====
+          document.addEventListener("click", function (e) {
+            const target = e.target.closest("#resetFieldConfigBtn");
+            if (target) {
+              const btnText = target.textContent.trim();
+              // Only handle if this is the "Reset Sources" button
+              if (btnText.includes("Reset Sources") || btnText.includes("Sources")) {
+                if (!requireLogin()) {
+                  toast("Please log in to reset sources.", "warning");
+                  return;
+                }
+                
+                openConfirmationModal({
+                  title: "Reset Sources to Defaults",
+                  message: "This will change the 'Source' dropdown for all core fields back to the default internal names (title, status, priority, etc.).\n\nYour custom labels and visibility settings will NOT be affected.",
+                  confirmText: "Reset Sources",
+                  confirmClass: "bg-amber-600 hover:bg-amber-700",
+                  onConfirm: () => {
+                    const coreFields = [
+                      "id",
+                      "title",
+                      "status",
+                      "priority",
+                      "category",
+                      "location",
+                      "assignee",
+                      "requester",
+                      "created",
+                      "dueDate",
+                      "description"
+                    ];
+                    coreFields.forEach((field) => {
+                      updateFieldConfig(field, { source: field });
+                    });
+                    saveDisplayConfig();
+                    showSectionPage("settings");
+                    toast("Field sources reset to defaults.", "success");
+                    closeConfirmationModal();
+                  },
+                });
+              }
+              return;
+            }
+          });
+
+          // ===== REMOVE FIELD =====
           document.addEventListener("click", function (e) {
             const target = e.target.closest("[data-remove-field]");
             if (target) {
-              const key = target.dataset.removeField;
-              if (confirm(`Remove field "${key}"?`)) {
-                removeCustomFieldConfig(key);
-                showSectionPage("settings");
-                toast(`Removed field: ${key}`, "info");
+              if (!requireLogin()) {
+                toast("Please log in to remove a field.", "warning");
+                return;
               }
+              const key = target.dataset.removeField;
+              openConfirmationModal({
+                title: "Remove Field",
+                message: `Remove field "${key}"?`,
+                confirmText: "Remove",
+                confirmClass: "bg-red-600 hover:bg-red-700",
+                onConfirm: () => {
+                  removeCustomFieldConfig(key);
+                  showSectionPage("settings");
+                  toast(`Removed field: ${key}`, "info");
+                  closeConfirmationModal();
+                },
+              });
+              return;
             }
           });
 
+          // ===== SAVE FIELD CONFIG =====
+          let saveFieldConfigHandler = null;
           document.addEventListener("click", function (e) {
             const target = e.target.closest("#saveFieldConfigBtn");
             if (target) {
+              // Use a flag to prevent multiple toasts
+              if (target.dataset.saving === "true") return;
+              
+              if (!requireLogin()) {
+                toast("Please log in to save field configuration.", "warning");
+                return;
+              }
+              
+              target.dataset.saving = "true";
               saveDisplayConfig();
               render();
               toast("Field configuration saved.", "success");
-            }
-          });
-
-          // ===== RESET SOURCES TO DEFAULT BUTTON =====
-          document.addEventListener("click", function (e) {
-            const target = e.target.closest("#resetFieldConfigBtn");
-            if (target) {
-              if (
-                confirm(
-                  "Reset all field sources to default internal field names?\n\nThis will change the 'Source' dropdown for all core fields back to the default internal names (title, status, priority, etc.)."
-                )
-              ) {
-                const coreFields = [
-                  "title",
-                  "status",
-                  "priority",
-                  "category",
-                  "location",
-                  "assignee",
-                  "requester",
-                  "created",
-                  "dueDate",
-                ];
-                coreFields.forEach((field) => {
-                  updateFieldConfig(field, { source: field });
-                });
-                saveDisplayConfig();
-                showSectionPage("settings");
-                toast("Field sources reset to defaults.", "success");
-              }
+              
+              setTimeout(() => {
+                delete target.dataset.saving;
+              }, 1000);
+              return;
             }
           });
         }
@@ -8105,7 +8833,7 @@
       // ========================= LOGIN EVENTS =========================
       document.getElementById("loginBtn").addEventListener("click", () => {
         if (isLoggedIn) {
-          logout();
+          logout(); // Now shows confirmation
         } else {
           openLoginModal();
         }
