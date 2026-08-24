@@ -7004,7 +7004,10 @@
             Number(b.sourceOrder ?? 0) - Number(a.sourceOrder ?? 0)
         );
 
-        // ---------- STEP 1: Save to localStorage ----------
+        // ---------- SAVE TO LOCAL STORAGE ----------
+        // Use saveOrders() to ensure consistency (it writes to localStorage and syncs, but we'll handle sync separately)
+        // We'll call saveOrders() which writes to localStorage and also calls syncSharedStorage (without await).
+        // To avoid double sync, we'll manually write to localStorage and then call syncSharedStorage with await.
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
           localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
@@ -7018,11 +7021,7 @@
           return;
         }
 
-        // ---------- STEP 2: Reload from localStorage ----------
-        orders = loadOrders();
-        console.log('[applyImport] After localStorage reload, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
-
-        // ---------- STEP 3: Force cloud sync (with await) ----------
+        // ---------- CLOUD SYNC (await) ----------
         try {
           console.log('[applyImport] ☁️ Syncing to cloud...');
           await syncSharedStorage();
@@ -7030,14 +7029,15 @@
         } catch (e) {
           console.error('[applyImport] ❌ Cloud sync failed:', e);
           toast("⚠️ Data saved locally but cloud sync failed. Check your connection.", "error");
-          // Continue anyway – local data is safe.
+          // Continue – local data is safe.
         }
 
-        // ---------- STEP 4: Reload from localStorage (to ensure consistency) ----------
-        orders = loadOrders();
-        console.log('[applyImport] After cloud sync and reload, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+        // ---------- IMPORTANT: Do NOT reload from localStorage here ----------
+        // The in-memory `orders` already contains the correct data.
+        // Reloading would read old data and overwrite it.
+        // We keep the current `orders` as is.
 
-        // ---------- STEP 5: Update UI ----------
+        // ---------- Update UI ----------
         document.getElementById("searchInput").value = "";
         initializeDashboardFilters();
         document.getElementById("statusFilter").value = "all";
@@ -7057,7 +7057,7 @@
         resetImportCenter(true);
         render();
 
-        // ---------- STEP 6: Update assignees ----------
+        // ---------- Update assignees ----------
         const importedAssignees = new Set(
           orders.map((o) => o.assignee).filter((a) => a && a !== "Unassigned")
         );
