@@ -6494,7 +6494,7 @@
 
         html += `</article>`;
         return html;
-    }
+      }
 
       function renderImportPreview() {
         const fields = ["id", "title", "status", "priority", "assignee", "location", "created", "dueDate"];
@@ -6525,6 +6525,22 @@
         const previewLimit = 3;
         document.getElementById("importPreviewCount").textContent = `Showing first ${Math.min(previewLimit, importRows.length)} of ${importRows.length}`;
 
+        // --- Build preview orders from the first `previewLimit` rows ---
+        let previewOrders = importRows.slice(0, previewLimit).map((r, i) => makeMappedOrder(r, i));
+
+        // --- Sort them exactly like the import will (sourceOrder descending, then created desc) ---
+        const timeOf = (v) => {
+          if (!v) return 0;
+          const t = Date.parse(String(v).length <= 10 ? String(v) + "T00:00:00" : String(v));
+          return Number.isNaN(t) ? 0 : t;
+        };
+        previewOrders.sort(
+          (a, b) =>
+            Number(b.sourceOrder ?? 0) - Number(a.sourceOrder ?? 0) ||
+            timeOf(b.created) - timeOf(a.created)
+        );
+
+        // --- Render the preview table ---
         const allFieldKeys = Object.keys(importMapping).filter(k => importMapping[k]);
         const customKeys = importCustomMappings.map((f, i) => `custom_${i}`).filter(k => importMapping[k] !== undefined);
         const displayFields = [...allFieldKeys, ...customKeys];
@@ -6545,13 +6561,11 @@
         headHTML += `</tr>`;
         document.getElementById("importPreviewHead").innerHTML = headHTML;
 
-        const preview = importRows.slice(0, previewLimit).map((r, i) => makeMappedOrder(r, i));
         let bodyHTML = "";
-        preview.forEach(o => {
+        previewOrders.forEach(o => {
           let rowHTML = `<tr class="border-t border-black/10 hover:bg-black/5">`;
           visibleFields.forEach(k => {
             let val = displayValue(o, importMapping[k] || k);
-            // Respect the detected field type (dropdown, date, or plain text)
             if (importFieldTypes[k] === "dropdown" && importMapping[k]) {
               const colValues = [...new Set(importRows.map(r => String(r[importMapping[k]] || "").trim()).filter(Boolean))];
               const options = colValues.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
@@ -6568,11 +6582,11 @@
         });
         document.getElementById("importPreviewBody").innerHTML = bodyHTML;
 
-        const projected = importRows.slice(0, previewLimit).map((r, i) => makeMappedOrder(r, i));
-        document.getElementById("projectedCards").innerHTML = projected.length
-          ? projected.map(o => projectedCardHTML(o)).join("")
+        // --- Render the projected cards (using the same sorted orders) ---
+        document.getElementById("projectedCards").innerHTML = previewOrders.length
+          ? previewOrders.map(o => projectedCardHTML(o)).join("")
           : '<p class="text-sm text-black/40">No rows to preview.</p>';
-    }
+      }
 
       function resetImportCenter(keepUrl = false) {
         driveFileTypeCache.clear();
@@ -7004,16 +7018,16 @@
           const t = Date.parse(s.length <= 10 ? s + "T00:00:00" : s);
           return Number.isNaN(t) ? 0 : t;
         };
+
+        // ---------- NEW SORT: most recent import first ----------
         orders.sort(
           (a, b) =>
-            timeOf(b.created) - timeOf(a.created) ||
-            Number(b.sourceOrder ?? 0) - Number(a.sourceOrder ?? 0)
+            Number(b.sourceOrder ?? 0) - Number(a.sourceOrder ?? 0) ||
+            timeOf(b.created) - timeOf(a.created)
         );
+        console.log('[applyImport] After sort by sourceOrder desc, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
 
-        // ---------- SAVE TO LOCAL STORAGE ----------
-        // Use saveOrders() to ensure consistency (it writes to localStorage and syncs, but we'll handle sync separately)
-        // We'll call saveOrders() which writes to localStorage and also calls syncSharedStorage (without await).
-        // To avoid double sync, we'll manually write to localStorage and then call syncSharedStorage with await.
+        // ---------- SAVE TO LOCAL STORAGE (manual, no sync call) ----------
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
           localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
@@ -7027,21 +7041,24 @@
           return;
         }
 
-        // ---------- CLOUD SYNC (await) ----------
+        // ---------- CLOUD SYNC (one single call with the current correct orders) ----------
+        const ordersToSync = orders.slice(); // snapshot
+        console.log('[applyImport] ☁️ Syncing to cloud with orders:', ordersToSync.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+
         try {
-          console.log('[applyImport] ☁️ Syncing to cloud...');
+          const originalOrders = orders;
+          orders = ordersToSync;
           await syncSharedStorage();
+          orders = originalOrders;
           console.log('[applyImport] ✅ Cloud sync completed.');
         } catch (e) {
           console.error('[applyImport] ❌ Cloud sync failed:', e);
           toast("⚠️ Data saved locally but cloud sync failed. Check your connection.", "error");
-          // Continue – local data is safe.
         }
 
-        // ---------- IMPORTANT: Do NOT reload from localStorage here ----------
-        // The in-memory `orders` already contains the correct data.
-        // Reloading would read old data and overwrite it.
-        // We keep the current `orders` as is.
+        // ---------- RELOAD FROM LOCAL STORAGE TO GET THE AUTHORITATIVE DATA ----------
+        orders = loadOrders();
+        console.log('[applyImport] After reload from localStorage, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
 
         // ---------- Update UI ----------
         document.getElementById("searchInput").value = "";
@@ -7062,9 +7079,6 @@
         closeImportModal();
         resetImportCenter(true);
         render();
-
-        console.log('[applyImport] About to call render(). Current `orders` before render:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
-        console.trace('[applyImport] Trace to see where orders might be changed');
 
         // ---------- Update assignees ----------
         const importedAssignees = new Set(
