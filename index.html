@@ -2363,6 +2363,16 @@
         ];
       }
 
+      function ensureFieldInAllOrders(label, source) {
+        orders.forEach(o => {
+          if (!Array.isArray(o.customFields)) o.customFields = [];
+          if (!o.customFields.some(f => f.label === label)) {
+            o.customFields.push({ label: label, value: "", _sourceHeader: source || "" });
+          }
+        });
+        saveOrders();
+      }
+
       function getAvailableDateFields() {
         const fields = [{ value: "created", label: "Created Date" }];
 
@@ -8191,14 +8201,6 @@
                       </select>
                     </td>
                     <td class="px-3 py-2 text-center">
-                      <select id="newFieldTypeInline" class="field-input-sm bg-black/30 text-white border-white/20">
-                        <option value="mapped">Header</option>
-                        <option value="date">Date</option>
-                        <option value="dropdown">Dropdown</option>
-                        <option value="value">Value</option>
-                      </select>
-                    </td>
-                    <td class="px-3 py-2 text-center">
                       <input type="checkbox" id="newFieldShowOnCardInline" checked class="rounded" />
                     </td>
                     <td class="px-3 py-2 text-center">
@@ -8332,11 +8334,11 @@
               return;
             }
             const source = document.getElementById('newFieldSourceInline').value.trim();
-            const type = document.getElementById('newFieldTypeInline').value;
             const showOnCard = document.getElementById('newFieldShowOnCardInline').checked;
             const showInTable = document.getElementById('newFieldShowInTableInline').checked;
+            // Type defaults to 'mapped' (the table does not show it)
+            const type = 'mapped';
 
-            // Create new custom field key
             const newKey = `custom_${Date.now()}`;
             if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
             displayConfig.fieldConfig[newKey] = {
@@ -8348,20 +8350,9 @@
             };
             saveDisplayConfig();
 
-            // ----- NEW: Add this field to ALL existing orders (so it appears in the drawer) -----
-            orders.forEach(o => {
-              if (!Array.isArray(o.customFields)) o.customFields = [];
-              if (!o.customFields.some(f => f.label === label)) {
-                o.customFields.push({
-                  label: label,
-                  value: "",
-                  _sourceHeader: source || ""
-                });
-              }
-            });
-            saveOrders();
+            // Add the field to all existing orders
+            ensureFieldInAllOrders(label, source);
 
-            // Hide inline row and refresh settings page
             document.getElementById('addFieldRow').style.display = 'none';
             showSectionPage('settings');
             toast(`✅ Field "${label}" added to all orders.`, "success");
