@@ -6975,6 +6975,31 @@
 
         console.log('[applyImport] After re-map, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
 
+        // ----- Ensure custom fields from import are added to displayConfig -----
+        const customLabels = new Set();
+        orders.forEach(o => {
+          if (Array.isArray(o.customFields)) {
+            o.customFields.forEach(f => {
+              if (f.label) customLabels.add(f.label);
+            });
+          }
+        });
+        customLabels.forEach(label => {
+          if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
+          const existing = Object.values(displayConfig.fieldConfig).find(cfg => cfg.label === label);
+          if (!existing) {
+            const newKey = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+            displayConfig.fieldConfig[newKey] = {
+              label: label,
+              source: `custom:${label}`,
+              showOnCard: true,
+              showInTable: true,
+              type: 'mapped'
+            };
+          }
+        });
+        saveDisplayConfig();
+
         // --- Sync core fields to displayConfig ---
         const defaultLabels = {
           id: "Work Order ID",
@@ -8067,53 +8092,38 @@
                     })
                     .join("")}
                 </tbody>
+                <tbody id="addFieldRow" style="display:none;">
+                  <tr>
+                    <td class="px-3 py-2 text-white/70">(new)</td>
+                    <td class="px-3 py-2"><input id="newFieldLabelInline" class="field-input-sm bg-black/20 text-white border-white/20" placeholder="Label" /></td>
+                    <td class="px-3 py-2">
+                      <select id="newFieldSourceInline" class="field-input-sm bg-black/30 text-white border-white/20">
+                        <option value="">— Not mapped —</option>
+                        ${allHeaders.map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join('')}
+                      </select>
+                    </td>
+                    <td class="px-3 py-2 text-center">
+                      <select id="newFieldTypeInline" class="field-input-sm bg-black/30 text-white border-white/20">
+                        <option value="mapped">Header</option>
+                        <option value="date">Date</option>
+                        <option value="dropdown">Dropdown</option>
+                        <option value="value">Value</option>
+                      </select>
+                    </td>
+                    <td class="px-3 py-2 text-center">
+                      <input type="checkbox" id="newFieldShowOnCardInline" checked class="rounded" />
+                    </td>
+                    <td class="px-3 py-2 text-center">
+                      <input type="checkbox" id="newFieldShowInTableInline" checked class="rounded" />
+                    </td>
+                    <td class="px-3 py-2 text-center">
+                      <button id="saveNewFieldInline" class="px-2 py-1 rounded bg-brand-teal text-white text-xs font-bold hover:bg-[#2A5454] transition">Save</button>
+                      <button id="cancelNewFieldInline" class="px-2 py-1 rounded bg-white/10 text-white text-xs font-bold hover:bg-white/20 transition ml-1">Cancel</button>
+                    </td>
+                  </tr>
+                </tbody>
               </table>
             </div>
-            <!-- Add Field Modal -->
-            <div id="addFieldModal" class="fixed inset-0 z-[90] hidden" role="dialog" aria-modal="true">
-              <div id="addFieldModalBackdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
-              <div class="relative min-h-full flex items-center justify-center p-4">
-                <div class="w-full max-w-md bg-white text-black rounded-2xl shadow-2xl p-6">
-                  <div class="flex items-center justify-between mb-5">
-                    <h2 class="text-xl font-black text-black">Add Custom Field</h2>
-                    <button id="closeAddFieldModalBtn" type="button" class="w-8 h-8 rounded-lg hover:bg-black/5 text-black/50 flex items-center justify-center">✕</button>
-                  </div>
-                  <form id="addFieldForm">
-                    <div class="space-y-4">
-                      <div>
-                        <label class="field-label text-black/60" for="newFieldLabel">Label</label>
-                        <input id="newFieldLabel" type="text" class="field-input border-black/20" placeholder="e.g. Department" />
-                      </div>
-                      <div>
-                        <label class="field-label text-black/60" for="newFieldSource">Source</label>
-                        <select id="newFieldSource" class="field-input border-black/20">
-                          <option value="">— Not mapped —</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label class="field-label text-black/60" for="newFieldType">Type</label>
-                        <select id="newFieldType" class="field-input border-black/20">
-                          <option value="mapped">Header</option>
-                          <option value="date">Date</option>
-                          <option value="dropdown">Dropdown</option>
-                          <option value="value">Value</option>
-                        </select>
-                      </div>
-                      <div class="flex items-center gap-4">
-                        <label class="flex items-center gap-2 text-sm font-bold text-black/60">
-                          <input type="checkbox" id="newFieldShowOnCard" checked class="rounded" /> Show on Card
-                        </label>
-                        <label class="flex items-center gap-2 text-sm font-bold text-black/60">
-                          <input type="checkbox" id="newFieldShowInTable" checked class="rounded" /> Show in Table
-                        </label>
-                      </div>
-                      <button type="submit" class="w-full py-2.5 rounded-lg bg-brand-teal hover:bg-[#2A5454] text-white font-bold text-sm transition">Add Field</button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            </div>
-
             <div class="mt-4 flex flex-wrap gap-2">
               <button id="addFieldConfigBtn" class="px-4 py-2 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white font-bold text-sm transition">+ Add Field</button>
               <button id="saveFieldConfigBtn" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-sm transition">Save Changes</button>
@@ -8199,56 +8209,45 @@
           });
 
           // ===== ADD FIELD MODAL EVENTS =====
-          // Open modal when Add Field button is clicked
           document.getElementById('addFieldConfigBtn').addEventListener('click', function () {
             if (!requireLogin()) {
               toast("Please log in to add a field.", "warning");
               return;
             }
             // Populate the source dropdown with all available headers
-            const sourceSelect = document.getElementById('newFieldSource');
+            const sourceSelect = document.getElementById('newFieldSourceInline');
             const headers = allAvailableHeaders();
             sourceSelect.innerHTML = '<option value="">— Not mapped —</option>' +
               headers.map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join('');
 
             // Clear previous values
-            document.getElementById('newFieldLabel').value = '';
-            document.getElementById('newFieldType').value = 'mapped';
-            document.getElementById('newFieldShowOnCard').checked = true;
-            document.getElementById('newFieldShowInTable').checked = true;
+            document.getElementById('newFieldLabelInline').value = '';
+            document.getElementById('newFieldTypeInline').value = 'mapped';
+            document.getElementById('newFieldShowOnCardInline').checked = true;
+            document.getElementById('newFieldShowInTableInline').checked = true;
 
-            // Show modal
-            document.getElementById('addFieldModal').classList.remove('hidden');
-            document.body.classList.add('overflow-hidden');
-            setTimeout(() => document.getElementById('newFieldLabel').focus(), 100);
+            // Show the inline row
+            document.getElementById('addFieldRow').style.display = '';
+            // Optionally hide after save/cancel
           });
 
-          // Close modal – X button
-          document.getElementById('closeAddFieldModalBtn').addEventListener('click', function () {
-            document.getElementById('addFieldModal').classList.add('hidden');
-            document.body.classList.remove('overflow-hidden');
+          // Cancel new field row
+          document.getElementById('cancelNewFieldInline').addEventListener('click', function () {
+            document.getElementById('addFieldRow').style.display = 'none';
           });
 
-          // Close modal – backdrop click
-          document.getElementById('addFieldModalBackdrop').addEventListener('click', function () {
-            document.getElementById('addFieldModal').classList.add('hidden');
-            document.body.classList.remove('overflow-hidden');
-          });
-
-          // Save new field
-          document.getElementById('addFieldForm').addEventListener('submit', function (e) {
-            e.preventDefault();
-            const label = document.getElementById('newFieldLabel').value.trim();
+          // Save new field inline
+          document.getElementById('saveNewFieldInline').addEventListener('click', function () {
+            const label = document.getElementById('newFieldLabelInline').value.trim();
             if (!label) {
               toast("Please enter a label.", "error");
               return;
             }
-            const source = document.getElementById('newFieldSource').value.trim();
-            const type = document.getElementById('newFieldType').value;
-            const showOnCard = document.getElementById('newFieldShowOnCard').checked;
-            const showInTable = document.getElementById('newFieldShowInTable').checked;
+            const source = document.getElementById('newFieldSourceInline').value.trim();
+            const type = document.getElementById('newFieldTypeInline').value;
+            const showOnCard = document.getElementById('newFieldShowOnCardInline').checked;
+            const showInTable = document.getElementById('newFieldShowInTableInline').checked;
 
-            // Create new custom field key
             const newKey = `custom_${Date.now()}`;
             if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
             displayConfig.fieldConfig[newKey] = {
@@ -8256,13 +8255,11 @@
               source: source,
               showOnCard: showOnCard,
               showInTable: showInTable,
-              type: type, // store type
+              type: type,
             };
             saveDisplayConfig();
 
-            // Close modal and refresh settings page
-            document.getElementById('addFieldModal').classList.add('hidden');
-            document.body.classList.remove('overflow-hidden');
+            document.getElementById('addFieldRow').style.display = 'none';
             showSectionPage('settings');
             toast(`✅ Field "${label}" added.`, "success");
           });
