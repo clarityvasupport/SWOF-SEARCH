@@ -127,6 +127,15 @@
           transform: translateY(0);
         }
       }
+
+      .toast-out {
+        animation: toastOut 0.22s ease-in forwards;
+      }
+      @keyframes toastOut {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(-10px); }
+      }
+
       .dropzone.drag {
         border-color: #326363;
         background: rgba(50, 99, 99, 0.1);
@@ -2090,7 +2099,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.6.13";
+      const APP_VERSION = "1.6.15";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -6975,30 +6984,38 @@
 
         console.log('[applyImport] After re-map, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
 
-        // ----- Ensure custom fields from import are added to displayConfig -----
-        const customLabels = new Set();
-        orders.forEach(o => {
-          if (Array.isArray(o.customFields)) {
-            o.customFields.forEach(f => {
-              if (f.label) customLabels.add(f.label);
-            });
-          }
-        });
-        customLabels.forEach(label => {
+        // ----- Ensure custom fields from import are added to displayConfig with correct visibility -----
+        if (importCustomMappings && importCustomMappings.length) {
           if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
-          const existing = Object.values(displayConfig.fieldConfig).find(cfg => cfg.label === label);
-          if (!existing) {
-            const newKey = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-            displayConfig.fieldConfig[newKey] = {
-              label: label,
-              source: `custom:${label}`,
-              showOnCard: true,
-              showInTable: true,
-              type: 'mapped'
-            };
-          }
-        });
-        saveDisplayConfig();
+          // Count existing custom fields
+          const customKeys = Object.keys(displayConfig.fieldConfig).filter(k => k.startsWith('custom_'));
+          let customIndex = customKeys.length + 1;
+
+          importCustomMappings.forEach((custom, idx) => {
+            const label = custom.label || custom.source || `Custom Field ${customIndex}`;
+            // Check if a field with this label already exists
+            const existing = Object.values(displayConfig.fieldConfig).find(cfg => cfg.label === label);
+            if (!existing) {
+              const newKey = `custom_${Date.now()}_${idx}`;
+              displayConfig.fieldConfig[newKey] = {
+                label: label,
+                source: custom.source || '',
+                showOnCard: custom.showOnCard !== undefined ? custom.showOnCard : true,
+                showInTable: true, // default to true for custom fields
+                type: custom.type || 'mapped'
+              };
+              customIndex++;
+            } else {
+              // Update existing field's visibility from import mapping
+              existing.showOnCard = custom.showOnCard !== undefined ? custom.showOnCard : existing.showOnCard;
+              // Optionally update source/label if changed
+              if (custom.source) existing.source = custom.source;
+              if (custom.label) existing.label = custom.label;
+              if (custom.type) existing.type = custom.type;
+            }
+          });
+          saveDisplayConfig();
+        }
 
         // --- Sync core fields to displayConfig ---
         const defaultLabels = {
@@ -7033,9 +7050,15 @@
               type: type,
             };
           } else {
-            displayConfig.fieldConfig[field].label = label;
-            if (header) displayConfig.fieldConfig[field].source = header;
-            displayConfig.fieldConfig[field].type = type;
+            // Preserve existing showOnCard/showInTable
+            const existing = displayConfig.fieldConfig[field];
+            displayConfig.fieldConfig[field] = {
+              ...existing,
+              label: label,
+              source: header || field,
+              type: type,
+              // showOnCard and showInTable remain as they were
+            };
           }
         });
         saveDisplayConfig();
@@ -7326,13 +7349,58 @@
           error: "border-red-500 bg-red-500 text-black",
           info: "border-slate-300 bg-slate-300 text-black",
         };
+
         const el = document.createElement("div");
-        el.className = `toast border rounded-xl shadow-soft px-4 py-3 text-sm font-semibold ${
-          colors[type] || colors.info
-        }`;
-        el.textContent = message;
-        document.getElementById("toastStack").appendChild(el);
-        setTimeout(() => el.remove(), 3500);
+        el.className = `toast border rounded-xl shadow-soft px-4 py-3 text-sm font-semibold flex items-center justify-between ${colors[type] || colors.info}`;
+
+        // Message text
+        const textSpan = document.createElement("span");
+        textSpan.textContent = message;
+        el.appendChild(textSpan);
+
+        // Close button
+        const closeBtn = document.createElement("button");
+        closeBtn.innerHTML = "✕";
+        closeBtn.className = "ml-3 text-black/50 hover:text-black/80 transition text-base leading-none";
+        closeBtn.style.background = "none";
+        closeBtn.style.border = "none";
+        closeBtn.style.cursor = "pointer";
+        el.appendChild(closeBtn);
+
+        // Add to toast stack
+        const stack = document.getElementById("toastStack");
+        stack.appendChild(el);
+
+        // Auto-dismiss timer
+        let timer = setTimeout(() => {
+          dismissToast(el);
+        }, 3500);
+
+        // Dismiss function
+        function dismissToast(element) {
+          clearTimeout(timer);
+          if (element.classList.contains("toast-out")) return; // already exiting
+          element.classList.add("toast-out");
+          element.addEventListener("animationend", function onEnd() {
+            element.removeEventListener("animationend", onEnd);
+            if (element.parentNode) element.remove();
+          });
+        }
+
+        // Close button click
+        closeBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          dismissToast(el);
+        });
+
+        // Also dismiss on click on the toast itself (optional – you can remove this)
+        el.addEventListener("click", function (e) {
+          if (e.target === closeBtn) return; // already handled
+          dismissToast(el);
+        });
+
+        // Return the element so we can manually dismiss if needed
+        return el;
       }
 
       function updateUndoButtons() {
