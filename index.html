@@ -802,37 +802,37 @@
               <span class="text-xs font-bold text-black/70">Summary</span>
             </div>
             <div class="space-y-2.5 text-xs">
-              <div class="flex justify-between">
+              <div id="statusSummaryList" class="space-y-2.5 text-xs"></div>
                 <span
                   class="text-black/60 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-black/30 before:rounded-full before:mr-2"
                   >Open</span
                 ><strong id="sideOpen">0</strong>
               </div>
-              <div class="flex justify-between">
+              <div id="statusSummaryList" class="space-y-2.5 text-xs"></div>
                 <span
                   class="text-black/60 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-black/30 before:rounded-full before:mr-2"
                   >In Progress</span
                 ><strong id="sideProgress">0</strong>
               </div>
-              <div class="flex justify-between">
+              <div id="statusSummaryList" class="space-y-2.5 text-xs"></div>
                 <span
                   class="text-black/60 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-black/30 before:rounded-full before:mr-2"
                   >On Hold</span
                 ><strong id="sideHold">0</strong>
               </div>
-              <div class="flex justify-between">
+              <div id="statusSummaryList" class="space-y-2.5 text-xs"></div>
                 <span
                   class="text-black/60 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-black/30 before:rounded-full before:mr-2"
                   >Completed</span
                 ><strong id="sideCompleted">0</strong>
               </div>
-              <div class="flex justify-between">
+              <div id="statusSummaryList" class="space-y-2.5 text-xs"></div>
                 <span
                   class="text-black/60 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-black/30 before:rounded-full before:mr-2"
                   >Overdue</span
                 ><strong id="sideOverdue">0</strong>
               </div>
-              <div class="flex justify-between">
+              <div id="statusSummaryList" class="space-y-2.5 text-xs"></div>
                 <span
                   class="text-black/60 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-black/30 before:rounded-full before:mr-2"
                   >Cancelled</span
@@ -2099,7 +2099,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.6.15";
+      const APP_VERSION = "1.7.0";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -2577,6 +2577,20 @@
         }
       }
 
+      // --- NEW: Remove a custom field's data from ALL existing orders ---
+      function removeFieldDataFromOrders(label) {
+        const targetLabel = String(label || "").trim();
+        if (!targetLabel) return;
+        
+        orders.forEach(o => {
+          if (Array.isArray(o.customFields)) {
+            // Filter out the custom field that matches this label
+            o.customFields = o.customFields.filter(f => String(f.label || "").trim() !== targetLabel);
+          }
+        });
+        saveOrders(); // Save the changes immediately
+      }
+
       function allAvailableHeaders() {
         const headers = new Set();
         orders.forEach((o) => {
@@ -2600,7 +2614,29 @@
             String(x._sourceHeader || "").trim() === target ||
             normalize(String(x._sourceHeader || "")) === normalize(target)
         );
-        return f ? String(f.value ?? "") : "";
+        if (!f) return "";
+
+        // 1. If the value is explicitly set (not empty), return it
+        if (String(f.value ?? "").trim()) return String(f.value);
+
+        // 2. 🔥 NEW: If value is empty but we have a _sourceHeader, 
+        //    look it up directly from the raw Excel/API data!
+        if (f._sourceHeader) {
+          const rawData = o._rawData || {};
+          // Try exact match first
+          if (rawData[f._sourceHeader] !== undefined) {
+            return String(rawData[f._sourceHeader] ?? "");
+          }
+          // Try normalized match (case-insensitive, trim)
+          const normalizedSource = normalize(f._sourceHeader);
+          const keys = Object.keys(rawData);
+          const normalizedMatch = keys.find(k => normalize(String(k)) === normalizedSource);
+          if (normalizedMatch !== undefined) {
+            return String(rawData[normalizedMatch] ?? "");
+          }
+        }
+
+        return "";
       }
 
       function resolveRowValueByHeader(row, source) {
@@ -3446,24 +3482,27 @@
           (o) => o.status === "Overdue"
         ).length;
 
-        const counts = {
-          Open: 0,
-          "In Progress": 0,
-          "On Hold": 0,
-          Completed: 0,
-          Overdue: 0,
-          Cancelled: 0,
-        };
-        orders.forEach((o) => {
-          if (counts[o.status] !== undefined) counts[o.status]++;
+        // --- DYNAMIC SIDEBAR SUMMARY (matches dropdown filter) ---
+        const statusMap = {};
+        orders.forEach(o => {
+          const s = o.status || 'Unknown';
+          statusMap[s] = (statusMap[s] || 0) + 1;
         });
-        document.getElementById("sideOpen").textContent = counts.Open;
-        document.getElementById("sideProgress").textContent =
-          counts["In Progress"];
-        document.getElementById("sideHold").textContent = counts["On Hold"];
-        document.getElementById("sideCompleted").textContent = counts.Completed;
-        document.getElementById("sideOverdue").textContent = counts.Overdue;
-        document.getElementById("sideCancelled").textContent = counts.Cancelled;
+        const sortedStatuses = Object.keys(statusMap).sort();
+        const summaryList = document.getElementById('statusSummaryList');
+        if (summaryList) {
+          if (sortedStatuses.length === 0) {
+            summaryList.innerHTML = `<div class="flex justify-between"><span class="text-black/60">No orders</span><strong>0</strong></div>`;
+          } else {
+            summaryList.innerHTML = sortedStatuses.map(s => `
+              <div class="flex justify-between">
+                <span class="text-black/60 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-black/30 before:rounded-full before:mr-2">${esc(s)}</span>
+                <strong>${statusMap[s]}</strong>
+              </div>
+            `).join('');
+          }
+        }
+
         document.getElementById("sideTotal").textContent = orders.length;
         document.getElementById("sideUpdated").textContent = "Just now";
         document.getElementById("bottomResultCount").textContent = list.length
@@ -3670,14 +3709,14 @@
 
         let extraFieldsHTML = "";
         if (extraFields.length) {
-          extraFieldsHTML = `<div class="mt-2 grid grid-cols-2 gap-2">`;
+          extraFieldsHTML = `<div class="mt-4 grid grid-cols-2 gap-2 text-xs">`;
           extraFields.forEach(key => {
             const cfg = fieldConfigs[key];
             const val = displayValue(o, cfg.source);
             let formatted = formatFieldValue(val);
             // If it's a dropdown type, we could show a dropdown here too, but we'll keep it simple for extra fields.
             // We'll just show the value as text for now.
-            extraFieldsHTML += `<div class="bg-black/5 rounded-lg p-2.5"><p class="text-black/40 truncate">${esc(cfg.label || key)}</p><div class="font-bold text-black/80 mt-0.5 break-words">${formatted}</div></div>`;
+            extraFieldsHTML += `<div class="bg-black/5 rounded-lg p-2.5"><p class="text-black/40 truncate">${esc(cfg.label || key)}</p><div class="font-bold text-black/80 mt-0.5 truncate">${formatted}</div></div>`;
           });
           extraFieldsHTML += `</div>`;
         }
@@ -5765,9 +5804,10 @@
         // --- Step 4: Override status to COMPLETED ONLY if the remarks field contains "complete" ---
         let finalStatus;
         if (/complete/i.test(remarksValue)) {
-          finalStatus = "COMPLETED";
+          finalStatus = "Completed";   // 🔥 Changed to proper case
         } else {
-          finalStatus = rawStatus;
+          // 🔥 Normalize the raw status to match the UI dropdown options
+          finalStatus = normalizeStatus(rawStatus);
         }
 
         // --- DEBUG: Log the final status ---
@@ -8506,15 +8546,23 @@
                 return;
               }
               const key = target.dataset.removeField;
+              // 1. Grab the label from the config BEFORE we delete it
+              const config = displayConfig.fieldConfig && displayConfig.fieldConfig[key];
+              const label = config ? config.label : key;
+
               openConfirmationModal({
-                title: "Remove Field",
-                message: `Remove field "${key}"?`,
+                title: "Remove Field Permanently",
+                message: `Remove field "${label}" from ALL work orders and settings? This cannot be undone easily.`,
                 confirmText: "Remove",
                 confirmClass: "bg-red-600 hover:bg-red-700",
                 onConfirm: () => {
+                  // 2. Delete the actual data from every order (Fixes the Drawer!)
+                  removeFieldDataFromOrders(label);
+                  // 3. Delete the display configuration
                   removeCustomFieldConfig(key);
+                  // 4. Refresh the Settings page UI
                   showSectionPage("settings");
-                  toast(`Removed field: ${key}`, "info");
+                  toast(`✅ Removed field "${label}" from all orders.`, "info");
                   closeConfirmationModal();
                 },
               });
