@@ -3826,12 +3826,6 @@
           "Assigned To",
           o.assignee
         )}
-                ${detailBox(
-                  "Date Transmitted",
-                  formatDate(
-                    customFieldValue(o, "Date Transmitted") || o.dateTransmitted
-                  )
-                )}
                 ${(o.customFields || [])
                   .filter((f) => f.label && f.label !== "Date Transmitted")
                   .map((f) => detailBox(f.label, f.value))
@@ -4138,6 +4132,13 @@
 
       function normalizeDriveId(value) {
         return extractDriveFileId(value) || "";
+      }
+
+      function toTitleCase(str) {
+        if (!str) return str;
+        return str.replace(/\w\S*/g, function(txt) {
+          return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+        });
       }
 
       function normalizeMediaUrl(value) {
@@ -6080,13 +6081,18 @@
         grid.querySelectorAll("[data-import-label-field]").forEach(input => {
           function updateLabel(e) {
             const key = e.target.dataset.importLabelField;
-            const val = e.target.value.trim();
+            let val = e.target.value.trim();
+            // Auto-format to Title Case
+            const formatted = toTitleCase(val);
+            if (formatted !== val) {
+              e.target.value = formatted;
+              val = formatted;
+            }
 
             if (key.startsWith("custom_")) {
               const idx = parseInt(key.split("_")[1]);
               if (importCustomMappings[idx]) {
                 importCustomMappings[idx].label = val;
-                // Sync to displayConfig if this custom field already exists there
                 if (displayConfig.fieldConfig) {
                   Object.keys(displayConfig.fieldConfig).forEach(cfgKey => {
                     if (cfgKey.startsWith("custom_") &&
@@ -6099,7 +6105,6 @@
               }
             } else {
               importFieldLabels[key] = val;
-              // Sync to main dashboard field config
               if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
               if (!displayConfig.fieldConfig[key]) {
                 displayConfig.fieldConfig[key] = {
@@ -6115,7 +6120,7 @@
             }
 
             renderImportPreview();
-            render(); // Re‑render the main dashboard to reflect the new label
+            render();
           }
 
           input.addEventListener("input", updateLabel);
@@ -7001,20 +7006,35 @@
                 label: label,
                 source: custom.source || '',
                 showOnCard: custom.showOnCard !== undefined ? custom.showOnCard : true,
-                showInTable: true, // default to true for custom fields
+                showInTable: true,
                 type: custom.type || 'mapped'
               };
               customIndex++;
             } else {
               // Update existing field's visibility from import mapping
               existing.showOnCard = custom.showOnCard !== undefined ? custom.showOnCard : existing.showOnCard;
-              // Optionally update source/label if changed
               if (custom.source) existing.source = custom.source;
               if (custom.label) existing.label = custom.label;
               if (custom.type) existing.type = custom.type;
             }
           });
           saveDisplayConfig();
+
+          // ----- NEW: Add imported custom fields to ALL existing orders (so they appear in the drawer) -----
+          orders.forEach(o => {
+            if (!Array.isArray(o.customFields)) o.customFields = [];
+            importCustomMappings.forEach(custom => {
+              const label = custom.label || custom.source || '';
+              if (label && !o.customFields.some(f => f.label === label)) {
+                o.customFields.push({ 
+                  label: label, 
+                  value: custom.value || '', 
+                  _sourceHeader: custom.source || '' 
+                });
+              }
+            });
+          });
+          saveOrders();
         }
 
         // --- Sync core fields to displayConfig ---
@@ -8116,7 +8136,7 @@
                       const cfg = fieldConfigs[key];
                       const isCustom = key.startsWith("custom_");
                       return `<tr class="border-b border-white/10">
-                        <td class="px-3 py-2 text-white/70">${esc(key)}</td>
+                        <td class="px-3 py-2 text-white/70">${esc(cfg.label || key)}</td>
                         <td class="px-3 py-2"><input class="field-input-sm bg-black/20 text-white border-white/20" data-field-key="${esc(
                           key
                         )}" data-field-property="label" value="${esc(
@@ -8316,6 +8336,7 @@
             const showOnCard = document.getElementById('newFieldShowOnCardInline').checked;
             const showInTable = document.getElementById('newFieldShowInTableInline').checked;
 
+            // Create new custom field key
             const newKey = `custom_${Date.now()}`;
             if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
             displayConfig.fieldConfig[newKey] = {
@@ -8327,9 +8348,23 @@
             };
             saveDisplayConfig();
 
+            // ----- NEW: Add this field to ALL existing orders (so it appears in the drawer) -----
+            orders.forEach(o => {
+              if (!Array.isArray(o.customFields)) o.customFields = [];
+              if (!o.customFields.some(f => f.label === label)) {
+                o.customFields.push({
+                  label: label,
+                  value: "",
+                  _sourceHeader: source || ""
+                });
+              }
+            });
+            saveOrders();
+
+            // Hide inline row and refresh settings page
             document.getElementById('addFieldRow').style.display = 'none';
             showSectionPage('settings');
-            toast(`✅ Field "${label}" added.`, "success");
+            toast(`✅ Field "${label}" added to all orders.`, "success");
           });
 
           // ===== RESET FIELD CONFIG TO DEFAULTS (Full Reset) =====
