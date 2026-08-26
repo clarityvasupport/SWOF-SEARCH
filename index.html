@@ -783,70 +783,20 @@
             </button>
           </nav>
 
-          <section
-            class="mt-5 bg-white/10 backdrop-blur-sm border border-black/10 rounded-xl p-4 text-black"
-          >
+          <section class="mt-5 bg-white/10 backdrop-blur-sm border border-black/10 rounded-xl p-4 text-black">
             <div class="flex items-center gap-2 mb-4">
-              <svg
-                class="w-4 h-4 text-black/60"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  d="M4 19V9m5 10V5m5 14v-7m5 7V3"
-                />
+              <svg class="w-4 h-4 text-black/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-width="1.8" stroke-linecap="round" d="M4 19V9m5 10V5m5 14v-7m5 7V3" />
               </svg>
               <span class="text-xs font-bold text-black/70">Summary</span>
             </div>
-            <div class="space-y-2.5 text-xs">
-              <div id="statusSummaryList" class="space-y-2.5 text-xs"></div>
-                <span
-                  class="text-black/60 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-black/30 before:rounded-full before:mr-2"
-                  >Open</span
-                ><strong id="sideOpen">0</strong>
-              </div>
-              <div id="statusSummaryList" class="space-y-2.5 text-xs"></div>
-                <span
-                  class="text-black/60 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-black/30 before:rounded-full before:mr-2"
-                  >In Progress</span
-                ><strong id="sideProgress">0</strong>
-              </div>
-              <div id="statusSummaryList" class="space-y-2.5 text-xs"></div>
-                <span
-                  class="text-black/60 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-black/30 before:rounded-full before:mr-2"
-                  >On Hold</span
-                ><strong id="sideHold">0</strong>
-              </div>
-              <div id="statusSummaryList" class="space-y-2.5 text-xs"></div>
-                <span
-                  class="text-black/60 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-black/30 before:rounded-full before:mr-2"
-                  >Completed</span
-                ><strong id="sideCompleted">0</strong>
-              </div>
-              <div id="statusSummaryList" class="space-y-2.5 text-xs"></div>
-                <span
-                  class="text-black/60 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-black/30 before:rounded-full before:mr-2"
-                  >Overdue</span
-                ><strong id="sideOverdue">0</strong>
-              </div>
-              <div id="statusSummaryList" class="space-y-2.5 text-xs"></div>
-                <span
-                  class="text-black/60 before:content-[''] before:inline-block before:w-1.5 before:h-1.5 before:bg-black/30 before:rounded-full before:mr-2"
-                  >Cancelled</span
-                ><strong id="sideCancelled">0</strong>
-              </div>
-            </div>
+
+            <!-- ✅ DYNAMIC STATUS SUMMARY – this is the ONLY place it lives -->
+            <div id="statusSummaryList" class="space-y-2.5 text-xs"></div>
+
             <div class="border-t border-black/10 mt-4 pt-3">
               <p class="text-[11px] text-black/50">Total Work Orders</p>
-              <p
-                id="sideTotal"
-                class="text-2xl font-black text-black leading-tight"
-              >
-                0
-              </p>
+              <p id="sideTotal" class="text-2xl font-black text-black leading-tight">0</p>
               <p class="text-[10px] text-black/40 mt-1">
                 Last updated: <span id="sideUpdated">Just now</span>
               </p>
