@@ -2090,7 +2090,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.6.12";
+      const APP_VERSION = "1.6.13";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -3142,7 +3142,7 @@
             );
           // default: created_desc (with sourceOrder tie‑breaker)
           return timeOf(b.created) - timeOf(a.created) ||
-                Number(b.sourceOrder ?? 0) - Number(a.sourceOrder ?? 0);
+            Number(a.sourceOrder ?? 0) - Number(b.sourceOrder ?? 0);
         });
         return list;
       }
@@ -6539,7 +6539,7 @@
         previewOrders.sort(
           (a, b) =>
             timeOf(b.created) - timeOf(a.created) ||
-            Number(b.sourceOrder ?? 0) - Number(a.sourceOrder ?? 0)
+            Number(a.sourceOrder ?? 0) - Number(b.sourceOrder ?? 0)
         );
 
         // --- Render the preview table ---
@@ -7025,7 +7025,7 @@
         orders.sort(
           (a, b) =>
             timeOf(b.created) - timeOf(a.created) ||
-            Number(b.sourceOrder ?? 0) - Number(a.sourceOrder ?? 0)
+            Number(a.sourceOrder ?? 0) - Number(b.sourceOrder ?? 0)
         );
         console.log('[applyImport] After sort by sourceOrder desc, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
 
@@ -7459,9 +7459,9 @@
                 );
               })
               .sort((a, b) =>
-              String(b.created || "").localeCompare(String(a.created || "")) ||
-              (b.sourceOrder ?? 0) - (a.sourceOrder ?? 0)
-            );
+                String(b.created || "").localeCompare(String(a.created || "")) ||
+                (a.sourceOrder ?? 0) - (b.sourceOrder ?? 0)
+              );
 
             let rowsHTML = "";
             if (filteredOrders.length === 0) {
