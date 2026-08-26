@@ -5024,21 +5024,18 @@
         const counter = document.getElementById("imagePreviewCounter");
         const prevBtn = document.getElementById("imagePreviewPrevBtn");
         const nextBtn = document.getElementById("imagePreviewNextBtn");
-        
+
         if (!modal || !image) return;
 
         // Handle PDF preview
         if (isPdf || (typeof srcOrGallery === 'string' && isPdfUrl(srcOrGallery))) {
-          // Single PDF
           const pdfUrl = typeof srcOrGallery === 'string' ? srcOrGallery : String(srcOrGallery);
           imageGallery = [pdfUrl];
           currentImageIndex = 0;
           currentIsPdf = true;
-          
-          // Hide the image, show iframe
+
           image.style.display = "none";
-          
-          // Create or update iframe for PDF
+
           let iframe = document.getElementById("pdfPreviewIframe");
           if (!iframe) {
             iframe = document.createElement("iframe");
@@ -5049,14 +5046,12 @@
           }
           iframe.style.display = "block";
           iframe.src = pdfUrl;
-          
-          // Update counter
+
           if (counter) counter.textContent = "";
-          
-          // Hide navigation
+
           if (prevBtn) prevBtn.style.display = "none";
           if (nextBtn) nextBtn.style.display = "none";
-          
+
           modal.classList.remove("hidden");
           document.body.classList.add("overflow-hidden");
           return;
@@ -5064,12 +5059,10 @@
 
         // ===== IMAGE GALLERY LOGIC =====
         currentIsPdf = false;
-        
-        // Hide iframe if present
+
         const iframe = document.getElementById("pdfPreviewIframe");
         if (iframe) iframe.style.display = "none";
-        
-        // Check if we received a gallery (JSON string) or a single URL
+
         if (typeof srcOrGallery === 'string' && srcOrGallery.startsWith('[')) {
           try {
             imageGallery = JSON.parse(srcOrGallery);
@@ -5081,27 +5074,24 @@
         } else {
           imageGallery = [String(srcOrGallery)];
         }
-        
-        // Filter out empty URLs
+
         imageGallery = imageGallery.filter(url => url && url.trim());
-        
+
         if (imageGallery.length === 0) {
           toast("No images to display.", "error");
           return;
         }
-        
+
         currentImageIndex = 0;
         showImageAtIndex(currentImageIndex, alt);
-        
-        // Update counter
+
         if (counter) {
           counter.textContent = imageGallery.length > 1 ? `1 / ${imageGallery.length}` : "";
         }
-        
-        // Show/hide navigation buttons
-        if (prevBtn) prevBtn.style.display = imageGallery.length > 1 ? "flex" : "none";
-        if (nextBtn) nextBtn.style.display = imageGallery.length > 1 ? "flex" : "none";
-        
+
+        // Navigation buttons will be shown/hidden by showImageAtIndex
+        // (no need to set them here)
+
         modal.classList.remove("hidden");
         document.body.classList.add("overflow-hidden");
       }
@@ -5111,33 +5101,33 @@
         const counter = document.getElementById("imagePreviewCounter");
         const prevBtn = document.getElementById("imagePreviewPrevBtn");
         const nextBtn = document.getElementById("imagePreviewNextBtn");
-        
+
         if (!image || !imageGallery.length) return;
-        
+
         // Clamp index
         currentImageIndex = Math.max(0, Math.min(index, imageGallery.length - 1));
         const src = imageGallery[currentImageIndex];
-        
+
         // Hide iframe
         const iframe = document.getElementById("pdfPreviewIframe");
         if (iframe) iframe.style.display = "none";
-        
+
         // Show image
         image.style.display = "block";
-        
+
         // Reset zoom and position
         imagePreviewTranslate = { x: 0, y: 0 };
         imagePreviewZoom = 1;
         image.style.transform = "translate(0px, 0px) scale(1)";
         const zoomValue = document.getElementById("imagePreviewZoomValue");
         if (zoomValue) zoomValue.textContent = "100%";
-        
+
         // Load the image
         image.style.display = "none";
         image.alt = alt || `Attachment ${currentImageIndex + 1}`;
         image.onerror = null;
         image.onload = null;
-        
+
         loadDriveImage(image, src, {
           size: 2000,
           onFail: () => {
@@ -5145,19 +5135,29 @@
             image.alt = "Image could not be loaded from Drive";
           },
         });
-        
+
         // Update counter
         if (counter) {
-          counter.textContent = imageGallery.length > 1 
-            ? `${currentImageIndex + 1} / ${imageGallery.length}` 
+          counter.textContent = imageGallery.length > 1
+            ? `${currentImageIndex + 1} / ${imageGallery.length}`
             : "";
         }
-        
-        // Update navigation button states
-        if (prevBtn) prevBtn.style.display = imageGallery.length > 1 ? "flex" : "none";
-        if (nextBtn) nextBtn.style.display = imageGallery.length > 1 ? "flex" : "none";
-        if (prevBtn) prevBtn.classList.toggle("opacity-50", currentImageIndex === 0);
-        if (nextBtn) nextBtn.classList.toggle("opacity-50", currentImageIndex === imageGallery.length - 1);
+
+        // ----- FIX: Show/hide navigation buttons based on position -----
+        if (prevBtn) {
+          if (imageGallery.length > 1 && currentImageIndex > 0) {
+            prevBtn.style.display = "flex";
+          } else {
+            prevBtn.style.display = "none";
+          }
+        }
+        if (nextBtn) {
+          if (imageGallery.length > 1 && currentImageIndex < imageGallery.length - 1) {
+            nextBtn.style.display = "flex";
+          } else {
+            nextBtn.style.display = "none";
+          }
+        }
       }
 
       function closeImagePreviewModal() {
@@ -8312,13 +8312,11 @@
 
             // Clear previous values
             document.getElementById('newFieldLabelInline').value = '';
-            document.getElementById('newFieldTypeInline').value = 'mapped';
             document.getElementById('newFieldShowOnCardInline').checked = true;
             document.getElementById('newFieldShowInTableInline').checked = true;
 
             // Show the inline row
             document.getElementById('addFieldRow').style.display = '';
-            // Optionally hide after save/cancel
           });
 
           // Cancel new field row
