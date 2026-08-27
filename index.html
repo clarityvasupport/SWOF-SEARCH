@@ -7834,7 +7834,10 @@
             "Work orders grouped by date. Select which date to use below.";
 
           const dateFields = getAvailableDateFields();
-          const currentSource = displayConfig.calendarDateSource || "created";
+          // Get the source from Field Configuration for "Created Date" if available
+          const createdFieldSource = displayConfig.fieldConfig?.created?.source || "created";
+          // Use the user's calendar selection if it exists, otherwise fallback to the Field Config source
+          const currentSource = displayConfig.calendarDateSource || createdFieldSource;
 
           let dropdownHTML = `<select id="calendarDateSource" class="rounded-xl border border-white/20 bg-black/20 text-white px-3 py-2 text-sm">`;
           dateFields.forEach((f) => {
@@ -8428,16 +8431,22 @@
             if (target.dataset.fieldKey && target.dataset.fieldProperty) {
               const key = target.dataset.fieldKey;
               const property = target.dataset.fieldProperty;
-              let value =
-                target.type === "checkbox" ? target.checked : target.value;
+              let value = target.type === "checkbox" ? target.checked : target.value;
               updateFieldConfig(key, { [property]: value });
-              // 🔥 NEW: refresh the UI immediately
+              // 🔥 refresh the UI immediately
               render();
               const sectionPage = document.getElementById("sectionPage");
               if (!sectionPage.classList.contains("hidden")) {
                 const title = document.getElementById("sectionPageTitle").textContent;
                 if (title === "All Work Orders") {
                   showSectionPage("all-orders");
+                }
+              }
+              // If we changed the "created" field source and the Calendar is open, re-render it
+              if (key === "created") {
+                const sectionPage = document.getElementById("sectionPage");
+                if (!sectionPage.classList.contains("hidden") && document.getElementById("sectionPageTitle").textContent === "Calendar") {
+                  showSectionPage("calendar");
                 }
               }
             }
