@@ -2009,20 +2009,10 @@
           </div>
           <div class="relative p-4 sm:p-6 bg-black/5">
             <!-- Navigation arrows -->
-            <button
-              id="imagePreviewPrevBtn"
-              type="button"
-              class="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center text-xl transition opacity-0 group-hover:opacity-100"
-              aria-label="Previous image"
-            >
+            <button id="imagePreviewPrevBtn" type="button" class="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center text-xl transition opacity-60 hover:opacity-100" aria-label="Previous image">
               ‹
             </button>
-            <button
-              id="imagePreviewNextBtn"
-              type="button"
-              class="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center text-xl transition opacity-0 group-hover:opacity-100"
-              aria-label="Next image"
-            >
+            <button id="imagePreviewNextBtn" type="button" class="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center text-xl transition opacity-60 hover:opacity-100" aria-label="Next image">
               ›
             </button>
             <div
@@ -3521,7 +3511,7 @@
         const s = String(status || '').toLowerCase().trim();
         
         // Base: 4px left border, on hover it becomes 50px thick with a heavy glow & lift
-        const base = 'border-l-[4px] hover:border-l-[50px] transition-all duration-300 ease-out hover:shadow-2xl hover:-translate-y-1';
+        const base = 'border-l-[4px] hover:border-l-[15px] transition-all duration-300 ease-out hover:shadow-2xl hover:-translate-y-1';
         
         if (s.includes('completed') || s.includes('done') || s.includes('finished')) {
           return `${base} border-l-green-500 hover:border-l-green-400 hover:shadow-[inset_0_0_20px_rgba(34,197,94,0.4),0_20px_40px_-12px_rgba(34,197,94,0.3)]`;
@@ -4356,50 +4346,67 @@
           return formatDate(text);
         }
 
-        // ---------- URL detection ----------
-        if (/^https?:\/\//i.test(text)) {
-          const urls = parseMultipleUrls(text);
-          if (urls.length === 0) return esc(text);
-
-          if (urls.length === 1) {
-            const fileId = extractDriveFileId(urls[0]);
-            if (fileId) {
-              // Check cache
-              const cached = detectionCache.get(fileId);
-              if (cached === 'pdf') {
-                // PDF – show button
-                return `<button type="button" data-pdf-preview="${esc(getPdfViewerUrl(urls[0]))}" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 font-bold hover:bg-red-100 transition shadow-sm">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" stroke-linecap="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /><path stroke-width="2" stroke-linecap="round" d="M15 3v5a1 1 0 001 1h5" /></svg>
-                  View PDF
-                </button>`;
-              } else if (cached === 'image') {
-                // Image – show thumbnail
-                const thumbUrl = normalizeThumbnailMediaUrl(urls[0]);
-                return `<button type="button" data-image-preview="${esc(normalizeFullMediaUrl(urls[0]))}" class="inline-flex rounded-lg border border-black/10 bg-white p-1 shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-teal/30">
-                  <img src="${esc(thumbUrl)}" alt="Attachment preview" class="h-24 w-auto max-w-full rounded-md object-cover" />
-                </button>`;
-              } else if (cached === 'pending') {
-                // Still detecting – show a spinner
-                return `<div class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 border border-gray-200 text-gray-500">
-                  <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
-                  Detecting file type…
-                </div>`;
-              } else {
-                // Not cached – start detection
-                getDriveFileTypeAsync(fileId, urls[0], orderId);
-                // Return a placeholder spinner while detection runs
-                return `<div class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 border border-gray-200 text-gray-500">
-                  <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
-                  Detecting file type…
-                </div>`;
+        // ---------- MULTIPLE URLS (Compact Gallery) ----------
+        if (urls.length > 1) {
+          // First, check if we have cached types for all URLs
+          let allKnown = true;
+          const types = urls.map((u) => {
+            const fid = extractDriveFileId(u);
+            if (fid) {
+              const cached = detectionCache.get(fid);
+              if (!cached || cached === 'pending') {
+                allKnown = false;
+                return 'pending';
               }
+              return cached;
             }
-            // Not a Drive link – show as plain link
-            return `<a href="${esc(text)}" target="_blank" rel="noopener noreferrer" class="text-brand-teal font-bold underline underline-offset-2 break-all hover:text-brand-teal/80">${esc(text)}</a>`;
+            // For non-Drive links, detect by URL extension
+            return isPdfUrl(u) ? 'pdf' : 'image';
+          });
+
+          // If any are still pending, trigger detection and show a compact spinner
+          if (!allKnown) {
+            urls.forEach((u) => {
+              const fid = extractDriveFileId(u);
+              if (fid && !detectionCache.has(fid)) {
+                getDriveFileTypeAsync(fid, u, orderId);
+              }
+            });
+            return `<div class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 border border-gray-200 text-gray-500 text-sm">
+              <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+              </svg>
+              Detecting ${urls.length} files...
+            </div>`;
           }
 
-          // Multiple URLs – simplified handling (skip async for brevity; you can expand)
-          return urls.map(u => formatFieldValue(u, orderId)).join('<br>');
+          // All types are known – check if any are images
+          const hasImage = types.some((t) => t === 'image');
+          if (hasImage) {
+            // Find the first image URL for the thumbnail
+            const firstImageUrl = urls.find((u, idx) => types[idx] === 'image') || urls[0];
+            const thumbUrl = normalizeThumbnailMediaUrl(firstImageUrl);
+            const fullPreviews = urls.map((u) => normalizeFullMediaUrl(u) || u);
+
+            return `<button type="button" data-image-gallery="${esc(JSON.stringify(fullPreviews))}" data-image-alt="Attachments" class="inline-flex rounded-lg border border-black/10 bg-white p-1 shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-teal/30">
+              <div class="relative">
+                <img src="${esc(thumbUrl)}" alt="Attachment preview" class="h-24 w-auto max-w-full rounded-md object-cover" />
+                <span class="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">+${urls.length - 1}</span>
+              </div>
+            </button>`;
+          } else {
+            // Only PDFs – show a single "View Documents" button with badge
+            const viewerUrls = urls.map((u) => getPdfViewerUrl(u));
+            return `<button type="button" data-pdf-gallery="${esc(JSON.stringify(viewerUrls))}" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-50 border border-red-200 text-red-600 font-bold hover:bg-red-100 transition shadow-sm text-sm">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-width="2" stroke-linecap="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                <path stroke-width="2" stroke-linecap="round" d="M15 3v5a1 1 0 001 1h5" />
+              </svg>
+              View Documents
+              <span class="bg-red-200 text-red-700 px-1.5 py-0.5 rounded text-[10px] font-black">${urls.length}</span>
+            </button>`;
+          }
         }
 
         // Fallback
@@ -9035,41 +9042,83 @@
         }
       });
       document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") {
-          if (
-            !document
-              .getElementById("imagePreviewModal")
-              .classList.contains("hidden")
-          ) {
-            closeImagePreviewModal();
-            return;
-          }
-          if (
-            !document.getElementById("importModal").classList.contains("hidden")
-          )
-            closeImportModal();
-          else if (
-            !document.getElementById("statusModal").classList.contains("hidden")
-          )
-            closeStatusModal();
-          else if (
-            !document.getElementById("editModal").classList.contains("hidden")
-          )
-            closeEdit();
-          else if (selectedId) closeDrawer();
-          else if (
-            !document.getElementById("sectionPage").classList.contains("hidden")
-          )
-            hideSectionPage();
+        // Only handle Escape key
+        if (e.key !== "Escape") return;
+
+        // --- MODAL PRIORITY ORDER (topmost first) ---
+
+        // 1. Image Preview Modal (highest priority)
+        const imageModal = document.getElementById("imagePreviewModal");
+        if (!imageModal.classList.contains("hidden")) {
+          e.preventDefault(); // Prevent browser navigation
+          closeImagePreviewModal();
+          return;
         }
-        if (
-          (e.ctrlKey || e.metaKey) &&
-          e.key.toLowerCase() === "z" &&
-          !e.target.matches("input,textarea,select")
-        ) {
+
+        // 2. Change Password Modal
+        const changePasswordModal = document.getElementById("changePasswordModal");
+        if (!changePasswordModal.classList.contains("hidden")) {
           e.preventDefault();
-          undoLast();
+          closeChangePasswordModal();
+          return;
         }
+
+        // 3. Login Modal
+        const loginModal = document.getElementById("loginModal");
+        if (!loginModal.classList.contains("hidden")) {
+          e.preventDefault();
+          closeLoginModal();
+          return;
+        }
+
+        // 4. Import Center Modal
+        const importModal = document.getElementById("importModal");
+        if (!importModal.classList.contains("hidden")) {
+          e.preventDefault();
+          closeImportModal();
+          return;
+        }
+
+        // 5. Edit Modal
+        const editModal = document.getElementById("editModal");
+        if (!editModal.classList.contains("hidden")) {
+          e.preventDefault();
+          closeEdit();
+          return;
+        }
+
+        // 6. Status Modal
+        const statusModal = document.getElementById("statusModal");
+        if (!statusModal.classList.contains("hidden")) {
+          e.preventDefault();
+          closeStatusModal();
+          return;
+        }
+
+        // 7. Confirmation Modal
+        const confirmModal = document.getElementById("confirmModal");
+        if (!confirmModal.classList.contains("hidden")) {
+          e.preventDefault();
+          closeConfirmationModal();
+          return;
+        }
+
+        // 8. Detail Drawer (Sidebar)
+        if (selectedId) {
+          e.preventDefault();
+          closeDrawer();
+          return;
+        }
+
+        // 9. Section Page (All Work Orders, Calendar, etc.)
+        const sectionPage = document.getElementById("sectionPage");
+        if (!sectionPage.classList.contains("hidden")) {
+          e.preventDefault();
+          hideSectionPage();
+          return;
+        }
+
+        // If nothing is open, allow default Escape behavior (no preventDefault)
       });
 
       document
