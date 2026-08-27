@@ -2079,11 +2079,8 @@
       let storedPassword = "password"; // default
       let importFieldShowOnCard = {};  // key -> boolean
       let calendarMonthOffset = 0;
-      const pdfToastShown = new Set();
       window._fieldOrder = [];         // (initialised in renderImportMapping)
-      
-      
-
+            
       // ---------- LOGIN STATE ----------
       let isLoggedIn = false;
 
@@ -5732,10 +5729,9 @@
         if (v === null || v === undefined || v === "") return "";
         if (typeof v === "number" && window.XLSX && XLSX.SSF) {
           const d = XLSX.SSF.parse_date_code(v);
-          if (d)
-            return `${d.y}-${String(d.m).padStart(2, "0")}-${String(
-              d.d
-            ).padStart(2, "0")}`;
+          if (d) {
+            return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+          }
         }
         const s = String(v).trim();
         if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
@@ -5745,10 +5741,9 @@
         if (m) {
           let y = Number(m[3]);
           if (y < 100) y += 2000;
-          return `${y}-${String(Number(m[1])).padStart(2, "0")}-${String(
-            Number(m[2])
-          ).padStart(2, "0")}`;
+          return `${y}-${String(Number(m[1])).padStart(2, "0")}-${String(Number(m[2])).padStart(2, "0")}`;
         }
+        // 🔥 If none of the above worked, return empty string – this prevents non‑dates from being grouped
         return "";
       }
 
@@ -7853,10 +7848,15 @@
           dropdownHTML += `</select>`;
 
           function renderCalendar() {
+            // Use the user's manual selection or fallback to Field Configuration source for Created Date
+            const createdFieldSource = displayConfig.fieldConfig?.created?.source || "created";
             const source = displayConfig.calendarDateSource || createdFieldSource;
+
+            // --- Debug logs (remove after confirming the source) ---
             console.log('[Calendar] Using source:', source);
             console.log('[Calendar] First 5 raw date values:', orders.slice(0,5).map(o => displayValue(o, source)));
             console.log('[Calendar] First 5 parsed date values:', orders.slice(0,5).map(o => parseDateValue(displayValue(o, source))));
+
             const now = new Date();
             const month = now.getMonth() + calendarMonthOffset;
             const year = now.getFullYear() + Math.floor(month / 12);
@@ -7865,7 +7865,7 @@
             const days = new Date(adjustedYear, adjustedMonth + 1, 0).getDate();
             const firstDay = new Date(adjustedYear, adjustedMonth, 1).getDay();
 
-            // 🔥 Use parseDateValue to normalise dates
+            // 🔥 Use parseDateValue to normalise dates – only include orders with valid dates
             const events = orders.filter((o) => {
               const dateVal = displayValue(o, source);
               if (!dateVal) return false;
@@ -7907,7 +7907,6 @@
                 ${Array.from({ length: days }, (_, i) => {
                   const day = i + 1;
                   const key = `${adjustedYear}-${String(adjustedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                  // 🔥 Normalise dates when grouping
                   const ds = events.filter(o => {
                     const dateVal = parseDateValue(displayValue(o, source));
                     return dateVal === key;
@@ -7931,35 +7930,26 @@
                 const date = b.dataset.calendarDate;
                 // Navigate to All Work Orders
                 document.querySelector('[data-nav-page="all-orders"]').click();
-
-                // Wait for the page to render, then apply the filter
-                const applyFilter = (attempts = 0) => {
+                setTimeout(() => {
+                  // Set both From and To to the same date
                   const dateFrom = document.getElementById("allOrdersDateFrom");
                   const dateTo = document.getElementById("allOrdersDateTo");
-                  const searchInput = document.getElementById("allOrdersSearch");
-
-                  if (dateFrom && dateTo && searchInput) {
-                    // Set date range
+                  if (dateFrom) {
                     dateFrom.value = date;
-                    dateTo.value = date;
-                    // Clear search
-                    searchInput.value = "";
-
-                    // Trigger the filter by dispatching change events
                     dateFrom.dispatchEvent(new Event("change", { bubbles: true }));
-                    dateTo.dispatchEvent(new Event("change", { bubbles: true }));
-                    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
-
-                    toast(`📅 Filtering orders on ${date}`, "info");
-                  } else if (attempts < 10) {
-                    // Retry after 50ms if elements not found
-                    setTimeout(() => applyFilter(attempts + 1), 50);
-                  } else {
-                    toast("Could not apply date filter – page not ready.", "error");
                   }
-                };
-
-                applyFilter();
+                  if (dateTo) {
+                    dateTo.value = date;
+                    dateTo.dispatchEvent(new Event("change", { bubbles: true }));
+                  }
+                  // Clear search to avoid conflicting filters
+                  const searchInput = document.getElementById("allOrdersSearch");
+                  if (searchInput) {
+                    searchInput.value = "";
+                    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+                  }
+                  toast(`📅 Filtering orders on ${date}`, "info");
+                }, 100);
               })
             );
 
@@ -7982,14 +7972,6 @@
           }
 
           // Dropdown handler – must be defined in the same scope
-          function calendarDropdownHandler() {
-            displayConfig.calendarDateSource = this.value;
-            saveDisplayConfig();
-            // Reset offset to current month when changing source
-            calendarMonthOffset = 0;
-            renderCalendar();
-          }
-
           function calendarDropdownHandler() {
             displayConfig.calendarDateSource = this.value;
             saveDisplayConfig();
