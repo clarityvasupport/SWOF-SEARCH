@@ -7853,11 +7853,6 @@
 
           function renderCalendar() {
             const source = displayConfig.calendarDateSource || createdFieldSource;
-
-            console.log('[Calendar] Using source:', source);
-            console.log('[Calendar] Orders count:', orders.length);
-            console.log('[Calendar] Sample dates for first 5 orders:', orders.slice(0,5).map(o => displayValue(o, source)));
-
             const now = new Date();
             const month = now.getMonth() + calendarMonthOffset;
             const year = now.getFullYear() + Math.floor(month / 12);
@@ -7866,7 +7861,7 @@
             const days = new Date(adjustedYear, adjustedMonth + 1, 0).getDate();
             const firstDay = new Date(adjustedYear, adjustedMonth, 1).getDay();
 
-            // 🔥 FIX: Use parseDateValue to normalise dates
+            // 🔥 Use parseDateValue to normalise dates
             const events = orders.filter((o) => {
               const dateVal = displayValue(o, source);
               if (!dateVal) return false;
@@ -7908,7 +7903,7 @@
                 ${Array.from({ length: days }, (_, i) => {
                   const day = i + 1;
                   const key = `${adjustedYear}-${String(adjustedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                  // 🔥 FIX: Normalise dates when grouping
+                  // 🔥 Normalise dates when grouping
                   const ds = events.filter(o => {
                     const dateVal = parseDateValue(displayValue(o, source));
                     return dateVal === key;
@@ -7932,27 +7927,36 @@
                 const date = b.dataset.calendarDate;
                 // Navigate to All Work Orders
                 document.querySelector('[data-nav-page="all-orders"]').click();
-                setTimeout(() => {
-                  // Set both From and To to the same date
+
+                // Wait for the page to render, then apply the filter
+                const applyFilter = (attempts = 0) => {
                   const dateFrom = document.getElementById("allOrdersDateFrom");
                   const dateTo = document.getElementById("allOrdersDateTo");
-                  if (dateFrom) {
-                    dateFrom.value = date;
-                    dateFrom.dispatchEvent(new Event("change", { bubbles: true }));
-                  }
-                  if (dateTo) {
-                    dateTo.value = date;
-                    dateTo.dispatchEvent(new Event("change", { bubbles: true }));
-                  }
-                  // Clear search to avoid conflicting filters
                   const searchInput = document.getElementById("allOrdersSearch");
-                  if (searchInput) {
+
+                  if (dateFrom && dateTo && searchInput) {
+                    // Set date range
+                    dateFrom.value = date;
+                    dateTo.value = date;
+                    // Clear search
                     searchInput.value = "";
+
+                    // Trigger the filter by dispatching change events
+                    dateFrom.dispatchEvent(new Event("change", { bubbles: true }));
+                    dateTo.dispatchEvent(new Event("change", { bubbles: true }));
                     searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+                    toast(`📅 Filtering orders on ${date}`, "info");
+                  } else if (attempts < 10) {
+                    // Retry after 50ms if elements not found
+                    setTimeout(() => applyFilter(attempts + 1), 50);
+                  } else {
+                    toast("Could not apply date filter – page not ready.", "error");
                   }
-                  toast(`📅 Filtering orders on ${date}`, "info");
-                }, 100);
-              });
+                };
+
+                applyFilter();
+              })
             );
 
             // Bind dropdown change
@@ -7971,6 +7975,15 @@
               calendarMonthOffset++;
               renderCalendar();
             });
+          }
+
+          // Dropdown handler – must be defined in the same scope
+          function calendarDropdownHandler() {
+            displayConfig.calendarDateSource = this.value;
+            saveDisplayConfig();
+            // Reset offset to current month when changing source
+            calendarMonthOffset = 0;
+            renderCalendar();
           }
 
           function calendarDropdownHandler() {
