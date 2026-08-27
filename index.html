@@ -2078,7 +2078,9 @@
       let isOnline = false;
       let storedPassword = "password"; // default
       let importFieldShowOnCard = {};  // key -> boolean
+      let calendarMonthOffset = 0;
       window._fieldOrder = [];         // (initialised in renderImportMapping)
+      
       
 
       // ---------- LOGIN STATE ----------
@@ -7834,7 +7836,7 @@
           const dateFields = getAvailableDateFields();
           const currentSource = displayConfig.calendarDateSource || "created";
 
-          let dropdownHTML = `<select id="calendarDateSource" class="rounded-xl border border-white/10 bg-white/5 text-white px-3 py-2 text-sm">`;
+          let dropdownHTML = `<select id="calendarDateSource" class="rounded-xl border border-white/20 bg-black/20 text-white px-3 py-2 text-sm">`;
           dateFields.forEach((f) => {
             dropdownHTML += `<option value="${f.value}" ${
               f.value === currentSource ? "selected" : ""
@@ -7844,90 +7846,77 @@
 
           function renderCalendar() {
             const source = displayConfig.calendarDateSource || "created";
-            const month = new Date().getMonth(),
-              year = new Date().getFullYear();
-            const days = new Date(year, month + 1, 0).getDate();
+            const now = new Date();
+            const month = now.getMonth() + calendarMonthOffset;
+            const year = now.getFullYear() + Math.floor(month / 12);
+            const adjustedMonth = ((month % 12) + 12) % 12;
+            const adjustedYear = year - (month < 0 ? 1 : 0);
+            const days = new Date(adjustedYear, adjustedMonth + 1, 0).getDate();
+            const firstDay = new Date(adjustedYear, adjustedMonth, 1).getDay();
 
             const events = orders.filter((o) => {
               const dateVal = displayValue(o, source);
               return (
                 dateVal &&
                 String(dateVal).startsWith(
-                  `${year}-${String(month + 1).padStart(2, "0")}`
+                  `${adjustedYear}-${String(adjustedMonth + 1).padStart(2, "0")}`
                 )
               );
             });
 
-            body.innerHTML = `<div class="bg-white/5 text-white border border-white/10 rounded-2xl p-5">
+            const monthName = new Date(adjustedYear, adjustedMonth, 1).toLocaleDateString(undefined, {
+              month: "long",
+              year: "numeric",
+            });
+
+            let html = `<div class="bg-white/5 text-white border border-white/10 rounded-2xl p-5">
               <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <h3 class="font-black text-white">${new Date(
-                  year,
-                  month,
-                  1
-                ).toLocaleDateString(undefined, {
-                  month: "long",
-                  year: "numeric",
-                })}</h3>
+                <div class="flex items-center gap-3">
+                  <button id="calendarPrevBtn" class="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-bold transition">←</button>
+                  <h3 class="font-black text-white">${monthName}</h3>
+                  <button id="calendarNextBtn" class="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-bold transition">→</button>
+                </div>
                 <div class="flex items-center gap-2">
-                  <span class="text-xs text-white/40">${
-                    events.length
-                  } orders</span>
-                  ${dropdownHTML}
+                  <span class="text-xs text-white/40">${events.length} orders</span>
+                  <select id="calendarDateSource" class="rounded-xl border border-white/20 bg-black/20 text-white px-3 py-2 text-sm">
+                    ${getAvailableDateFields().map(f => `<option value="${f.value}" ${f.value === source ? 'selected' : ''}>${f.label}</option>`).join('')}
+                  </select>
                 </div>
               </div>
-              <div class="grid grid-cols-7 gap-2 text-center text-xs font-bold text-white/40 mb-2">${[
-                "Sun",
-                "Mon",
-                "Tue",
-                "Wed",
-                "Thu",
-                "Fri",
-                "Sat",
-              ]
-                .map((x) => `<div>${x}</div>`)
-                .join("")}</div>
-              <div class="grid grid-cols-7 gap-2">${Array.from(
-                { length: new Date(year, month, 1).getDay() },
-                () => "<div></div>"
-              ).join("")}${Array.from({ length: days }, (_, i) => {
-              const day = i + 1,
-                key = `${year}-${String(month + 1).padStart(2, "0")}-${String(
-                  day
-                ).padStart(2, "0")}`,
-                ds = events.filter((o) => {
-                  const dateVal = displayValue(o, source);
-                  return dateVal === key;
-                });
-              return `<button type="button" data-calendar-date="${key}" class="min-h-24 text-left p-2 rounded-xl border ${
-                ds.length
-                  ? "border-brand-teal/30 bg-brand-teal/10"
-                  : "border-white/10 bg-white/5"
-              } hover:border-brand-teal/50 transition"><span class="text-xs font-black text-white/70">${day}</span>${ds
-                .slice(0, 3)
-                .map(
-                  (o) =>
-                    `<span class="block mt-2 text-[10px] font-bold text-white/60 truncate">${esc(
-                      o.title
-                    )}</span>`
-                )
-                .join("")}${
-                ds.length > 3
-                  ? `<span class="text-[9px] text-brand-teal">${
-                      ds.length - 3
-                    } more</span>`
-                  : ""
-              }</button>`;
-            }).join("")}</div></div>`;
+              <div class="grid grid-cols-7 gap-2 text-center text-xs font-bold text-white/40 mb-2">
+                ${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(x => `<div>${x}</div>`).join('')}
+              </div>
+              <div class="grid grid-cols-7 gap-2">
+                ${Array.from({ length: firstDay }, () => "<div></div>").join('')}
+                ${Array.from({ length: days }, (_, i) => {
+                  const day = i + 1;
+                  const key = `${adjustedYear}-${String(adjustedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                  const ds = events.filter(o => {
+                    const dateVal = displayValue(o, source);
+                    return dateVal === key;
+                  });
+                  return `<button type="button" data-calendar-date="${key}" class="min-h-24 text-left p-2 rounded-xl border ${
+                    ds.length ? "border-brand-teal/30 bg-brand-teal/10" : "border-white/10 bg-white/5"
+                  } hover:border-brand-teal/50 transition"><span class="text-xs font-black text-white/70">${day}</span>${
+                    ds.slice(0, 3).map(o => `<span class="block mt-2 text-[10px] font-bold text-white/60 truncate">${esc(o.title)}</span>`).join('')
+                  }${
+                    ds.length > 3 ? `<span class="text-[9px] text-brand-teal">${ds.length - 3} more</span>` : ''
+                  }</button>`;
+                }).join('')}
+              </div>
+            </div>`;
+            
+            document.getElementById("sectionPageBody").innerHTML = html;
 
-            body.querySelectorAll("[data-calendar-date]").forEach((b) =>
+            // Bind events
+            document.querySelectorAll("[data-calendar-date]").forEach(b =>
               b.addEventListener("click", () => {
                 const date = b.dataset.calendarDate;
                 document.querySelector('[data-nav-page="all-orders"]').click();
                 setTimeout(() => {
                   const dateInput = document.getElementById("allOrdersDate");
                   if (dateInput) dateInput.value = date;
-                  const searchInput =
-                    document.getElementById("allOrdersSearch");
+                  const searchInput = document.getElementById("allOrdersSearch");
                   if (searchInput) {
                     const evt = new Event("input", { bubbles: true });
                     searchInput.dispatchEvent(evt);
@@ -7936,14 +7925,28 @@
               })
             );
 
+            // Bind dropdown change
             const dropdown = document.getElementById("calendarDateSource");
             if (dropdown) {
-              dropdown.addEventListener("change", function () {
-                displayConfig.calendarDateSource = this.value;
-                saveDisplayConfig();
-                renderCalendar();
-              });
+              dropdown.removeEventListener("change", calendarDropdownHandler);
+              dropdown.addEventListener("change", calendarDropdownHandler);
             }
+
+            // Bind navigation buttons (use event delegation to avoid duplicates)
+            document.querySelector("#calendarPrevBtn")?.addEventListener("click", function() {
+              calendarMonthOffset--;
+              renderCalendar();
+            });
+            document.querySelector("#calendarNextBtn")?.addEventListener("click", function() {
+              calendarMonthOffset++;
+              renderCalendar();
+            });
+          }
+
+          function calendarDropdownHandler() {
+            displayConfig.calendarDateSource = this.value;
+            saveDisplayConfig();
+            renderCalendar();
           }
 
           renderCalendar();
