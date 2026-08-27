@@ -4396,6 +4396,7 @@
 
       // --- Async detection with caching and auto-refresh ---
       const detectionCache = new Map();        // fileId -> 'pending' | 'image' | 'pdf'
+      const pdfToastShown = new Set();
       const detectionPromises = new Map();     // fileId -> Promise
 
       function getDriveFileTypeAsync(fileId, url, orderId) {
@@ -5748,7 +5749,7 @@
             Number(m[2])
           ).padStart(2, "0")}`;
         }
-        return s;
+        return "";
       }
 
       function buildImportCustomFieldsForRow(row) {
@@ -7853,6 +7854,9 @@
 
           function renderCalendar() {
             const source = displayConfig.calendarDateSource || createdFieldSource;
+            console.log('[Calendar] Using source:', source);
+            console.log('[Calendar] First 5 raw date values:', orders.slice(0,5).map(o => displayValue(o, source)));
+            console.log('[Calendar] First 5 parsed date values:', orders.slice(0,5).map(o => parseDateValue(displayValue(o, source))));
             const now = new Date();
             const month = now.getMonth() + calendarMonthOffset;
             const year = now.getFullYear() + Math.floor(month / 12);
