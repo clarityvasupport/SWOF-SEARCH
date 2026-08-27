@@ -4414,7 +4414,8 @@
             // If drawer is open for this order, refresh it
             if (orderId && orderId === selectedId) {
               renderDrawer(selectedId);
-              if (type === 'pdf') {
+              if (type === 'pdf' && !pdfToastShown.has(fileId)) {
+                pdfToastShown.add(fileId);
                 toast('📄 PDF attachment detected – preview updated.', 'info');
               }
             }
@@ -7851,6 +7852,11 @@
 
           function renderCalendar() {
             const source = displayConfig.calendarDateSource || createdFieldSource;
+
+            console.log('[Calendar] Using source:', source);
+            console.log('[Calendar] Orders count:', orders.length);
+            console.log('[Calendar] Sample dates for first 5 orders:', orders.slice(0,5).map(o => displayValue(o, source)));
+
             const now = new Date();
             const month = now.getMonth() + calendarMonthOffset;
             const year = now.getFullYear() + Math.floor(month / 12);
@@ -7923,17 +7929,29 @@
             document.querySelectorAll("[data-calendar-date]").forEach(b =>
               b.addEventListener("click", () => {
                 const date = b.dataset.calendarDate;
+                // Navigate to All Work Orders
                 document.querySelector('[data-nav-page="all-orders"]').click();
                 setTimeout(() => {
-                  const dateInput = document.getElementById("allOrdersDate");
-                  if (dateInput) dateInput.value = date;
+                  // Set both From and To to the same date
+                  const dateFrom = document.getElementById("allOrdersDateFrom");
+                  const dateTo = document.getElementById("allOrdersDateTo");
+                  if (dateFrom) {
+                    dateFrom.value = date;
+                    dateFrom.dispatchEvent(new Event("change", { bubbles: true }));
+                  }
+                  if (dateTo) {
+                    dateTo.value = date;
+                    dateTo.dispatchEvent(new Event("change", { bubbles: true }));
+                  }
+                  // Clear search to avoid conflicting filters
                   const searchInput = document.getElementById("allOrdersSearch");
                   if (searchInput) {
-                    const evt = new Event("input", { bubbles: true });
-                    searchInput.dispatchEvent(evt);
+                    searchInput.value = "";
+                    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
                   }
+                  toast(`📅 Filtering orders on ${date}`, "info");
                 }, 100);
-              })
+              });
             );
 
             // Bind dropdown change
