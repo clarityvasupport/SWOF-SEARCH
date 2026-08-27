@@ -3659,7 +3659,8 @@
         const due = dueDateVal ? formatDate(dueDateVal) : "—";
         const dueLabel = dueDateConfig.label || "Due Date";
         const locationLabel = locationConfig.label || "Location";
-        const created = formatDate(o.created);
+        const createdVal = displayValue(o, createdConfig.source);
+        const created = formatDate(createdVal || o.created);
         const overdue = o.dueDate && o.status !== "Completed" && o.status !== "Cancelled" && o.dueDate < nowDate();
         const disabledAttr = !isLoggedIn ? 'disabled="disabled"' : "";
 
