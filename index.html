@@ -3630,6 +3630,7 @@
 
       function cardHTML(o) {
         const fieldConfigs = getAllFieldConfigs();
+        const createdConfig = fieldConfigs.created || { label: "Created Date", source: "created", showOnCard: true };
 
         // --- Get configured fields ---
         const idConfig = fieldConfigs.id || { label: "ID", source: "id", showOnCard: true, type: "mapped" };
@@ -3679,10 +3680,14 @@
           descriptionHTML = `<p class="mt-3 text-sm leading-5 text-black/60 line-clamp-2">${esc(descriptionVal)}</p>`;
         }
 
-        // --- Created line with requester ---
-        let createdLine = `Created ${esc(created)}`;
-        if (requesterVal && requesterConfig.showOnCard !== false) {
-          createdLine += ` • By ${esc(requesterVal)}`;
+        // --- Created line with requester (only if created is shown on card) ---
+        let createdLineHTML = '';
+        if (createdConfig.showOnCard !== false) {
+          let line = `Created ${esc(created)}`;
+          if (requesterVal && requesterConfig.showOnCard !== false) {
+            line += ` • By ${esc(requesterVal)}`;
+          }
+          createdLineHTML = `<div class="mt-3 flex items-center gap-2 text-[11px] text-black/40">${line}</div>`;
         }
 
         // --- Header: Only show ID and Category if they are set to show on card ---
@@ -3822,9 +3827,7 @@
 
             ${extraFieldsHTML}
 
-            <div class="mt-3 flex items-center gap-2 text-[11px] text-black/40">
-              <span>${createdLine}</span>
-            </div>
+            ${createdLineHTML}
 
             ${footerHTML}
 
