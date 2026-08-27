@@ -7206,17 +7206,18 @@
               showInTable: true,
               type: type,
             };
-          } else {
-            // Preserve existing showOnCard/showInTable
-            const existing = displayConfig.fieldConfig[field];
-            displayConfig.fieldConfig[field] = {
-              ...existing,
-              label: label,
-              source: header || field,
-              type: type,
-              // showOnCard and showInTable remain as they were
-            };
-          }
+            } else {
+              const existing = displayConfig.fieldConfig[field];
+              // 🔥 Only overwrite source if it hasn't been customized (i.e., it's the default field name)
+              const shouldUpdateSource = !existing.source || existing.source === field;
+              displayConfig.fieldConfig[field] = {
+                ...existing,
+                label: label,
+                source: shouldUpdateSource ? (header || field) : existing.source,
+                type: type,
+                // showOnCard and showInTable remain as they were
+              };
+            }
         });
         saveDisplayConfig();
 
