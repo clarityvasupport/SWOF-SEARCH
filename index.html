@@ -7862,6 +7862,10 @@
                   `${adjustedYear}-${String(adjustedMonth + 1).padStart(2, "0")}`
                 )
               );
+            }).sort((a, b) => {
+              const dateA = displayValue(a, source) || '';
+              const dateB = displayValue(b, source) || '';
+              return String(dateA).localeCompare(String(dateB));
             });
 
             const monthName = new Date(adjustedYear, adjustedMonth, 1).toLocaleDateString(undefined, {
@@ -7946,6 +7950,8 @@
           function calendarDropdownHandler() {
             displayConfig.calendarDateSource = this.value;
             saveDisplayConfig();
+            // Reset offset to current month when changing source
+            calendarMonthOffset = 0;
             renderCalendar();
           }
 
