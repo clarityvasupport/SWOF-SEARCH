@@ -2045,7 +2045,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.7.0";
+      const APP_VERSION = "1.8.0";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -2070,6 +2070,7 @@
       let currentPage = 1;
       const PAGE_SIZE = 200;
       let displayConfig = loadDisplayConfig();
+      let columnOrder = displayConfig.tableColumnOrder || [];
       let users = loadUsers();
       let importCustomMappings = [];
       let importedHeaders = loadImportedHeaders();
@@ -2488,6 +2489,36 @@
         }
 
         return configs;
+      }
+
+      function getOrderedFieldConfigs() {
+        const allConfigs = getAllFieldConfigs();
+        const coreKeys = Object.keys(allConfigs);
+        // If no saved order, use the default order from allConfigs (or coreFields)
+        if (!columnOrder || columnOrder.length === 0) {
+          // Use the default order: core fields then custom fields (as they appear in allConfigs)
+          // We'll use the order from getAllFieldConfigs keys (which is coreFields + custom)
+          columnOrder = coreKeys;
+          // Save it
+          displayConfig.tableColumnOrder = columnOrder;
+          saveDisplayConfig();
+        }
+        // Filter out any keys that no longer exist
+        columnOrder = columnOrder.filter(key => allConfigs[key]);
+        // Add any new keys that are not in the order (append at the end)
+        const existingKeys = new Set(columnOrder);
+        coreKeys.forEach(key => {
+          if (!existingKeys.has(key)) {
+            columnOrder.push(key);
+          }
+        });
+        // Return configs in the order of columnOrder
+        const ordered = {};
+        columnOrder.forEach(key => {
+          if (allConfigs[key]) ordered[key] = allConfigs[key];
+        });
+        // Also include any custom fields that might have been missed (shouldn't happen)
+        return ordered;
       }
 
       function updateFieldConfig(fieldKey, updates) {
@@ -3146,6 +3177,58 @@
             Number(a.sourceOrder ?? 0) - Number(b.sourceOrder ?? 0);
         });
         return list;
+      }
+
+      // --- Drag and Drop for column reorder
+      let draggedIndex = null;
+
+      function handleDragStart(e) {
+        const th = e.target.closest('th');
+        if (!th) return;
+        const fieldKey = th.dataset.fieldKey;
+        if (!fieldKey) return;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', fieldKey);
+        th.style.opacity = '0.5';
+      }
+
+      function handleDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const th = e.target.closest('th');
+        if (th) {
+          th.style.borderBottom = '2px solid #326363';
+        }
+      }
+
+      function handleDrop(e) {
+        e.preventDefault();
+        const targetTh = e.target.closest('th');
+        if (!targetTh) return;
+        const draggedKey = e.dataTransfer.getData('text/plain');
+        if (!draggedKey) return;
+        const sourceIndex = columnOrder.indexOf(draggedKey);
+        const targetIndex = Array.from(targetTh.parentElement.children).indexOf(targetTh);
+        if (sourceIndex === -1 || sourceIndex === targetIndex) return;
+        // Reorder the array
+        const [removed] = columnOrder.splice(sourceIndex, 1);
+        columnOrder.splice(targetIndex, 0, removed);
+        displayConfig.tableColumnOrder = columnOrder;
+        saveDisplayConfig();
+        // Re-render the page
+        showSectionPage('all-orders');
+        toast('Column order updated!', 'success');
+      }
+
+      function handleDragEnd(e) {
+        const th = e.target.closest('th');
+        if (th) {
+          th.style.opacity = '1';
+          th.style.borderBottom = '';
+        }
+        document.querySelectorAll('#allOrdersTable thead th').forEach(th => {
+          th.style.borderBottom = '';
+        });
       }
 
       function initializeDashboardFilters() {
@@ -7508,17 +7591,13 @@
         pageEl.classList.remove("hidden");
         document.body.classList.add("overflow-hidden");
 
-        const statusCounts = {
-          Open: 0,
-          "In Progress": 0,
-          "On Hold": 0,
-          Completed: 0,
-          Overdue: 0,
-          Cancelled: 0,
-        };
+        const statusCounts = {};
         orders.forEach((o) => {
-          if (statusCounts[o.status] !== undefined) statusCounts[o.status]++;
+          const s = o.status || 'Unknown';
+          statusCounts[s] = (statusCounts[s] || 0) + 1;
         });
+        // Sort alphabetically for a clean display
+        const sortedStatuses = Object.keys(statusCounts).sort();
 
         if (page === "all-orders") {
           title.textContent = "All Work Orders";
@@ -7535,7 +7614,10 @@
             .map((a) => `<option value="${esc(a)}">${esc(a)}</option>`)
             .join("");
 
-          const fieldConfigs = getAllFieldConfigs();
+          const fieldConfigs = getOrderedFieldConfigs();
+          const tableColumns = Object.keys(fieldConfigs).filter((key) => {
+            return fieldConfigs[key].showInTable !== false;
+          });
           const tableColumns = Object.keys(fieldConfigs).filter((key) => {
             return fieldConfigs[key].showInTable !== false;
           });
@@ -7543,9 +7625,7 @@
           let headersHTML = "";
           tableColumns.forEach((key) => {
             const cfg = fieldConfigs[key];
-            headersHTML += `<th class="px-4 py-3 text-left text-black/60">${esc(
-              cfg.label || key
-            )}</th>`;
+            headersHTML += `<th class="px-4 py-3 text-left text-black/60" data-field-key="${esc(key)}">${esc(cfg.label || key)}</th>`;
           });
 
           body.innerHTML = `<div class="bg-white text-black border border-black/10 rounded-2xl shadow-sm overflow-hidden">
@@ -7569,7 +7649,7 @@
                 </div>
               </div>
             </div>
-            <div class="overflow-x-auto"><table class="w-full min-w-[1000px] text-xs"><thead class="bg-black/5"><tr>
+            <div class="overflow-x-auto"><table id="allOrdersTable" class="w-full min-w-[1000px] text-xs"><thead class="bg-black/5"><tr>
               ${headersHTML}
               <th class="px-4 py-3 text-right text-black/60">Action</th>
             </tr></thead><tbody id="allOrdersBody"></tbody></table></div>
@@ -7682,6 +7762,23 @@
               .forEach((b) =>
                 b.addEventListener("click", () => openDrawer(b.dataset.allOpen))
               );
+
+            
+            // After the table body is rendered, add drag events to headers
+            const table = document.querySelector('#allOrdersTable');
+            if (table) {
+              const headers = table.querySelectorAll('thead th');
+              headers.forEach((th, index) => {
+                // Skip the last column (Action)
+                if (index === headers.length - 1) return;
+                th.setAttribute('draggable', 'true');
+                th.style.cursor = 'grab';
+                th.addEventListener('dragstart', handleDragStart);
+                th.addEventListener('dragover', handleDragOver);
+                th.addEventListener('drop', handleDrop);
+                th.addEventListener('dragend', handleDragEnd);
+              });
+            }
           };
 
           // ===== EVENT LISTENERS =====
