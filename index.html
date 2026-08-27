@@ -8417,6 +8417,15 @@
               let value =
                 target.type === "checkbox" ? target.checked : target.value;
               updateFieldConfig(key, { [property]: value });
+              // 🔥 NEW: refresh the UI immediately
+              render();
+              const sectionPage = document.getElementById("sectionPage");
+              if (!sectionPage.classList.contains("hidden")) {
+                const title = document.getElementById("sectionPageTitle").textContent;
+                if (title === "All Work Orders") {
+                  showSectionPage("all-orders");
+                }
+              }
             }
           });
 
@@ -8430,6 +8439,14 @@
               const key = target.dataset.fieldKey;
               const property = target.dataset.fieldProperty;
               updateFieldConfig(key, { [property]: target.value });
+              render();
+              const sectionPage = document.getElementById("sectionPage");
+              if (!sectionPage.classList.contains("hidden")) {
+                const title = document.getElementById("sectionPageTitle").textContent;
+                if (title === "All Work Orders") {
+                  showSectionPage("all-orders");
+                }
+              }
             }
           });
 
@@ -8576,7 +8593,8 @@
                       delete displayConfig.fieldConfig[key];
                     }
                   });
-                  
+
+                  render();
                   saveDisplayConfig();
                   showSectionPage("settings");
                   toast("✅ Field configuration reset to defaults. Custom fields removed.", "success");
@@ -8621,6 +8639,7 @@
                     coreFields.forEach((field) => {
                       updateFieldConfig(field, { source: field });
                     });
+                    render();
                     saveDisplayConfig();
                     showSectionPage("settings");
                     toast("Field sources reset to defaults.", "success");
