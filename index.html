@@ -2045,7 +2045,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.8.0";
+      const APP_VERSION = "1.8.2";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -3871,6 +3871,8 @@
           closeDrawer();
           return;
         }
+        
+        const createdSource = displayConfig.fieldConfig?.created?.source || "created";
 
         const badge = document.getElementById("drawerStatusBadge");
         badge.textContent = o.status;
@@ -3890,7 +3892,6 @@
         const dataStatuses = orders.map(o => o.status).filter(Boolean);
         const uniqueStatuses = Array.from(new Set(dataStatuses)).sort();
         const statusOpts = uniqueStatuses.length ? uniqueStatuses : ["Open"];
-        const createdSource = displayConfig.fieldConfig?.created?.source || "created";
 
         const drawerStatus = document.getElementById("drawerStatusSelect");
         drawerStatus.innerHTML = statusOpts.map(s =>
@@ -7849,7 +7850,7 @@
           dropdownHTML += `</select>`;
 
           function renderCalendar() {
-            const source = displayConfig.calendarDateSource || "created";
+            const source = displayConfig.calendarDateSource || createdFieldSource;
             const now = new Date();
             const month = now.getMonth() + calendarMonthOffset;
             const year = now.getFullYear() + Math.floor(month / 12);
