@@ -3513,15 +3513,35 @@
 
       function getStatusAccentClass(status) {
         const s = String(status || '').toLowerCase().trim();
-        if (['approved', 'completed'].some(k => s.includes(k))) return 'border-l-[4px] border-l-green-500';
-        if (['disapproved', 'rejected'].some(k => s.includes(k))) return 'border-l-[4px] border-l-red-500';
-        if (['cancelled'].some(k => s.includes(k))) return 'border-l-[4px] border-l-gray-400';
-        if (['in progress'].some(k => s.includes(k))) return 'border-l-[4px] border-l-blue-500';
-        if (['on hold'].some(k => s.includes(k))) return 'border-l-[4px] border-l-yellow-500';
-        if (['overdue'].some(k => s.includes(k))) return 'border-l-[4px] border-l-red-600';
-        if (['open'].some(k => s.includes(k))) return 'border-l-[4px] border-l-blue-400';
-        if (['incomplete attachment'].some(k => s.includes(k))) return 'border-l-[4px] border-l-purple-400';
-        return 'border-l-[4px] border-l-transparent';
+        
+        // Base border + hover effects (thicker & brighter on hover)
+        const base = 'border-l-[4px] hover:border-l-[6px] transition-all duration-200';
+        
+        if (['approved', 'completed'].some(k => s.includes(k))) {
+          return `${base} border-l-green-500 hover:border-l-green-400 hover:shadow-[inset_0_0_12px_rgba(34,197,94,0.25)]`;
+        }
+        if (['disapproved', 'rejected'].some(k => s.includes(k))) {
+          return `${base} border-l-red-500 hover:border-l-red-400 hover:shadow-[inset_0_0_12px_rgba(239,68,68,0.25)]`;
+        }
+        if (['cancelled'].some(k => s.includes(k))) {
+          return `${base} border-l-gray-400 hover:border-l-gray-300 hover:shadow-[inset_0_0_12px_rgba(156,163,175,0.25)]`;
+        }
+        if (['in progress'].some(k => s.includes(k))) {
+          return `${base} border-l-blue-500 hover:border-l-blue-400 hover:shadow-[inset_0_0_12px_rgba(59,130,246,0.25)]`;
+        }
+        if (['on hold'].some(k => s.includes(k))) {
+          return `${base} border-l-yellow-500 hover:border-l-yellow-400 hover:shadow-[inset_0_0_12px_rgba(234,179,8,0.25)]`;
+        }
+        if (['overdue'].some(k => s.includes(k))) {
+          return `${base} border-l-red-600 hover:border-l-red-500 hover:shadow-[inset_0_0_12px_rgba(220,38,38,0.25)]`;
+        }
+        if (['open'].some(k => s.includes(k))) {
+          return `${base} border-l-blue-400 hover:border-l-blue-300 hover:shadow-[inset_0_0_12px_rgba(96,165,250,0.25)]`;
+        }
+        if (['incomplete attachment'].some(k => s.includes(k))) {
+          return `${base} border-l-purple-400 hover:border-l-purple-300 hover:shadow-[inset_0_0_12px_rgba(168,85,247,0.25)]`;
+        }
+        return `${base} border-l-transparent hover:border-l-gray-300`;
       }
 
       function cardHTML(o) {
@@ -5767,10 +5787,11 @@
         // --- Step 4: Override status to COMPLETED ONLY if the remarks field contains "complete" ---
         let finalStatus;
         if (/complete/i.test(remarksValue)) {
-          finalStatus = "Completed";   // 🔥 Changed to proper case
+          finalStatus = "Completed";
         } else {
-          // 🔥 Normalize the raw status to match the UI dropdown options
-          finalStatus = normalizeStatus(rawStatus);
+          // Clean up the raw status: trim, convert to proper case, but preserve meaning
+          const clean = rawStatus.trim() || "Open";
+          finalStatus = clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase();
         }
 
         // --- DEBUG: Log the final status ---
@@ -6672,16 +6693,52 @@
         }
       }
 
-      async function autoSyncFromStoredApi() {
-        // Try to load from localStorage first, then from the input field (which may have been restored from cloud)
+      async function autoSyncFromStoredApi(retryCount = 0) {
+        // 1. Get the API URL
         let url = loadApiUrl();
         if (!url) {
           const input = document.getElementById("importApiUrl");
           if (input) url = input.value.trim();
         }
         if (!url) return;
+        
+        // Update the input field with the saved URL
+        const input = document.getElementById("importApiUrl");
         if (input) input.value = url;
-        await fetchAndApplyWithSavedMapping(url);
+
+        // 2. Attempt the sync
+        try {
+          console.log(`[AutoSync] Attempt ${retryCount + 1} to sync from ${url}`);
+          const success = await fetchAndApplyWithSavedMapping(url);
+          
+          if (success) {
+            console.log('[AutoSync] ✅ Sync successful.');
+            return true;
+          } else {
+            // 3. If it failed and we haven't retried too many times, retry
+            if (retryCount < 2) {
+              console.warn(`[AutoSync] ❌ Sync failed (attempt ${retryCount + 1}). Retrying in 3 seconds...`);
+              toast('⏳ Retrying external API sync...', 'info');
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              return autoSyncFromStoredApi(retryCount + 1);
+            } else {
+              console.warn('[AutoSync] ❌ Sync failed after 3 attempts.');
+              toast('⚠️ Auto-sync failed. Click Refresh to try again.', 'error');
+              return false;
+            }
+          }
+        } catch (err) {
+          console.error('[AutoSync] ❌ Sync error:', err);
+          if (retryCount < 2) {
+            console.warn(`[AutoSync] Retrying in 3 seconds...`);
+            toast('⏳ Retrying external API sync...', 'info');
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            return autoSyncFromStoredApi(retryCount + 1);
+          } else {
+            toast('⚠️ Auto-sync failed. Click Refresh to try again.', 'error');
+            return false;
+          }
+        }
       }
 
       async function fetchAndApplyWithSavedMapping(apiUrl) {
