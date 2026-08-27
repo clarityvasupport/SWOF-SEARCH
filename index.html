@@ -3882,7 +3882,7 @@
           o.title || "Untitled";
         document.getElementById(
           "drawerCreatedText"
-        ).textContent = `Created ${formatDate(o.created)}${
+        ).textContent = `Created ${formatDate(displayValue(o, createdSource))}${
           o.requester ? " • Requested by " + o.requester : ""
         }`;
 
@@ -3890,6 +3890,7 @@
         const dataStatuses = orders.map(o => o.status).filter(Boolean);
         const uniqueStatuses = Array.from(new Set(dataStatuses)).sort();
         const statusOpts = uniqueStatuses.length ? uniqueStatuses : ["Open"];
+        const createdSource = displayConfig.fieldConfig?.created?.source || "created";
 
         const drawerStatus = document.getElementById("drawerStatusSelect");
         drawerStatus.innerHTML = statusOpts.map(s =>
@@ -3929,7 +3930,7 @@
             <div class="detail-box-grid">
               ${detailBox("Category", o.category, o.id)}
               ${detailBox("Location", o.location, o.id)}
-              ${detailBox("Created", formatDate(o.created), o.id)}
+              ${detailBox("Created", formatDate(displayValue(o, createdSource)), o.id)}
               ${detailBox(
                 o.cardDateLabel || displayConfig.cardDateLabel || "Due Date",
                 formatDate(
@@ -7857,18 +7858,19 @@
             const days = new Date(adjustedYear, adjustedMonth + 1, 0).getDate();
             const firstDay = new Date(adjustedYear, adjustedMonth, 1).getDay();
 
+            // 🔥 FIX: Use parseDateValue to normalise dates
             const events = orders.filter((o) => {
               const dateVal = displayValue(o, source);
-              return (
-                dateVal &&
-                String(dateVal).startsWith(
-                  `${adjustedYear}-${String(adjustedMonth + 1).padStart(2, "0")}`
-                )
+              if (!dateVal) return false;
+              const dateStr = parseDateValue(dateVal);
+              if (!dateStr) return false;
+              return dateStr.startsWith(
+                `${adjustedYear}-${String(adjustedMonth + 1).padStart(2, "0")}`
               );
             }).sort((a, b) => {
-              const dateA = displayValue(a, source) || '';
-              const dateB = displayValue(b, source) || '';
-              return String(dateA).localeCompare(String(dateB));
+              const dateA = parseDateValue(displayValue(a, source)) || '';
+              const dateB = parseDateValue(displayValue(b, source)) || '';
+              return dateA.localeCompare(dateB);
             });
 
             const monthName = new Date(adjustedYear, adjustedMonth, 1).toLocaleDateString(undefined, {
@@ -7898,8 +7900,9 @@
                 ${Array.from({ length: days }, (_, i) => {
                   const day = i + 1;
                   const key = `${adjustedYear}-${String(adjustedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                  // 🔥 FIX: Normalise dates when grouping
                   const ds = events.filter(o => {
-                    const dateVal = displayValue(o, source);
+                    const dateVal = parseDateValue(displayValue(o, source));
                     return dateVal === key;
                   });
                   return `<button type="button" data-calendar-date="${key}" class="min-h-24 text-left p-2 rounded-xl border ${
@@ -7939,7 +7942,7 @@
               dropdown.addEventListener("change", calendarDropdownHandler);
             }
 
-            // Bind navigation buttons (use event delegation to avoid duplicates)
+            // Bind navigation buttons
             document.querySelector("#calendarPrevBtn")?.addEventListener("click", function() {
               calendarMonthOffset--;
               renderCalendar();
