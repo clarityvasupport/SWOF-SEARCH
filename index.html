@@ -425,6 +425,28 @@
       .animate-spin {
         animation: spin 1s linear infinite;
       }
+      /* Column resizing */
+      #allOrdersTable th {
+        position: relative;
+        user-select: none;
+      }
+      #allOrdersTable th .resize-handle {
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: 6px;
+        height: 100%;
+        cursor: col-resize;
+        background: transparent;
+        z-index: 10;
+      }
+      #allOrdersTable th .resize-handle:hover,
+      #allOrdersTable th .resize-handle.active {
+        background: rgba(50, 99, 99, 0.3);
+      }
+      #allOrdersTable th.resizing {
+        border-right: 2px solid #326363;
+      }
     </style>
   </head>
 
@@ -2045,7 +2067,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.8.12";
+      const APP_VERSION = "1.8.13";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -7965,21 +7987,17 @@
             return fieldConfigs[key].showInTable !== false;
           });
 
-          // Get configured sources for created and dueDate
-          const createdSource = displayConfig.fieldConfig?.created?.source || "created";
-          const dueDateSource = displayConfig.fieldConfig?.dueDate?.source || "dueDate";
-
-          // ---- NEW: Get available date fields for the dropdown ----
+          // ---- Get available date fields for the dropdown ----
           const dateFieldOptions = getAvailableDateFields();
 
           let headersHTML = "";
           tableColumns.forEach((key) => {
             const cfg = fieldConfigs[key];
-            headersHTML += `<th class="px-4 py-3 text-left text-black/60" data-field-key="${esc(key)}">${esc(cfg.label || key)}</th>`;
+            headersHTML += `<th class="px-4 py-3 text-left text-black/60" data-field-key="${esc(key)}" style="min-width:80px;">${esc(cfg.label || key)}</th>`;
           });
 
           // ---- Build dropdown options ----
-          let dateDropdownHTML = `<select id="allOrdersDateType" class="rounded-xl border border-black/10 bg-white text-black px-3 py-3 text-sm">`;
+          let dateDropdownHTML = ``;
           if (dateFieldOptions.length === 0) {
             dateDropdownHTML += `<option value="created">Created Date</option>`;
           } else {
@@ -7987,46 +8005,43 @@
               dateDropdownHTML += `<option value="${esc(f.value)}">${esc(f.label)}</option>`;
             });
           }
-          dateDropdownHTML += `</select>`;
 
           body.innerHTML = `<div class="bg-white text-black border border-black/10 rounded-2xl shadow-sm overflow-hidden">
-            <div class="p-5 border-b border-black/10">
-              <div class="flex flex-wrap gap-3 items-center">
-                <input id="allOrdersSearch" class="flex-1 min-w-[150px] rounded-xl border border-black/10 bg-white text-black placeholder:text-black/40 px-4 py-3 text-sm" placeholder="Search SWOF NO, Location, Corporate...">
-                <select id="allOrdersStatus" class="rounded-xl border border-black/10 bg-white text-black px-3 py-3 text-sm"><option value="all">All Status</option><option>Open</option><option>In Progress</option><option>On Hold</option><option>Completed</option><option>Overdue</option><option>Cancelled</option></select>
-                <select id="allOrdersAssignee" class="rounded-xl border border-black/10 bg-white text-black px-3 py-3 text-sm"><option value="all">All Assignees</option>${assigneeOpts}</select>
+            <div class="p-3 border-b border-black/10 overflow-x-auto">
+              <div class="flex flex-nowrap items-center gap-2 min-w-max">
+                <input id="allOrdersSearch" class="min-w-[120px] max-w-[180px] rounded-xl border border-black/10 bg-white text-black placeholder:text-black/40 px-3 py-2 text-sm" placeholder="Search...">
+                <select id="allOrdersStatus" class="rounded-xl border border-black/10 bg-white text-black px-2 py-2 text-sm max-w-[120px]"><option value="all">All Status</option><option>Open</option><option>In Progress</option><option>On Hold</option><option>Completed</option><option>Overdue</option><option>Cancelled</option></select>
+                <select id="allOrdersAssignee" class="rounded-xl border border-black/10 bg-white text-black px-2 py-2 text-sm max-w-[120px]"><option value="all">All Assignees</option>${assigneeOpts}</select>
                 
-                <!-- Date Range Picker -->
-                <div class="flex items-center gap-1 bg-white border border-black/10 rounded-xl px-2 py-1">
-                  <span class="text-xs text-black/40 px-1">From</span>
-                  <input id="allOrdersDateFrom" type="date" class="border-0 bg-transparent text-black text-sm py-2 px-1 focus:outline-none focus:ring-0" />
-                  <span class="text-xs text-black/40 px-1">To</span>
-                  <input id="allOrdersDateTo" type="date" class="border-0 bg-transparent text-black text-sm py-2 px-1 focus:outline-none focus:ring-0" />
+                <div class="flex items-center gap-1 bg-white border border-black/10 rounded-xl px-2 py-1 whitespace-nowrap">
+                  <span class="text-xs text-black/40">From</span>
+                  <input id="allOrdersDateFrom" type="date" class="border-0 bg-transparent text-black text-sm py-1 px-1 w-[110px] focus:outline-none focus:ring-0">
+                  <span class="text-xs text-black/40">To</span>
+                  <input id="allOrdersDateTo" type="date" class="border-0 bg-transparent text-black text-sm py-1 px-1 w-[110px] focus:outline-none focus:ring-0">
                 </div>
 
-                <!-- Date type dropdown (syncs with calendar) -->
-                ${dateDropdownHTML}
+                <select id="allOrdersDateType" class="rounded-xl border border-black/10 bg-white text-black px-2 py-2 text-sm max-w-[180px]">
+                  ${dateDropdownHTML}
+                </select>
                 
-                <div class="flex gap-2">
-                  <button id="allOrdersRefresh" class="px-4 py-3 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white text-sm font-bold transition">↻ Refresh</button>
-                  <button id="allOrdersClearFilters" class="px-4 py-3 rounded-xl border border-black/10 hover:bg-black/5 text-black/60 text-sm font-bold transition">✕ Clear</button>
-                </div>
+                <button id="allOrdersRefresh" class="px-3 py-2 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white text-sm font-bold transition whitespace-nowrap">↻ Refresh</button>
+                <button id="allOrdersClearFilters" class="px-3 py-2 rounded-xl border border-black/10 hover:bg-black/5 text-black/60 text-sm font-bold transition whitespace-nowrap">✕ Clear</button>
               </div>
             </div>
             <div class="overflow-x-auto"><table id="allOrdersTable" class="w-full min-w-[1000px] text-xs"><thead class="bg-black/5"><tr>
               ${headersHTML}
-              <th class="px-4 py-3 text-right text-black/60">Action</th>
+              <th class="px-4 py-3 text-right text-black/60" style="min-width:80px;">Action</th>
             </tr></thead><tbody id="allOrdersBody"></tbody></table></div>
           </div>`;
 
-          // ----- paint function (with date type selection) -----
+          // ----- paint function -----
           const paint = () => {
             const q = normalize(document.getElementById("allOrdersSearch").value);
             const st = document.getElementById("allOrdersStatus").value;
             const assignee = document.getElementById("allOrdersAssignee").value;
             const dateFrom = document.getElementById("allOrdersDateFrom").value;
             const dateTo = document.getElementById("allOrdersDateTo").value;
-            const dateType = document.getElementById("allOrdersDateType").value; // This is now the source
+            const dateType = document.getElementById("allOrdersDateType").value;
 
             console.log(`🔍 [All Orders] Date filter - dateFrom: "${dateFrom}", dateTo: "${dateTo}"`);
             console.log(`🔍 [All Orders] Filtering by source: "${dateType}"`);
@@ -8050,7 +8065,6 @@
                 
                 let matchesDate = true;
                 if (dateFrom || dateTo) {
-                  // Use the selected source (which can be any configured field)
                   const dateVal = parseDateValue(displayValue(o, dateType));
                   console.log(`🔍 [All Orders] Order ${o.id}: ${dateType}Val="${dateVal}"`);
                   
@@ -8112,21 +8126,68 @@
               b.addEventListener("click", () => openDrawer(b.dataset.allOpen))
             );
 
-            // Drag & drop for column reorder
-            const table = document.querySelector('#allOrdersTable');
-            if (table) {
-              const headers = table.querySelectorAll('thead th');
-              headers.forEach((th, index) => {
-                if (index === headers.length - 1) return;
-                th.setAttribute('draggable', 'true');
-                th.style.cursor = 'grab';
-                th.addEventListener('dragstart', handleDragStart);
-                th.addEventListener('dragover', handleDragOver);
-                th.addEventListener('drop', handleDrop);
-                th.addEventListener('dragend', handleDragEnd);
-              });
-            }
+            // ---- Column resizing (re-init after table render) ----
+            setTimeout(initColumnResizing, 50);
           };
+
+          // ----- Column Resizing -----
+          function initColumnResizing() {
+            const table = document.getElementById('allOrdersTable');
+            if (!table) return;
+            
+            const headers = table.querySelectorAll('thead th');
+            let currentResize = null;
+            
+            headers.forEach((th, index) => {
+              if (index === headers.length - 1) return;
+              
+              // Remove old handle if exists
+              const oldHandle = th.querySelector('.resize-handle');
+              if (oldHandle) oldHandle.remove();
+              
+              const handle = document.createElement('div');
+              handle.className = 'resize-handle';
+              handle.dataset.index = index;
+              th.style.position = 'relative';
+              th.appendChild(handle);
+              
+              handle.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                currentResize = {
+                  index: index,
+                  startX: e.clientX,
+                  startWidth: th.offsetWidth,
+                  th: th
+                };
+                th.classList.add('resizing');
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+              });
+            });
+            
+            const onMouseMove = function(e) {
+              if (!currentResize) return;
+              const diff = e.clientX - currentResize.startX;
+              const newWidth = Math.max(60, currentResize.startWidth + diff);
+              currentResize.th.style.width = newWidth + 'px';
+              currentResize.th.style.minWidth = newWidth + 'px';
+            };
+            
+            const onMouseUp = function() {
+              if (currentResize) {
+                currentResize.th.classList.remove('resizing');
+                currentResize = null;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+              }
+            };
+            
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+          }
 
           // ----- bind events -----
           document.getElementById("allOrdersSearch").addEventListener("input", paint);
@@ -8142,7 +8203,6 @@
             document.getElementById("allOrdersAssignee").value = "all";
             document.getElementById("allOrdersDateFrom").value = "";
             document.getElementById("allOrdersDateTo").value = "";
-            // Reset to the default (first option, usually "created" or the first available)
             const dt = document.getElementById("allOrdersDateType");
             if (dt.options.length) dt.value = dt.options[0].value;
             paint();
@@ -8260,11 +8320,10 @@
                     dateTo.value = date;
                     dateTo.dispatchEvent(new Event("change", { bubbles: true }));
                   }
-                  // ---- NEW: Sync the date type dropdown with the calendar source ----
+                  // ---- Sync the date type dropdown with the calendar source ----
                   const source = displayConfig.calendarDateSource || displayConfig.fieldConfig?.created?.source || "created";
                   const dateType = document.getElementById("allOrdersDateType");
                   if (dateType) {
-                    // Try to find the exact source in the dropdown
                     let found = false;
                     for (let i = 0; i < dateType.options.length; i++) {
                       if (dateType.options[i].value === source) {
@@ -8277,7 +8336,6 @@
                       dateType.value = dateType.options[0].value;
                     }
                     dateType.dispatchEvent(new Event("change", { bubbles: true }));
-                    console.log(`📅 [Calendar] Set dateType to "${source}"`);
                   }
                   const searchInput = document.getElementById("allOrdersSearch");
                   if (searchInput) {
@@ -8285,7 +8343,7 @@
                     searchInput.dispatchEvent(new Event("input", { bubbles: true }));
                   }
                   toast(`📅 Filtering orders on ${date}`, "info");
-                }, 100);
+                }, 150);
               });
             });
 
