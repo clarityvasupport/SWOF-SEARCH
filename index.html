@@ -2938,14 +2938,31 @@
 
       // ===== DATA PERSISTENCE =====
       function loadOrders() {
-        console.trace('[loadOrders] Called');
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
-          const result = raw ? JSON.parse(raw) : structuredClone(seedOrders);
-          //console.log('[loadOrders] Loaded orders from localStorage:', result.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+          let result = raw ? JSON.parse(raw) : structuredClone(seedOrders);
+          
+          // Migration: move any top‑level dateTransmitted into customFields
+          result = result.map(o => {
+            if (o.dateTransmitted && o.dateTransmitted.trim()) {
+              if (!Array.isArray(o.customFields)) o.customFields = [];
+              const exists = o.customFields.some(f => 
+                normalize(f.label || "") === normalize("Date Transmitted")
+              );
+              if (!exists) {
+                o.customFields.push({
+                  label: "Date Transmitted",
+                  value: o.dateTransmitted,
+                  _sourceHeader: ""
+                });
+              }
+              delete o.dateTransmitted;
+            }
+            return o;
+          });
+          
           return result;
         } catch {
-          console.warn('[loadOrders] Failed to parse, returning seed.');
           return structuredClone(seedOrders);
         }
       }
@@ -3573,7 +3590,6 @@
           dueDate: parseDateValue(o.dueDate),
           activity: Array.isArray(o.activity) ? o.activity : [],
           customFields: Array.isArray(o.customFields) ? o.customFields : [],
-          dateTransmitted: String(o.dateTransmitted ?? ""),
           _importHeaders: Array.isArray(o._importHeaders) ? o._importHeaders : [],
           _rawData: o._rawData || {},
         }));
