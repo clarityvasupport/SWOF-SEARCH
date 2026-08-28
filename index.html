@@ -7631,7 +7631,7 @@
         // ======================= ALL WORK ORDERS =======================
         if (page === "all-orders") {
           title.textContent = "All Work Orders";
-          sub.textContent = "Complete work-order register. Search, filter, edit and manage every record.";
+          sub.textContent = "Complete work-order register. Use the date filter dropdown to search by Created or Due date.";
 
           const assignees = [
             ...new Set(
@@ -7673,6 +7673,12 @@
                   <span class="text-xs text-black/40 px-1">To</span>
                   <input id="allOrdersDateTo" type="date" class="border-0 bg-transparent text-black text-sm py-2 px-1 focus:outline-none focus:ring-0" />
                 </div>
+
+                <!-- NEW: Date type dropdown -->
+                <select id="allOrdersDateType" class="rounded-xl border border-black/10 bg-white text-black px-3 py-3 text-sm">
+                  <option value="created">Created Date</option>
+                  <option value="dueDate">Due Date</option>
+                </select>
                 
                 <div class="flex gap-2">
                   <button id="allOrdersRefresh" class="px-4 py-3 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white text-sm font-bold transition">↻ Refresh</button>
@@ -7686,15 +7692,17 @@
             </tr></thead><tbody id="allOrdersBody"></tbody></table></div>
           </div>`;
 
-          // ----- paint function (with date normalisation) -----
+          // ----- paint function (with date type selection) -----
           const paint = () => {
             const q = normalize(document.getElementById("allOrdersSearch").value);
             const st = document.getElementById("allOrdersStatus").value;
             const assignee = document.getElementById("allOrdersAssignee").value;
             const dateFrom = document.getElementById("allOrdersDateFrom").value;
             const dateTo = document.getElementById("allOrdersDateTo").value;
+            const dateType = document.getElementById("allOrdersDateType").value; // "created" or "dueDate"
 
             console.log(`🔍 [All Orders] Date filter - dateFrom: "${dateFrom}", dateTo: "${dateTo}"`);
+            console.log(`🔍 [All Orders] Filtering by: ${dateType === "created" ? "Created Date" : "Due Date"}`);
             console.log(`🔍 [All Orders] Using createdSource: "${createdSource}", dueDateSource: "${dueDateSource}"`);
 
             const filteredOrders = orders
@@ -7716,21 +7724,18 @@
                 
                 let matchesDate = true;
                 if (dateFrom || dateTo) {
-                  // ---- FIX: normalise dates before comparison ----
-                  const createdVal = parseDateValue(displayValue(o, createdSource));
-                  const dueDateVal = parseDateValue(displayValue(o, dueDateSource));
-                  console.log(`🔍 [All Orders] Order ${o.id}: createdVal="${createdVal}", dueDateVal="${dueDateVal}"`);
+                  // Choose which source to use based on dropdown
+                  const source = dateType === "created" ? createdSource : dueDateSource;
+                  const dateVal = parseDateValue(displayValue(o, source));
+                  console.log(`🔍 [All Orders] Order ${o.id}: ${dateType}Val="${dateVal}"`);
                   
-                  const checkDate = (dateVal) => {
-                    if (!dateVal) return true;
-                    if (dateFrom && dateVal < dateFrom) return false;
-                    if (dateTo && dateVal > dateTo) return false;
+                  const checkDate = (val) => {
+                    if (!val) return true;
+                    if (dateFrom && val < dateFrom) return false;
+                    if (dateTo && val > dateTo) return false;
                     return true;
                   };
-                  
-                  const createdMatch = checkDate(createdVal);
-                  const dueMatch = checkDate(dueDateVal);
-                  matchesDate = createdMatch || dueMatch;
+                  matchesDate = checkDate(dateVal);
                 }
                 
                 return (
@@ -7804,6 +7809,7 @@
           document.getElementById("allOrdersAssignee").addEventListener("change", paint);
           document.getElementById("allOrdersDateFrom").addEventListener("change", paint);
           document.getElementById("allOrdersDateTo").addEventListener("change", paint);
+          document.getElementById("allOrdersDateType").addEventListener("change", paint);
           
           document.getElementById("allOrdersClearFilters").addEventListener("click", () => {
             document.getElementById("allOrdersSearch").value = "";
@@ -7811,6 +7817,7 @@
             document.getElementById("allOrdersAssignee").value = "all";
             document.getElementById("allOrdersDateFrom").value = "";
             document.getElementById("allOrdersDateTo").value = "";
+            document.getElementById("allOrdersDateType").value = "created";
             paint();
             toast("Filters cleared.", "info");
           });
@@ -7929,6 +7936,12 @@
                     dateTo.dispatchEvent(new Event("change", { bubbles: true }));
                     console.log(`📅 [Calendar] Set dateTo to "${date}"`);
                   }
+                  // Also set the date type dropdown to "created" so the filter makes sense
+                  const dateType = document.getElementById("allOrdersDateType");
+                  if (dateType) {
+                    dateType.value = "created";
+                    dateType.dispatchEvent(new Event("change", { bubbles: true }));
+                  }
                   const searchInput = document.getElementById("allOrdersSearch");
                   if (searchInput) {
                     searchInput.value = "";
@@ -8020,6 +8033,13 @@
                 <select id="analyticsAssignee" class="rounded-xl border border-white/10 bg-white/5 text-white px-3 py-2 text-sm"><option value="all">All Assignees</option>${assignees
                   .map((a) => `<option value="${esc(a)}">${esc(a)}</option>`)
                   .join("")}</select>
+                
+                <!-- NEW: Date type dropdown -->
+                <select id="analyticsDateType" class="rounded-xl border border-white/10 bg-white/5 text-white px-3 py-2 text-sm">
+                  <option value="created">Created Date</option>
+                  <option value="dueDate">Due Date</option>
+                </select>
+                
                 <input id="analyticsDateFrom" type="date" class="rounded-xl border border-white/10 bg-white/5 text-white px-3 py-2 text-sm" placeholder="From" />
                 <input id="analyticsDateTo" type="date" class="rounded-xl border border-white/10 bg-white/5 text-white px-3 py-2 text-sm" placeholder="To" />
                 <button id="analyticsApplyBtn" class="px-4 py-2 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white text-sm font-bold transition">Apply Filters</button>
@@ -8049,8 +8069,17 @@
               document.getElementById("analyticsPriority").value;
             const assigneeFilter =
               document.getElementById("analyticsAssignee").value;
+            const dateType = document.getElementById("analyticsDateType").value; // "created" or "dueDate"
             const dateFrom = document.getElementById("analyticsDateFrom").value;
             const dateTo = document.getElementById("analyticsDateTo").value;
+
+            console.log(`🔍 [Analytics] Filtering by: ${dateType === "created" ? "Created Date" : "Due Date"}`);
+            console.log(`🔍 [Analytics] Date range: ${dateFrom} → ${dateTo}`);
+
+            // Get the appropriate source from field config
+            const source = dateType === "created"
+              ? (displayConfig.fieldConfig?.created?.source || "created")
+              : (displayConfig.fieldConfig?.dueDate?.source || "dueDate");
 
             let filtered = orders.filter((o) => {
               const matchStatus =
@@ -8059,23 +8088,23 @@
                 priorityFilter === "all" || o.priority === priorityFilter;
               const matchAssignee =
                 assigneeFilter === "all" || o.assignee === assigneeFilter;
-              const matchDateFrom =
-                !dateFrom ||
-                (o.created && o.created >= dateFrom) ||
-                (o.dueDate && o.dueDate >= dateFrom);
-              const matchDateTo =
-                !dateTo ||
-                (o.created && o.created <= dateTo) ||
-                (o.dueDate && o.dueDate <= dateTo);
+              
+              // Date filtering using ONLY the selected field
+              let matchDate = true;
+              if (dateFrom || dateTo) {
+                const dateVal = parseDateValue(displayValue(o, source));
+                if (dateFrom && dateVal < dateFrom) matchDate = false;
+                if (dateTo && dateVal > dateTo) matchDate = false;
+              }
               return (
                 matchStatus &&
                 matchPriority &&
                 matchAssignee &&
-                matchDateFrom &&
-                matchDateTo
+                matchDate
               );
             });
 
+            // --- Render charts (unchanged) ---
             const statusCounts = {};
             filtered.forEach((o) => {
               statusCounts[o.status] = (statusCounts[o.status] || 0) + 1;
@@ -8165,6 +8194,7 @@
               document.getElementById("analyticsStatus").value = "all";
               document.getElementById("analyticsPriority").value = "all";
               document.getElementById("analyticsAssignee").value = "all";
+              document.getElementById("analyticsDateType").value = "created";
               document.getElementById("analyticsDateFrom").value = "";
               document.getElementById("analyticsDateTo").value = "";
               renderAnalytics();
