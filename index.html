@@ -2067,7 +2067,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.8.19";
+      const APP_VERSION = "1.9.0";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -2673,32 +2673,42 @@
 
       function customFieldValue(o, label) {
         const target = String(label || "").trim();
-        const f = (o.customFields || []).find(
+        const targetNorm = normalize(target);
+
+        // ---- FIX: collect ALL entries with a matching label instead of
+        // stopping at the first one — a duplicate/stale entry (empty
+        // value, no source) can otherwise shadow the real one.
+        const candidates = (o.customFields || []).filter(
           (x) =>
             String(x.label || "").trim() === target ||
-            normalize(String(x.label || "")) === normalize(target) ||
-            String(x._sourceHeader || "").trim() === target ||
-            normalize(String(x._sourceHeader || "")) === normalize(target)
+            normalize(String(x.label || "")) === targetNorm
         );
-        if (!f) return "";
+        if (!candidates.length) return "";
 
-        // 1. If the value is explicitly set (not empty), return it
-        if (String(f.value ?? "").trim()) return String(f.value);
+        for (const f of candidates) {
+          // 1. Explicit value set
+          if (String(f.value ?? "").trim()) return String(f.value);
 
-        // 2. 🔥 NEW: If value is empty but we have a _sourceHeader, 
-        //    look it up directly from the raw Excel/API data!
-        if (f._sourceHeader) {
-          const rawData = o._rawData || {};
-          // Try exact match first
-          if (rawData[f._sourceHeader] !== undefined) {
-            return String(rawData[f._sourceHeader] ?? "");
-          }
-          // Try normalized match (case-insensitive, trim)
-          const normalizedSource = normalize(f._sourceHeader);
-          const keys = Object.keys(rawData);
-          const normalizedMatch = keys.find(k => normalize(String(k)) === normalizedSource);
-          if (normalizedMatch !== undefined) {
-            return String(rawData[normalizedMatch] ?? "");
+          // 2. Resolve from raw import data via _sourceHeader
+          if (f._sourceHeader) {
+            const rawData = o._rawData || {};
+            if (
+              rawData[f._sourceHeader] !== undefined &&
+              String(rawData[f._sourceHeader]).trim() !== ""
+            ) {
+              return String(rawData[f._sourceHeader]);
+            }
+            const normalizedSource = normalize(f._sourceHeader);
+            const keys = Object.keys(rawData);
+            const normalizedMatch = keys.find(
+              (k) => normalize(String(k)) === normalizedSource
+            );
+            if (
+              normalizedMatch !== undefined &&
+              String(rawData[normalizedMatch]).trim() !== ""
+            ) {
+              return String(rawData[normalizedMatch]);
+            }
           }
         }
 
@@ -5158,7 +5168,7 @@
 
         if (
           dateTransmitted &&
-          !finalCustomFields.some((f) => f.label === "Date Transmitted")
+          !finalCustomFields.some((f) => normalize(f.label || "") === normalize("Date Transmitted"))
         ) {
           o.customFields.push({
             label: "Date Transmitted",
@@ -7363,8 +7373,11 @@
 
           importCustomMappings.forEach((custom, idx) => {
             const label = custom.label || custom.source || `Custom Field ${customIndex}`;
-            // Check if a field with this label already exists
-            const existing = Object.values(displayConfig.fieldConfig).find(cfg => cfg.label === label);
+            const labelNorm = normalize(label);
+            // ---- FIX: normalized match instead of exact === ----
+            const existing = Object.values(displayConfig.fieldConfig).find(
+              cfg => normalize(cfg.label || "") === labelNorm
+            );
             if (!existing) {
               const newKey = `custom_${Date.now()}_${idx}`;
               displayConfig.fieldConfig[newKey] = {
@@ -7385,16 +7398,19 @@
           });
           saveDisplayConfig();
 
-          // ----- NEW: Add imported custom fields to ALL existing orders (so they appear in the drawer) -----
+          // ----- Add imported custom fields to ALL existing orders (so they appear in the drawer) -----
           orders.forEach(o => {
             if (!Array.isArray(o.customFields)) o.customFields = [];
             importCustomMappings.forEach(custom => {
               const label = custom.label || custom.source || '';
-              if (label && !o.customFields.some(f => f.label === label)) {
-                o.customFields.push({ 
-                  label: label, 
-                  value: custom.value || '', 
-                  _sourceHeader: custom.source || '' 
+              const labelNorm = normalize(label);
+              // ---- FIX: normalized match instead of exact === ----
+              const alreadyHas = o.customFields.some(f => normalize(f.label || "") === labelNorm);
+              if (label && !alreadyHas) {
+                o.customFields.push({
+                  label: label,
+                  value: custom.value || '',
+                  _sourceHeader: custom.source || ''
                 });
               }
             });
@@ -8981,6 +8997,17 @@
               toast("Please enter a label.", "error");
               return;
             }
+
+            // ---- NEW: block duplicate labels (case/whitespace-insensitive) ----
+            const labelNorm = normalize(label);
+            const duplicate = Object.values(displayConfig.fieldConfig || {}).find(
+              cfg => normalize(cfg.label || "") === labelNorm
+            );
+            if (duplicate) {
+              toast(`A field named "${label}" already exists. Edit it instead of adding a duplicate.`, "error");
+              return;
+            }
+
             const source = document.getElementById('newFieldSourceInline').value.trim();
             const showOnCard = document.getElementById('newFieldShowOnCardInline').checked;
             const showInTable = document.getElementById('newFieldShowInTableInline').checked;
