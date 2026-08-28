@@ -9199,7 +9199,7 @@
           // 1. Sync with cloud (KV) – same as normal page load
           await loadSharedState();
 
-          // 2. Sync with external API (if configured) – merges new/updated orders
+          // 2. Sync with external API (if configured) – merges new/updated orders (never replaces)
           await autoSyncFromStoredApi();
 
           // 3. Re‑render the dashboard
