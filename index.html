@@ -2746,13 +2746,13 @@
       function displayValue(o, source) {
         if (!source) return "";
 
-        // 1. Custom field: only if source starts with "custom:"
+        // Custom field: only if source starts with "custom:"
         if (source.startsWith("custom:")) {
           const customLabel = source.replace("custom:", "");
           return customFieldValue(o, customLabel);
         }
 
-        // 2. Core fields
+        // Core fields
         if (source === "id") return o.id;
         if (source === "title") return o.title;
         if (source === "status") return o.status;
@@ -2764,11 +2764,11 @@
         if (source === "created") return o.created;
         if (source === "dueDate") return o.dueDate;
 
-        // 3. Only look at _rawData – NO custom field fallback
+        // Only look at _rawData – NO custom field fallback
         const rawValue = findMatchingHeaderValue(o, source);
         if (rawValue !== undefined && rawValue !== "") return rawValue;
 
-        // 4. Direct raw access (rare)
+        // Direct raw access (rare)
         if (o._rawData && o._rawData[source] !== undefined)
           return o._rawData[source];
 
@@ -4009,9 +4009,9 @@
         document.getElementById("drawerTitle").textContent = o.title || "Untitled";
         document.getElementById("drawerCreatedText").textContent =
           `Created ${formatDate(displayValue(o, getSource('created')))}` +
-          (o.requester ? ` • Requested by ${displayValue(o, getSource('requester'))}` : "");
+          (getValue('requester') ? ` • Requested by ${getValue('requester')}` : "");
 
-        // Status dropdown
+        // Status dropdown (unchanged)
         const dataStatuses = orders.map(o => o.status).filter(Boolean);
         const uniqueStatuses = Array.from(new Set(dataStatuses)).sort();
         const statusOpts = uniqueStatuses.length ? uniqueStatuses : ["Open"];
@@ -4020,21 +4020,21 @@
           `<option value="${esc(s)}" ${o.status === s ? "selected" : ""}>${esc(s)}</option>`
         ).join("");
 
-        // ----- Core details grid -----
+        // ----- Core details grid (using configured sources) -----
         const detailFields = [
-          { key: 'category', label: 'Category' },
-          { key: 'location', label: 'Location' },
-          { key: 'created', label: 'Created' },
-          { key: 'dueDate', label: (fieldConfigs.dueDate?.label || 'Due Date') },
-          { key: 'requester', label: 'Requester' },
-          { key: 'assignee', label: 'Assigned To' },
+          { key: 'category', label: fieldConfigs.category?.label || 'Category' },
+          { key: 'location', label: fieldConfigs.location?.label || 'Location' },
+          { key: 'created', label: fieldConfigs.created?.label || 'Created' },
+          { key: 'dueDate', label: fieldConfigs.dueDate?.label || 'Due Date' },
+          { key: 'requester', label: fieldConfigs.requester?.label || 'Requester' },
+          { key: 'assignee', label: fieldConfigs.assignee?.label || 'Assigned To' },
         ];
 
         const detailsHTML = detailFields
           .map(f => detailBox(f.label, getValue(f.key), o.id))
           .join("");
 
-        // ----- Custom fields (global + per-order) -----
+        // ----- Custom fields (global + per‑order) -----
         const globalCustomKeys = Object.keys(fieldConfigs).filter(k => k.startsWith("custom_"));
         const globalCustomFields = globalCustomKeys
           .filter(k => fieldConfigs[k].showOnCard !== false)
@@ -4042,7 +4042,7 @@
             const cfg = fieldConfigs[k];
             const label = cfg.label || k;
             const source = cfg.source || "";
-            // Use displayValue – now it will only use the raw header, no fallback
+            // Strict: only from raw header
             const value = source ? displayValue(o, source) : "";
             return { label, value, source };
           });
@@ -4053,13 +4053,15 @@
           .map(f => ({ label: f.label, value: customFieldValue(o, f.label) || f.value || "", source: f._sourceHeader || "" }));
 
         const allCustomFields = [...globalCustomFields, ...perOrderFields];
+
+        // Build display list for the "Custom Fields" section
         const customFieldsDisplay = allCustomFields.length
           ? allCustomFields.map(f =>
               `<div class="custom-field-item bg-black/5 rounded-lg p-2 border border-black/10"><strong class="text-black/60">${esc(f.label)}</strong> <span class="text-black/80">${formatFieldValue(f.value, o.id)}</span></div>`
             ).join("")
           : '<p class="text-xs text-black/40">No custom fields yet. Click "Add Field" to add one.</p>';
 
-        // ----- Activity -----
+        // ----- Activity (unchanged) -----
         const activity = (o.activity || [])
           .filter(a => !/prepared for import from|updated by import|import/i.test(String(a.text || "")))
           .slice().reverse()
@@ -4067,7 +4069,7 @@
             `<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-brand-teal mt-1.5 shrink-0"></div><div><p class="text-sm text-black/80">${esc(a.text)}</p><p class="text-[11px] text-black/40 mt-0.5">${esc(a.date)}</p></div></div>`
           ).join("");
 
-        // ----- Assigned User -----
+        // ----- Assigned User (using resolved assignee) -----
         const assigneeValue = getValue('assignee') || "Unassigned";
 
         const body = document.getElementById("drawerBody");
@@ -4107,7 +4109,6 @@
               <div class="space-y-2">
                 ${customFieldsDisplay}
               </div>
-              <!-- Add Field button (visible when logged in) -->
               <button id="drawerAddFieldBtn" class="mt-3 text-xs font-bold text-brand-teal hover:underline transition">
                 + Add Field
               </button>
@@ -4122,7 +4123,7 @@
           </div>
         `;
 
-        // ---- Bind "Add Field" button ----
+        // Bind "Add Field" button
         document.getElementById("drawerAddFieldBtn")?.addEventListener("click", function() {
           if (!requireLogin()) return;
           const o2 = orders.find(x => x.id === id);
