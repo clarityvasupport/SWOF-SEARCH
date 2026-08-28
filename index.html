@@ -2365,18 +2365,16 @@
             }
           }
           if (totalCount === 0) return false;
-          // At least 30% of non-empty values must be date-like
           return (dateCount / totalCount) >= 0.3;
         }
 
-        // 1. Build list of configured fields that have date values (threshold check)
-        const configuredDateFields = [];
+        // 1. Build list of configured fields that have date values
         Object.keys(allConfigs).forEach(key => {
           const cfg = allConfigs[key];
           const source = cfg.source || key;
           if (!source) return;
           if (fieldHasDateValues(source)) {
-            configuredDateFields.push({
+            fields.push({
               key: key,
               source: source,
               label: cfg.label || key
@@ -2384,39 +2382,35 @@
           }
         });
 
-        // 2. If no date fields found, return empty
-        if (configuredDateFields.length === 0) {
-          return [];
-        }
+        // 2. Group by source (deduplicate)
+        const sourceMap = new Map();
+        fields.forEach(f => {
+          if (!sourceMap.has(f.source)) {
+            sourceMap.set(f.source, { source: f.source, labels: [] });
+          }
+          sourceMap.get(f.source).labels.push(f.label);
+        });
 
-        // 3. Filter by user's selected fields (if any)
-        const selectedSources = displayConfig.calendarDateFields || [];
-        let selectedFields = configuredDateFields;
-        if (selectedSources.length > 0) {
-          selectedFields = configuredDateFields.filter(f => selectedSources.includes(f.source));
-        } else {
-          // If user has not selected any, default to all (or empty? We'll default to all to avoid empty dropdown)
-          // But we want to respect the user's choice – if they cleared all, we return empty array.
-          // However, the settings page defaults to all when first loaded, so we'll keep that.
-          // For consistency, if the array is empty but we have date fields, we treat as "show all".
-          // This matches the initial state.
-          selectedFields = configuredDateFields;
-        }
-
-        // 4. Build the final array for the dropdown
-        const result = selectedFields.map(f => ({
-          value: f.source,
-          label: f.label
+        // 3. Convert to array with combined label
+        let grouped = Array.from(sourceMap.values()).map(item => ({
+          value: item.source,
+          label: item.labels.join(' / ')
         }));
 
-        // 5. Ensure 'created' is at the top if it exists
-        const createdIdx = result.findIndex(f => f.value === 'created');
-        if (createdIdx > 0) {
-          const [created] = result.splice(createdIdx, 1);
-          result.unshift(created);
+        // 4. Filter by user's selected sources (if any)
+        const selectedSources = displayConfig.calendarDateFields || [];
+        if (selectedSources.length > 0) {
+          grouped = grouped.filter(f => selectedSources.includes(f.value));
         }
 
-        return result;
+        // 5. Ensure 'created' is at the top if it exists
+        const createdIdx = grouped.findIndex(f => f.value === 'created');
+        if (createdIdx > 0) {
+          const [created] = grouped.splice(createdIdx, 1);
+          grouped.unshift(created);
+        }
+
+        return grouped;
       }
 
       // ===== GENERATE CONSISTENT ASSIGNEE COLOR =====
@@ -5892,17 +5886,7 @@
 
       function parseDateValue(v) {
         if (v === null || v === undefined || v === "") return "";
-        
-        // If it's a Date object, use Manila timezone (UTC+8) for display
-        if (v instanceof Date) {
-          // Add 8 hours to convert UTC to Manila time (if the Date is already in UTC)
-          const manilaDate = new Date(v.getTime() + 8 * 60 * 60 * 1000);
-          const year = manilaDate.getUTCFullYear();
-          const month = String(manilaDate.getUTCMonth() + 1).padStart(2, "0");
-          const day = String(manilaDate.getUTCDate()).padStart(2, "0");
-          return `${year}-${month}-${day}`;
-        }
-        
+
         // Excel numeric date handling
         if (typeof v === "number" && window.XLSX && XLSX.SSF) {
           try {
@@ -5912,52 +5896,20 @@
             }
           } catch (_) {}
         }
-        
+
         const s = String(v).trim();
         if (!s) return "";
-        
-        // ---- DETECT ISO DATETIME WITH TIMEZONE ----
-        // e.g., "2026-08-27T18:00:00.000Z" or "2026-08-27T18:00:00+00:00"
-        const isoMatch = s.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})(?:\.\d{3})?(?:Z|[\+\-]\d{2}:\d{2})?$/);
-        if (isoMatch) {
-          // Parse the date and time, then apply Manila offset (UTC+8)
-          const datePart = isoMatch[1];
-          const timePart = isoMatch[2];
-          // Create a Date object from the ISO string (which is in UTC if it ends with Z)
-          const d = new Date(s);
-          // If it's a valid date, add 8 hours for Manila timezone
-          if (!isNaN(d)) {
-            const manilaDate = new Date(d.getTime() + 8 * 60 * 60 * 1000);
-            const year = manilaDate.getUTCFullYear();
-            const month = String(manilaDate.getUTCMonth() + 1).padStart(2, "0");
-            const day = String(manilaDate.getUTCDate()).padStart(2, "0");
-            return `${year}-${month}-${day}`;
-          }
-          // Fallback to just the date part (UTC) if something fails
-          return datePart;
-        }
-        
-        // ---- MM/DD/YYYY (with or without time) ----
-        const mdyMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+
+        // ISO date with optional time
+        const isoMatch = s.match(/^(\d{4}-\d{2}-\d{2})(?:T|$)/);
+        if (isoMatch) return isoMatch[1];
+
+        // MM/DD/YYYY or DD/MM/YYYY (must be exactly 2/4 digits)
+        const mdyMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
         if (mdyMatch) {
-          const month = parseInt(mdyMatch[1], 10);
-          const day = parseInt(mdyMatch[2], 10);
-          const year = parseInt(mdyMatch[3], 10);
-          if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-            return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-          }
-          return "";
-        }
-        
-        // ---- YYYY-MM-DD (without time) ----
-        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-        
-        // ---- DD/MM/YYYY ----
-        const dmyMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-        if (dmyMatch) {
-          let month = parseInt(dmyMatch[1], 10);
-          let day = parseInt(dmyMatch[2], 10);
-          let year = parseInt(dmyMatch[3], 10);
+          let month = parseInt(mdyMatch[1], 10);
+          let day = parseInt(mdyMatch[2], 10);
+          let year = parseInt(mdyMatch[3], 10);
           if (month > 12 && day <= 12) {
             [month, day] = [day, month];
           }
@@ -5966,8 +5918,8 @@
           }
           return "";
         }
-        
-        // ---- Month DD, YYYY ----
+
+        // Month DD, YYYY (e.g., "Jan 1, 2024")
         const monthNameMatch = s.match(/^([A-Za-z]{3,9})\s+(\d{1,2})(?:,?\s*)(\d{4})$/);
         if (monthNameMatch) {
           const months = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
@@ -5979,8 +5931,8 @@
           }
           return "";
         }
-        
-        // ---- DD Month YYYY ----
+
+        // DD Month YYYY (e.g., "1 Jan 2024")
         const dayMonthMatch = s.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})$/);
         if (dayMonthMatch) {
           const months = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
@@ -5992,7 +5944,7 @@
           }
           return "";
         }
-        
+
         return "";
       }
 
@@ -7847,7 +7799,6 @@
         const container = document.getElementById('calendarFieldCheckboxes');
         if (!container) return;
 
-        // ---- Login check ----
         if (!isLoggedIn) {
           container.innerHTML = `
             <div class="col-span-full text-sm text-white/40">
@@ -7861,10 +7812,9 @@
           return;
         }
 
-        // ---- Only proceed if logged in ----
         const allConfigs = getAllFieldConfigs();
-        const dateFields = [];
-        
+        const fields = [];
+
         function fieldHasDateValues(source) {
           if (!source) return false;
           let dateCount = 0;
@@ -7887,7 +7837,7 @@
           const cfg = allConfigs[key];
           const source = cfg.source || key;
           if (source && fieldHasDateValues(source)) {
-            dateFields.push({
+            fields.push({
               key: key,
               source: source,
               label: cfg.label || key
@@ -7895,19 +7845,33 @@
           }
         });
 
-        if (dateFields.length === 0) {
+        // Group by source (deduplicate)
+        const sourceMap = new Map();
+        fields.forEach(f => {
+          if (!sourceMap.has(f.source)) {
+            sourceMap.set(f.source, { source: f.source, labels: [] });
+          }
+          sourceMap.get(f.source).labels.push(f.label);
+        });
+
+        const groupedFields = Array.from(sourceMap.values()).map(item => ({
+          source: item.source,
+          label: item.labels.join(' / ')
+        }));
+
+        if (groupedFields.length === 0) {
           container.innerHTML = '<p class="text-xs text-white/40">No date fields found. Import data with date columns or configure fields.</p>';
           return;
         }
 
         if (!displayConfig.calendarDateFields) {
-          displayConfig.calendarDateFields = dateFields.map(f => f.source);
+          displayConfig.calendarDateFields = groupedFields.map(f => f.source);
           saveDisplayConfig();
         }
 
         const selectedSources = displayConfig.calendarDateFields || [];
         let html = '';
-        dateFields.forEach(f => {
+        groupedFields.forEach(f => {
           const checked = selectedSources.includes(f.source) ? 'checked' : '';
           html += `
             <label class="flex items-center gap-2 text-sm text-white/80 cursor-pointer">
@@ -7958,7 +7922,7 @@
             toast('Please log in to manage calendar fields.', 'warning');
             return;
           }
-          const allSources = dateFields.map(f => f.source);
+          const allSources = groupedFields.map(f => f.source);
           displayConfig.calendarDateFields = allSources;
           saveDisplayConfig();
           renderCalendarCheckboxes();
@@ -7984,7 +7948,7 @@
           }
           toast('Calendar fields cleared.', 'info');
         });
-      }      
+      }     
 
       // ===== SECTION PAGES =====
       function showSectionPage(page) {
@@ -8282,22 +8246,14 @@
           function renderCalendar() {
             const availableDateFields = getAvailableDateFields();
             let source = displayConfig.calendarDateSource || "created";
-            const sourceExists = availableDateFields.some(
-              f => f.value === source
-            );
-
+            const sourceExists = availableDateFields.some(f => f.value === source);
             if (!sourceExists) {
               source = availableDateFields[0]?.value || "created";
               displayConfig.calendarDateSource = source;
               saveDisplayConfig();
-
             }
-            
+
             const titleSource = displayConfig.fieldConfig?.title?.source || "title";
-
-            console.log(`📅 [Calendar] Using date source: "${source}"`);
-            console.log(`📅 [Calendar] Using title source: "${titleSource}"`);
-
             const now = new Date();
             const month = now.getMonth() + calendarMonthOffset;
             const year = now.getFullYear() + Math.floor(month / 12);
@@ -8306,13 +8262,18 @@
             const days = new Date(adjustedYear, adjustedMonth + 1, 0).getDate();
             const firstDay = new Date(adjustedYear, adjustedMonth, 1).getDay();
 
-            // Build events with parsed dates and resolved titles
+            console.log(`📅 [Calendar] Using date source: "${source}"`);
+            console.log(`📅 [Calendar] Using title source: "${titleSource}"`);
+
             const events = orders
               .map(o => {
                 const rawDate = displayValue(o, source);
                 const parsed = parseDateValue(rawDate);
-                const displayTitle = displayValue(o, titleSource) || o.title || "Untitled"; // Fallback to stored title
-                console.log(`📅 [Calendar] Order ${o.id}: raw="${rawDate}" → parsed="${parsed}", title="${displayTitle}"`);
+                const displayTitle = displayValue(o, titleSource) || o.title || "Untitled";
+
+                // Debug log
+                console.log(`📅 [Calendar] Order ${o.id} – rawDate: "${rawDate}", parsed: "${parsed}"`);
+
                 return { ...o, _date: parsed, _displayTitle: displayTitle };
               })
               .filter(o => o._date && o._date.startsWith(`${adjustedYear}-${String(adjustedMonth + 1).padStart(2, "0")}`))
@@ -8361,7 +8322,6 @@
             document.querySelectorAll("[data-calendar-date]").forEach(b => {
               b.addEventListener("click", function() {
                 const date = this.dataset.calendarDate;
-                console.log(`📅 [Calendar] Clicked date: "${date}"`);
                 document.querySelector('[data-nav-page="all-orders"]').click();
                 setTimeout(() => {
                   const dateFrom = document.getElementById("allOrdersDateFrom");
@@ -8374,7 +8334,6 @@
                     dateTo.value = date;
                     dateTo.dispatchEvent(new Event("change", { bubbles: true }));
                   }
-                  // Sync the date type dropdown with the calendar source
                   const sourceVal = displayConfig.calendarDateSource || "created";
                   const dateType = document.getElementById("allOrdersDateType");
                   if (dateType) {
