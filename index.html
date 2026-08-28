@@ -9865,8 +9865,14 @@
           ? importedHeaders
           : loadImportedHeaders();
         currentPage = 1;
-        await autoSyncFromStoredApi();
-        render();
+         try {
+            await autoSyncFromStoredApi();
+          } catch (err) {
+            console.warn('⚠️ External API sync failed, continuing with local data:', err);
+            // Optionally show a toast notification (if toast is defined)
+            // toast('⚠️ External API sync failed – showing local data.', 'error');
+          }
+          render(); // <- Always render the dashboard
 
         const hamburger = document.getElementById("hamburgerBtn");
         const sidebar = document.getElementById("sidebarNav");
