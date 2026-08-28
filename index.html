@@ -2700,22 +2700,17 @@
         if (!sourceValue) return "";
         const raw = o && o._rawData ? o._rawData : {};
         const keys = Object.keys(raw);
+        
+        // 1. Exact match (trimmed)
         const directMatch = keys.find((k) => String(k).trim() === sourceValue);
         if (directMatch !== undefined) return raw[directMatch];
-
+        
+        // 2. Normalized exact match (case‑insensitive, punctuation removed)
         const normalizedSource = normalize(sourceValue);
-        const normalizedMatch = keys.find(
-          (k) => normalize(String(k)) === normalizedSource
-        );
+        const normalizedMatch = keys.find((k) => normalize(String(k)) === normalizedSource);
         if (normalizedMatch !== undefined) return raw[normalizedMatch];
-
-        const partialMatch = keys.find(
-          (k) =>
-            normalize(String(k)).includes(normalizedSource) ||
-            normalizedSource.includes(normalize(String(k)))
-        );
-        if (partialMatch !== undefined) return raw[partialMatch];
-
+        
+        // 3. 🔥 NO partial match – prevents false positives
         return "";
       }
 
@@ -3333,6 +3328,18 @@
           closeLoginModal();
           updateLoginUI();
           render();
+          
+          // ---- NEW: Refresh settings page if it's open ----
+          const sectionPage = document.getElementById('sectionPage');
+          if (!sectionPage.classList.contains('hidden')) {
+            const title = document.getElementById('sectionPageTitle');
+            if (title && title.textContent === 'Settings') {
+              if (typeof renderCalendarCheckboxes === 'function') {
+                renderCalendarCheckboxes();
+              }
+            }
+          }
+          
           toast("✅ Logged in as Admin", "success");
           return true;
         } else {
@@ -3342,7 +3349,6 @@
       }
 
       function logout() {
-        // Show confirmation dialog before logging out
         openConfirmationModal({
           title: "Confirm Logout",
           message: "Are you sure you want to log out? Any unsaved changes will be lost.",
@@ -3352,6 +3358,18 @@
             isLoggedIn = false;
             updateLoginUI();
             render();
+            
+            // ---- NEW: Refresh settings page if it's open ----
+            const sectionPage = document.getElementById('sectionPage');
+            if (!sectionPage.classList.contains('hidden')) {
+              const title = document.getElementById('sectionPageTitle');
+              if (title && title.textContent === 'Settings') {
+                if (typeof renderCalendarCheckboxes === 'function') {
+                  renderCalendarCheckboxes();
+                }
+              }
+            }
+            
             closeConfirmationModal();
             toast("🔒 Logged out", "info");
           },
@@ -3373,10 +3391,13 @@
         }
         toggleEditability();
         
-        // ---- NEW: Refresh calendar checkboxes if settings page is open ----
+        // ---- Refresh calendar checkboxes if Settings is open ----
         const sectionPage = document.getElementById('sectionPage');
-        if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Settings') {
-          renderCalendarCheckboxes();
+        if (!sectionPage.classList.contains('hidden')) {
+          const title = document.getElementById('sectionPageTitle');
+          if (title && title.textContent === 'Settings') {
+            renderCalendarCheckboxes();
+          }
         }
       }
 
@@ -7757,6 +7778,152 @@
           validCount > 0 ? `(${validCount})` : "";
       }
 
+      // ============================================================
+      // Global function to render calendar field checkboxes in Settings
+      // ============================================================
+      function renderCalendarCheckboxes() {
+        const container = document.getElementById('calendarFieldCheckboxes');
+        if (!container) return;
+
+        // ---- Login check ----
+        if (!isLoggedIn) {
+          container.innerHTML = `
+            <div class="col-span-full text-sm text-white/40">
+              🔒 <button id="loginToManageCalendarFields" class="text-brand-teal hover:underline font-bold">Log in</button> to manage calendar date fields.
+            </div>
+          `;
+          const loginBtn = document.getElementById('loginToManageCalendarFields');
+          if (loginBtn) {
+            loginBtn.addEventListener('click', () => openLoginModal());
+          }
+          return;
+        }
+
+        // ---- Only proceed if logged in ----
+        const allConfigs = getAllFieldConfigs();
+        const dateFields = [];
+        
+        function fieldHasDateValues(source) {
+          if (!source) return false;
+          let dateCount = 0;
+          let totalCount = 0;
+          const sample = orders.slice(0, 500);
+          for (const o of sample) {
+            const val = displayValue(o, source);
+            if (val && typeof val === 'string' && val.trim()) {
+              totalCount++;
+              if (parseDateValue(val) !== "") {
+                dateCount++;
+              }
+            }
+          }
+          if (totalCount === 0) return false;
+          return (dateCount / totalCount) >= 0.3;
+        }
+
+        Object.keys(allConfigs).forEach(key => {
+          const cfg = allConfigs[key];
+          const source = cfg.source || key;
+          if (source && fieldHasDateValues(source)) {
+            dateFields.push({
+              key: key,
+              source: source,
+              label: cfg.label || key
+            });
+          }
+        });
+
+        if (dateFields.length === 0) {
+          container.innerHTML = '<p class="text-xs text-white/40">No date fields found. Import data with date columns or configure fields.</p>';
+          return;
+        }
+
+        if (!displayConfig.calendarDateFields) {
+          displayConfig.calendarDateFields = dateFields.map(f => f.source);
+          saveDisplayConfig();
+        }
+
+        const selectedSources = displayConfig.calendarDateFields || [];
+        let html = '';
+        dateFields.forEach(f => {
+          const checked = selectedSources.includes(f.source) ? 'checked' : '';
+          html += `
+            <label class="flex items-center gap-2 text-sm text-white/80 cursor-pointer">
+              <input type="checkbox" class="calendar-field-checkbox" data-source="${esc(f.source)}" ${checked} />
+              ${esc(f.label)}
+            </label>
+          `;
+        });
+        container.innerHTML = html;
+
+        // Bind change events
+        container.querySelectorAll('.calendar-field-checkbox').forEach(cb => {
+          cb.addEventListener('change', function() {
+            const source = this.dataset.source;
+            if (!displayConfig.calendarDateFields) displayConfig.calendarDateFields = [];
+            if (this.checked) {
+              if (!displayConfig.calendarDateFields.includes(source)) {
+                displayConfig.calendarDateFields.push(source);
+              }
+            } else {
+              displayConfig.calendarDateFields = displayConfig.calendarDateFields.filter(s => s !== source);
+            }
+            saveDisplayConfig();
+            
+            // Refresh the calendar page
+            const sectionPage = document.getElementById('sectionPage');
+            if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Calendar') {
+              showSectionPage('calendar');
+            }
+            
+            // Show "Saved" indicator
+            const parent = this.closest('label');
+            if (parent && !parent.querySelector('.saved-indicator')) {
+              const savedSpan = document.createElement('span');
+              savedSpan.className = 'saved-indicator text-green-400 text-sm font-bold ml-2';
+              savedSpan.textContent = '✓ Saved';
+              parent.appendChild(savedSpan);
+              setTimeout(() => {
+                if (savedSpan.parentNode) savedSpan.remove();
+              }, 2000);
+            }
+          });
+        });
+
+        // Select All button
+        document.getElementById('calendarSelectAllBtn')?.addEventListener('click', () => {
+          if (!isLoggedIn) {
+            toast('Please log in to manage calendar fields.', 'warning');
+            return;
+          }
+          const allSources = dateFields.map(f => f.source);
+          displayConfig.calendarDateFields = allSources;
+          saveDisplayConfig();
+          renderCalendarCheckboxes();
+          const sectionPage = document.getElementById('sectionPage');
+          if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Calendar') {
+            showSectionPage('calendar');
+          }
+          toast('All date fields selected for calendar.', 'info');
+        });
+
+        // Clear All button
+        document.getElementById('calendarClearAllBtn')?.addEventListener('click', () => {
+          if (!isLoggedIn) {
+            toast('Please log in to manage calendar fields.', 'warning');
+            return;
+          }
+          displayConfig.calendarDateFields = [];
+          saveDisplayConfig();
+          renderCalendarCheckboxes();
+          const sectionPage = document.getElementById('sectionPage');
+          if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Calendar') {
+            showSectionPage('calendar');
+          }
+          toast('Calendar fields cleared.', 'info');
+        });
+      }      
+
       // ===== SECTION PAGES =====
       function showSectionPage(page) {
         if (page === "dashboard") {
@@ -8604,154 +8771,7 @@
 
             ${fieldConfigHTML}
           </div>`;
-
-          // ----- Helper function to render the calendar checkboxes -----
-          function renderCalendarCheckboxes() {
-            const container = document.getElementById('calendarFieldCheckboxes');
-            if (!container) return;
-
-            // ---- Add login check ----
-            if (!isLoggedIn) {
-              container.innerHTML = `
-                <div class="col-span-full text-sm text-white/40">
-                  🔒 <button id="loginToManageCalendarFields" class="text-brand-teal hover:underline font-bold">Log in</button> to manage calendar date fields.
-                </div>
-              `;
-              // Bind login button
-              const loginBtn = document.getElementById('loginToManageCalendarFields');
-              if (loginBtn) {
-                loginBtn.addEventListener('click', () => openLoginModal());
-              }
-              return;
-            }
-
-            // ---- Only proceed if logged in ----
-            // Gather all configured fields that have date values (using threshold)
-            const allConfigs = getAllFieldConfigs();
-            const dateFields = [];
-            
-            function fieldHasDateValues(source) {
-              if (!source) return false;
-              let dateCount = 0;
-              let totalCount = 0;
-              const sample = orders.slice(0, 500);
-              for (const o of sample) {
-                const val = displayValue(o, source);
-                if (val && typeof val === 'string' && val.trim()) {
-                  totalCount++;
-                  if (parseDateValue(val) !== "") {
-                    dateCount++;
-                  }
-                }
-              }
-              if (totalCount === 0) return false;
-              return (dateCount / totalCount) >= 0.3;
-            }
-
-            Object.keys(allConfigs).forEach(key => {
-              const cfg = allConfigs[key];
-              const source = cfg.source || key;
-              if (source && fieldHasDateValues(source)) {
-                dateFields.push({
-                  key: key,
-                  source: source,
-                  label: cfg.label || key
-                });
-              }
-            });
-
-            if (dateFields.length === 0) {
-              container.innerHTML = '<p class="text-xs text-white/40">No date fields found. Import data with date columns or configure fields.</p>';
-              return;
-            }
-
-            // Ensure calendarDateFields array exists and has defaults
-            if (!displayConfig.calendarDateFields) {
-              displayConfig.calendarDateFields = dateFields.map(f => f.source);
-              saveDisplayConfig();
-            }
-
-            const selectedSources = displayConfig.calendarDateFields || [];
-            let html = '';
-            dateFields.forEach(f => {
-              const checked = selectedSources.includes(f.source) ? 'checked' : '';
-              html += `
-                <label class="flex items-center gap-2 text-sm text-white/80 cursor-pointer">
-                  <input type="checkbox" class="calendar-field-checkbox" data-source="${esc(f.source)}" ${checked} />
-                  ${esc(f.label)}
-                </label>
-              `;
-            });
-            container.innerHTML = html;
-
-            // Bind change events (only if logged in, which we already checked)
-            container.querySelectorAll('.calendar-field-checkbox').forEach(cb => {
-              cb.addEventListener('change', function() {
-                const source = this.dataset.source;
-                if (!displayConfig.calendarDateFields) displayConfig.calendarDateFields = [];
-                if (this.checked) {
-                  if (!displayConfig.calendarDateFields.includes(source)) {
-                    displayConfig.calendarDateFields.push(source);
-                  }
-                } else {
-                  displayConfig.calendarDateFields = displayConfig.calendarDateFields.filter(s => s !== source);
-                }
-                saveDisplayConfig();
-                
-                // Refresh the calendar page to update the dropdown
-                const sectionPage = document.getElementById('sectionPage');
-                if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Calendar') {
-                  showSectionPage('calendar');
-                }
-                
-                // Show "Saved" indicator
-                const parent = this.closest('label');
-                if (parent && !parent.querySelector('.saved-indicator')) {
-                  const savedSpan = document.createElement('span');
-                  savedSpan.className = 'saved-indicator text-green-400 text-sm font-bold ml-2';
-                  savedSpan.textContent = '✓ Saved';
-                  parent.appendChild(savedSpan);
-                  setTimeout(() => {
-                    if (savedSpan.parentNode) savedSpan.remove();
-                  }, 2000);
-                }
-              });
-            });
-
-            // Select All button
-            document.getElementById('calendarSelectAllBtn')?.addEventListener('click', () => {
-              if (!isLoggedIn) {
-                toast('Please log in to manage calendar fields.', 'warning');
-                return;
-              }
-              const allSources = dateFields.map(f => f.source);
-              displayConfig.calendarDateFields = allSources;
-              saveDisplayConfig();
-              renderCalendarCheckboxes();
-              const sectionPage = document.getElementById('sectionPage');
-              if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Calendar') {
-                showSectionPage('calendar');
-              }
-              toast('All date fields selected for calendar.', 'info');
-            });
-
-            // Clear All button
-            document.getElementById('calendarClearAllBtn')?.addEventListener('click', () => {
-              if (!isLoggedIn) {
-                toast('Please log in to manage calendar fields.', 'warning');
-                return;
-              }
-              displayConfig.calendarDateFields = [];
-              saveDisplayConfig();
-              renderCalendarCheckboxes();
-              const sectionPage = document.getElementById('sectionPage');
-              if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Calendar') {
-                showSectionPage('calendar');
-              }
-              toast('Calendar fields cleared.', 'info');
-            });
-          }
-
+          
           // ----- Render the checkboxes -----
           renderCalendarCheckboxes();
 
