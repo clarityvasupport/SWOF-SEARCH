@@ -2746,15 +2746,13 @@
       function displayValue(o, source) {
         if (!source) return "";
 
-        if (
-          source &&
-          typeof source === "string" &&
-          source.startsWith("custom:")
-        ) {
+        // 1. Custom field: only if source starts with "custom:"
+        if (source.startsWith("custom:")) {
           const customLabel = source.replace("custom:", "");
           return customFieldValue(o, customLabel);
         }
 
+        // 2. Core fields
         if (source === "id") return o.id;
         if (source === "title") return o.title;
         if (source === "status") return o.status;
@@ -2766,14 +2764,14 @@
         if (source === "created") return o.created;
         if (source === "dueDate") return o.dueDate;
 
+        // 3. Only look at _rawData – NO custom field fallback
         const rawValue = findMatchingHeaderValue(o, source);
         if (rawValue !== undefined && rawValue !== "") return rawValue;
 
-        const val = customFieldValue(o, source);
-        if (val) return val;
-
+        // 4. Direct raw access (rare)
         if (o._rawData && o._rawData[source] !== undefined)
           return o._rawData[source];
+
         return "";
       }
 
