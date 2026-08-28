@@ -2045,7 +2045,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.8.5";
+      const APP_VERSION = "1.8.6";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -2321,24 +2321,75 @@
       }
 
       function getAvailableDateFields() {
-        const fields = [{ value: "created", label: "Created Date" }];
-
-        if (orders.some((o) => o.dueDate && o.dueDate !== "")) {
-          fields.push({ value: "dueDate", label: "Due Date" });
+        const fields = [];
+        const allConfigs = getAllFieldConfigs();
+        const fieldKeys = Object.keys(allConfigs);
+        
+        // Helper to check if a field has at least one date value among orders
+        function fieldHasDateValues(source) {
+          if (!source) return false;
+          // Check first 200 orders for performance
+          const sample = orders.slice(0, 200);
+          return sample.some(o => {
+            const val = displayValue(o, source);
+            return parseDateValue(val) !== "";
+          });
         }
 
-        const dateCustomFields = allKnownCustomLabels().filter((label) => {
-          return orders.some((o) => {
-            const val = customFieldValue(o, label);
-            return val && /^\d{4}-\d{2}-\d{2}/.test(val);
-          });
+        // 1. Add core and custom fields from config that have date values
+        fieldKeys.forEach(key => {
+          const cfg = allConfigs[key];
+          const source = cfg.source || key;
+          if (fieldHasDateValues(source)) {
+            fields.push({
+              value: source,
+              label: cfg.label || key
+            });
+          }
         });
 
-        dateCustomFields.forEach((label) => {
-          fields.push({ value: `custom:${label}`, label: label });
+        // 2. Also scan rawData headers from all orders for any column that has date values
+        // that are not already covered.
+        const existingSources = new Set(fields.map(f => f.value));
+        const allHeaders = new Set();
+        orders.forEach(o => {
+          if (o._rawData) {
+            Object.keys(o._rawData).forEach(h => allHeaders.add(h));
+          }
+        });
+        allHeaders.forEach(header => {
+          if (!existingSources.has(header) && fieldHasDateValues(header)) {
+            // Try to find a config label for this header
+            let label = header;
+            // Search in config for a field with this source
+            for (const key of fieldKeys) {
+              if (allConfigs[key].source === header) {
+                label = allConfigs[key].label || header;
+                break;
+              }
+            }
+            fields.push({
+              value: header,
+              label: label
+            });
+          }
         });
 
-        return fields;
+        // 3. Sort fields by label
+        fields.sort((a, b) => a.label.localeCompare(b.label));
+
+        // Ensure 'created' and 'dueDate' are at the top if they exist
+        const priority = ['created', 'dueDate'];
+        const sorted = [];
+        priority.forEach(p => {
+          const idx = fields.findIndex(f => f.value === p);
+          if (idx !== -1) {
+            sorted.push(fields.splice(idx, 1)[0]);
+          }
+        });
+        // Then add the rest
+        sorted.push(...fields);
+        return sorted;
       }
 
       // ===== GENERATE CONSISTENT ASSIGNEE COLOR =====
@@ -5750,23 +5801,66 @@
 
       function parseDateValue(v) {
         if (v === null || v === undefined || v === "") return "";
+        // If it's a Date object, convert to local YYYY-MM-DD
+        if (v instanceof Date) {
+          const year = v.getFullYear();
+          const month = String(v.getMonth() + 1).padStart(2, "0");
+          const day = String(v.getDate()).padStart(2, "0");
+          return `${year}-${month}-${day}`;
+        }
+        // Excel numeric date handling
         if (typeof v === "number" && window.XLSX && XLSX.SSF) {
-          const d = XLSX.SSF.parse_date_code(v);
-          if (d) {
-            return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
-          }
+          try {
+            const d = XLSX.SSF.parse_date_code(v);
+            if (d) {
+              return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+            }
+          } catch (_) {}
         }
         const s = String(v).trim();
+        if (!s) return "";
+        
+        // If already in YYYY-MM-DD format, return as-is
         if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-        const d = new Date(s);
-        if (!isNaN(d)) return d.toISOString().slice(0, 10);
-        const m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
-        if (m) {
-          let y = Number(m[3]);
-          if (y < 100) y += 2000;
-          return `${y}-${String(Number(m[1])).padStart(2, "0")}-${String(Number(m[2])).padStart(2, "0")}`;
+
+        // If it contains 'T', assume ISO datetime, extract the date part
+        if (s.includes('T')) {
+          const datePart = s.split('T')[0];
+          if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return datePart;
         }
-        // 🔥 If none of the above worked, return empty string – this prevents non‑dates from being grouped
+
+        // Try to parse with Date, but use local components to avoid timezone shift
+        const d = new Date(s);
+        if (!isNaN(d)) {
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, "0");
+          const day = String(d.getDate()).padStart(2, "0");
+          return `${year}-${month}-${day}`;
+        }
+
+        // Try common slash/dash formats with manual parse to avoid timezone issues
+        const parts = s.split(/[\/\-,\s]+/).filter(p => p);
+        if (parts.length === 3) {
+          // Check if first part is a year (4 digits) -> YYYY-MM-DD
+          if (/^\d{4}$/.test(parts[0])) {
+            return `${parts[0]}-${String(parts[1]).padStart(2, "0")}-${String(parts[2]).padStart(2, "0")}`;
+          }
+          // Check if third part is a year (4 digits)
+          if (/^\d{4}$/.test(parts[2])) {
+            let month = parseInt(parts[0], 10);
+            let day = parseInt(parts[1], 10);
+            let year = parseInt(parts[2], 10);
+            // If month > 12, maybe it's DD/MM/YYYY
+            if (month > 12 && day <= 12) {
+              [month, day] = [day, month];
+            }
+            if (year >= 0 && year < 100) year += 2000;
+            if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+              return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            }
+          }
+          return "";
+        }
         return "";
       }
 
