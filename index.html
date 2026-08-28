@@ -7626,9 +7626,9 @@
           const s = o.status || 'Unknown';
           statusCounts[s] = (statusCounts[s] || 0) + 1;
         });
-        // Sort alphabetically for a clean display
         const sortedStatuses = Object.keys(statusCounts).sort();
 
+        // ======================= ALL WORK ORDERS =======================
         if (page === "all-orders") {
           title.textContent = "All Work Orders";
           sub.textContent = "Complete work-order register. Search, filter, edit and manage every record.";
@@ -7649,7 +7649,7 @@
             return fieldConfigs[key].showInTable !== false;
           });
 
-          // ---- Get configured sources for created and dueDate ----
+          // Get configured sources for created and dueDate
           const createdSource = displayConfig.fieldConfig?.created?.source || "created";
           const dueDateSource = displayConfig.fieldConfig?.dueDate?.source || "dueDate";
 
@@ -7686,6 +7686,7 @@
             </tr></thead><tbody id="allOrdersBody"></tbody></table></div>
           </div>`;
 
+          // ----- paint function (with console logs) -----
           const paint = () => {
             const q = normalize(document.getElementById("allOrdersSearch").value);
             const st = document.getElementById("allOrdersStatus").value;
@@ -7713,7 +7714,6 @@
                 const matchesAssignee =
                   assignee === "all" || o.assignee === assignee;
                 
-                // Date range filter using configured sources
                 let matchesDate = true;
                 if (dateFrom || dateTo) {
                   const createdVal = displayValue(o, createdSource);
@@ -7746,11 +7746,60 @@
                 (a.sourceOrder ?? 0) - (b.sourceOrder ?? 0)
               );
 
-            // ... rest of the code (table rendering) ...
-            // (keep everything after this as it was)
+            let rowsHTML = "";
+            if (filteredOrders.length === 0) {
+              rowsHTML = `<tr><td colspan="${tableColumns.length + 1}" class="p-12 text-center text-black/40">No work orders found.</td></tr>`;
+            } else {
+              filteredOrders.forEach((o) => {
+                let rowHTML = `<tr class="border-t border-black/10 hover:bg-black/5">`;
+                tableColumns.forEach((key) => {
+                  const cfg = fieldConfigs[key];
+                  let val = displayValue(o, cfg.source);
+                  
+                  if (key === "status") {
+                    val = `<span class="px-2 py-1 rounded-full border ${statusClass(val)}">${esc(val)}</span>`;
+                  } else if (key === "priority") {
+                    const colorClass = getPriorityColor(val);
+                    val = `<span class="px-2 py-1 rounded-md text-[10px] font-bold ${colorClass}">${esc(val)}</span>`;
+                  } else if (key === "assignee") {
+                    const colorClass = getAssigneeColor(val);
+                    val = `<span class="px-2 py-1 rounded-md text-[10px] font-bold ${colorClass}">${esc(val)}</span>`;
+                  } else if (key === "created" || key === "dueDate" || (key && key.startsWith("custom_"))) {
+                    val = formatDate(val);
+                  } else {
+                    val = esc(val || "—");
+                  }
+                  rowHTML += `<td class="px-4 py-3 ${key === "title" ? "font-semibold text-black/80" : "text-black/70"}">${val}</td>`;
+                });
+                rowHTML += `<td class="px-4 py-3 text-right"><button data-all-open="${esc(o.id)}" class="px-3 py-1.5 rounded-lg bg-brand-teal/20 text-brand-teal font-bold hover:bg-brand-teal/30 transition">Open</button></td>`;
+                rowHTML += `</tr>`;
+                rowsHTML += rowHTML;
+              });
+            }
+
+            document.getElementById("allOrdersBody").innerHTML = rowsHTML;
+
+            document.querySelectorAll("[data-all-open]").forEach((b) =>
+              b.addEventListener("click", () => openDrawer(b.dataset.allOpen))
+            );
+
+            // Drag & drop for column reorder
+            const table = document.querySelector('#allOrdersTable');
+            if (table) {
+              const headers = table.querySelectorAll('thead th');
+              headers.forEach((th, index) => {
+                if (index === headers.length - 1) return;
+                th.setAttribute('draggable', 'true');
+                th.style.cursor = 'grab';
+                th.addEventListener('dragstart', handleDragStart);
+                th.addEventListener('dragover', handleDragOver);
+                th.addEventListener('drop', handleDrop);
+                th.addEventListener('dragend', handleDragEnd);
+              });
+            }
           };
 
-          // ---- Bind events ----
+          // ----- bind events -----
           document.getElementById("allOrdersSearch").addEventListener("input", paint);
           document.getElementById("allOrdersStatus").addEventListener("change", paint);
           document.getElementById("allOrdersAssignee").addEventListener("change", paint);
@@ -7791,124 +7840,140 @@
           return;
         }
 
-        function renderCalendar() {
-          const createdFieldSource = displayConfig.fieldConfig?.created?.source || "created";
-          const source = displayConfig.calendarDateSource || createdFieldSource;
+        // ======================= CALENDAR =======================
+        if (page === "calendar") {
+          title.textContent = "Calendar";
+          sub.textContent = "Work orders grouped by date. Select which date to use below.";
 
-          console.log(`📅 [Calendar] Using date source: "${source}"`);
+          // ---- renderCalendar function (with console logs) ----
+          function renderCalendar() {
+            const createdFieldSource = displayConfig.fieldConfig?.created?.source || "created";
+            const source = displayConfig.calendarDateSource || createdFieldSource;
 
-          const now = new Date();
-          const month = now.getMonth() + calendarMonthOffset;
-          const year = now.getFullYear() + Math.floor(month / 12);
-          const adjustedMonth = ((month % 12) + 12) % 12;
-          const adjustedYear = year - (month < 0 ? 1 : 0);
-          const days = new Date(adjustedYear, adjustedMonth + 1, 0).getDate();
-          const firstDay = new Date(adjustedYear, adjustedMonth, 1).getDay();
+            console.log(`📅 [Calendar] Using date source: "${source}"`);
 
-          // Build events with parsed dates
-          const events = orders
-            .map(o => {
-              const rawDate = displayValue(o, source);
-              const parsed = parseDateValue(rawDate);
-              console.log(`📅 [Calendar] Order ${o.id}: raw="${rawDate}" → parsed="${parsed}"`);
-              return { ...o, _date: parsed };
-            })
-            .filter(o => o._date && o._date.startsWith(`${adjustedYear}-${String(adjustedMonth + 1).padStart(2, "0")}`))
-            .sort((a, b) => (a._date || "").localeCompare(b._date || ""));
+            const now = new Date();
+            const month = now.getMonth() + calendarMonthOffset;
+            const year = now.getFullYear() + Math.floor(month / 12);
+            const adjustedMonth = ((month % 12) + 12) % 12;
+            const adjustedYear = year - (month < 0 ? 1 : 0);
+            const days = new Date(adjustedYear, adjustedMonth + 1, 0).getDate();
+            const firstDay = new Date(adjustedYear, adjustedMonth, 1).getDay();
 
-          const monthName = new Date(adjustedYear, adjustedMonth, 1).toLocaleDateString(undefined, {
-            month: "long",
-            year: "numeric",
-          });
+            // Build events with parsed dates
+            const events = orders
+              .map(o => {
+                const rawDate = displayValue(o, source);
+                const parsed = parseDateValue(rawDate);
+                console.log(`📅 [Calendar] Order ${o.id}: raw="${rawDate}" → parsed="${parsed}"`);
+                return { ...o, _date: parsed };
+              })
+              .filter(o => o._date && o._date.startsWith(`${adjustedYear}-${String(adjustedMonth + 1).padStart(2, "0")}`))
+              .sort((a, b) => (a._date || "").localeCompare(b._date || ""));
 
-          let html = `<div class="bg-white/5 text-white border border-white/10 rounded-2xl p-5">
-            <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-              <div class="flex items-center gap-3">
-                <button id="calendarPrevBtn" class="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-bold transition">←</button>
-                <h3 class="font-black text-white">${monthName}</h3>
-                <button id="calendarNextBtn" class="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-bold transition">→</button>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="text-xs text-white/40">${events.length} orders</span>
-                <select id="calendarDateSource" class="rounded-xl border border-white/20 bg-black/20 text-white px-3 py-2 text-sm">
-                  ${getAvailableDateFields().map(f => `<option value="${f.value}" ${f.value === source ? 'selected' : ''}>${f.label}</option>`).join('')}
-                </select>
-              </div>
-            </div>
-            <div class="grid grid-cols-7 gap-2 text-center text-xs font-bold text-white/40 mb-2">
-              ${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(x => `<div>${x}</div>`).join('')}
-            </div>
-            <div class="grid grid-cols-7 gap-2">
-              ${Array.from({ length: firstDay }, () => "<div></div>").join('')}
-              ${Array.from({ length: days }, (_, i) => {
-                const day = i + 1;
-                const key = `${adjustedYear}-${String(adjustedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                const ds = events.filter(o => o._date === key);
-                return `<button type="button" data-calendar-date="${key}" class="min-h-24 text-left p-2 rounded-xl border ${ds.length ? "border-brand-teal/30 bg-brand-teal/10" : "border-white/10 bg-white/5"} hover:border-brand-teal/50 transition"><span class="text-xs font-black text-white/70">${day}</span>${
-                  ds.slice(0, 3).map(o => `<span class="block mt-2 text-[10px] font-bold text-white/60 truncate">${esc(o.title)}</span>`).join('')
-                }${
-                  ds.length > 3 ? `<span class="text-[9px] text-brand-teal">${ds.length - 3} more</span>` : ''
-                }</button>`;
-              }).join('')}
-            </div>
-          </div>`;
-          
-          document.getElementById("sectionPageBody").innerHTML = html;
-
-          // Bind events
-          document.querySelectorAll("[data-calendar-date]").forEach(b => {
-            b.addEventListener("click", function() {
-              const date = this.dataset.calendarDate;
-              console.log(`📅 [Calendar] Clicked date: "${date}"`);
-              // Navigate to All Work Orders
-              document.querySelector('[data-nav-page="all-orders"]').click();
-              setTimeout(() => {
-                // Set both From and To to the same date
-                const dateFrom = document.getElementById("allOrdersDateFrom");
-                const dateTo = document.getElementById("allOrdersDateTo");
-                if (dateFrom) {
-                  dateFrom.value = date;
-                  dateFrom.dispatchEvent(new Event("change", { bubbles: true }));
-                  console.log(`📅 [Calendar] Set dateFrom to "${date}"`);
-                }
-                if (dateTo) {
-                  dateTo.value = date;
-                  dateTo.dispatchEvent(new Event("change", { bubbles: true }));
-                  console.log(`📅 [Calendar] Set dateTo to "${date}"`);
-                }
-                // Clear search to avoid conflicting filters
-                const searchInput = document.getElementById("allOrdersSearch");
-                if (searchInput) {
-                  searchInput.value = "";
-                  searchInput.dispatchEvent(new Event("input", { bubbles: true }));
-                }
-                toast(`📅 Filtering orders on ${date}`, "info");
-              }, 100);
+            const monthName = new Date(adjustedYear, adjustedMonth, 1).toLocaleDateString(undefined, {
+              month: "long",
+              year: "numeric",
             });
-          });
 
-          // Bind dropdown change
-          const dropdown = document.getElementById("calendarDateSource");
-          if (dropdown) {
-            dropdown.removeEventListener("change", calendarDropdownHandler);
-            dropdown.addEventListener("change", calendarDropdownHandler);
+            let html = `<div class="bg-white/5 text-white border border-white/10 rounded-2xl p-5">
+              <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div class="flex items-center gap-3">
+                  <button id="calendarPrevBtn" class="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-bold transition">←</button>
+                  <h3 class="font-black text-white">${monthName}</h3>
+                  <button id="calendarNextBtn" class="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-bold transition">→</button>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-white/40">${events.length} orders</span>
+                  <select id="calendarDateSource" class="rounded-xl border border-white/20 bg-black/20 text-white px-3 py-2 text-sm">
+                    ${getAvailableDateFields().map(f => `<option value="${f.value}" ${f.value === source ? 'selected' : ''}>${f.label}</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+              <div class="grid grid-cols-7 gap-2 text-center text-xs font-bold text-white/40 mb-2">
+                ${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(x => `<div>${x}</div>`).join('')}
+              </div>
+              <div class="grid grid-cols-7 gap-2">
+                ${Array.from({ length: firstDay }, () => "<div></div>").join('')}
+                ${Array.from({ length: days }, (_, i) => {
+                  const day = i + 1;
+                  const key = `${adjustedYear}-${String(adjustedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                  const ds = events.filter(o => o._date === key);
+                  return `<button type="button" data-calendar-date="${key}" class="min-h-24 text-left p-2 rounded-xl border ${ds.length ? "border-brand-teal/30 bg-brand-teal/10" : "border-white/10 bg-white/5"} hover:border-brand-teal/50 transition"><span class="text-xs font-black text-white/70">${day}</span>${
+                    ds.slice(0, 3).map(o => `<span class="block mt-2 text-[10px] font-bold text-white/60 truncate">${esc(o.title)}</span>`).join('')
+                  }${
+                    ds.length > 3 ? `<span class="text-[9px] text-brand-teal">${ds.length - 3} more</span>` : ''
+                  }</button>`;
+                }).join('')}
+              </div>
+            </div>`;
+            
+            document.getElementById("sectionPageBody").innerHTML = html;
+
+            // Bind events for date buttons
+            document.querySelectorAll("[data-calendar-date]").forEach(b => {
+              b.addEventListener("click", function() {
+                const date = this.dataset.calendarDate;
+                console.log(`📅 [Calendar] Clicked date: "${date}"`);
+                // Navigate to All Work Orders
+                document.querySelector('[data-nav-page="all-orders"]').click();
+                setTimeout(() => {
+                  const dateFrom = document.getElementById("allOrdersDateFrom");
+                  const dateTo = document.getElementById("allOrdersDateTo");
+                  if (dateFrom) {
+                    dateFrom.value = date;
+                    dateFrom.dispatchEvent(new Event("change", { bubbles: true }));
+                    console.log(`📅 [Calendar] Set dateFrom to "${date}"`);
+                  }
+                  if (dateTo) {
+                    dateTo.value = date;
+                    dateTo.dispatchEvent(new Event("change", { bubbles: true }));
+                    console.log(`📅 [Calendar] Set dateTo to "${date}"`);
+                  }
+                  const searchInput = document.getElementById("allOrdersSearch");
+                  if (searchInput) {
+                    searchInput.value = "";
+                    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+                  }
+                  toast(`📅 Filtering orders on ${date}`, "info");
+                }, 100);
+              });
+            });
+
+            // Bind dropdown change
+            const dropdown = document.getElementById("calendarDateSource");
+            if (dropdown) {
+              dropdown.removeEventListener("change", calendarDropdownHandler);
+              dropdown.addEventListener("change", calendarDropdownHandler);
+            }
+
+            // Bind navigation buttons
+            document.querySelector("#calendarPrevBtn")?.addEventListener("click", function() {
+              calendarMonthOffset--;
+              renderCalendar();
+            });
+            document.querySelector("#calendarNextBtn")?.addEventListener("click", function() {
+              calendarMonthOffset++;
+              renderCalendar();
+            });
           }
 
-          // Bind navigation buttons
-          document.querySelector("#calendarPrevBtn")?.addEventListener("click", function() {
-            calendarMonthOffset--;
+          // ---- calendarDropdownHandler ----
+          function calendarDropdownHandler() {
+            displayConfig.calendarDateSource = this.value;
+            saveDisplayConfig();
+            calendarMonthOffset = 0;
             renderCalendar();
-          });
-          document.querySelector("#calendarNextBtn")?.addEventListener("click", function() {
-            calendarMonthOffset++;
-            renderCalendar();
-          });
+          }
+
+          renderCalendar();
+          return;
         }
 
+        // ======================= REPORTS =======================
         if (page === "reports") {
           title.textContent = "Reports";
-          sub.textContent =
-            "Operational summary based on the current local work-order data.";
+          sub.textContent = "Operational summary based on the current local work-order data.";
           const rows = Object.entries(statusCounts)
             .map(
               ([s, n]) =>
@@ -7928,6 +7993,7 @@
           return;
         }
 
+        // ======================= ANALYTICS =======================
         if (page === "analytics") {
           title.textContent = "Analytics";
           sub.textContent = "Filter work orders and analyze the data.";
@@ -8108,6 +8174,7 @@
           return;
         }
 
+        // ======================= ACTIVITY LOG =======================
         if (page === "activity") {
           title.textContent = "Activity Log";
           sub.textContent =
@@ -8157,6 +8224,7 @@
           return;
         }
 
+        // ======================= USERS =======================
         if (page === "users") {
           title.textContent = "Users";
           sub.textContent =
@@ -8212,6 +8280,7 @@
           return;
         }
 
+        // ======================= SETTINGS =======================
         else if (page === "settings") {
           title.textContent = "Settings";
           sub.textContent = "Prototype settings and local data controls.";
@@ -8338,7 +8407,7 @@
             ${fieldConfigHTML}
           </div>`;
 
-          // ===== SETTINGS EVENT LISTENERS =====
+          // ----- settings event listeners (re‑bind) -----
           document
             .getElementById("settingsRefresh")
             .addEventListener("click", () => {
@@ -8353,8 +8422,7 @@
               if (!requireLogin()) return;
               openConfirmationModal({
                 title: "Reset demo data",
-                message:
-                  "Reset all local work-order data to the demo records?",
+                message: "Reset all local work-order data to the demo records?",
                 confirmText: "Reset",
                 confirmClass: "bg-red-600 hover:bg-red-700",
                 onConfirm: () => {
@@ -8368,7 +8436,7 @@
               });
             });
 
-          // ===== FIELD CONFIGURATION EVENT LISTENERS =====
+          // Field config event listeners (unchanged)
           document.addEventListener("change", function (e) {
             const target = e.target;
             if (target.dataset.fieldKey && target.dataset.fieldProperty) {
@@ -8376,7 +8444,6 @@
               const property = target.dataset.fieldProperty;
               let value = target.type === "checkbox" ? target.checked : target.value;
               updateFieldConfig(key, { [property]: value });
-              // 🔥 refresh the UI immediately
               render();
               const sectionPage = document.getElementById("sectionPage");
               if (!sectionPage.classList.contains("hidden")) {
@@ -8385,7 +8452,6 @@
                   showSectionPage("all-orders");
                 }
               }
-              // If we changed the "created" field source and the Calendar is open, re-render it
               if (key === "created") {
                 const sectionPage = document.getElementById("sectionPage");
                 if (!sectionPage.classList.contains("hidden") && document.getElementById("sectionPageTitle").textContent === "Calendar") {
@@ -8416,33 +8482,27 @@
             }
           });
 
-          // ===== ADD FIELD MODAL EVENTS =====
+          // Add Field button
           document.getElementById('addFieldConfigBtn').addEventListener('click', function () {
             if (!requireLogin()) {
               toast("Please log in to add a field.", "warning");
               return;
             }
-            // Populate the source dropdown with all available headers
             const sourceSelect = document.getElementById('newFieldSourceInline');
             const headers = allAvailableHeaders();
             sourceSelect.innerHTML = '<option value="">— Not mapped —</option>' +
               headers.map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join('');
 
-            // Clear previous values
             document.getElementById('newFieldLabelInline').value = '';
             document.getElementById('newFieldShowOnCardInline').checked = true;
             document.getElementById('newFieldShowInTableInline').checked = true;
-
-            // Show the inline row
             document.getElementById('addFieldRow').style.display = '';
           });
 
-          // Cancel new field row
           document.getElementById('cancelNewFieldInline').addEventListener('click', function () {
             document.getElementById('addFieldRow').style.display = 'none';
           });
 
-          // Save new field inline
           document.getElementById('saveNewFieldInline').addEventListener('click', function () {
             const label = document.getElementById('newFieldLabelInline').value.trim();
             if (!label) {
@@ -8452,7 +8512,6 @@
             const source = document.getElementById('newFieldSourceInline').value.trim();
             const showOnCard = document.getElementById('newFieldShowOnCardInline').checked;
             const showInTable = document.getElementById('newFieldShowInTableInline').checked;
-            // Type defaults to 'mapped' (the table does not show it)
             const type = 'mapped';
 
             const newKey = `custom_${Date.now()}`;
@@ -8466,7 +8525,6 @@
             };
             saveDisplayConfig();
 
-            // Add the field to all existing orders
             ensureFieldInAllOrders(label, source);
 
             document.getElementById('addFieldRow').style.display = 'none';
@@ -8474,134 +8532,24 @@
             toast(`✅ Field "${label}" added to all orders.`, "success");
           });
 
-          // ===== RESET FIELD CONFIG TO DEFAULTS (Full Reset) =====
+          // Reset buttons
           document.addEventListener("click", function (e) {
             const target = e.target.closest("#resetFieldConfigBtn");
             if (target) {
-              // Check if the button text indicates it's the "Reset All to Defaults" button
               const btnText = target.textContent.trim();
               if (!btnText.includes("Reset All") && btnText !== "Reset All to Defaults") {
-                // This is the "Reset Sources" button – handled below
-                return;
-              }
-              
-              if (!requireLogin()) {
-                toast("Please log in to reset field configuration.", "warning");
-                return;
-              }
-              
-              openConfirmationModal({
-                title: "Reset All Field Configurations",
-                message: "This will:\n• Reset all core field labels and sources to defaults\n• Remove ALL custom fields\n• Reset visibility toggles on cards and tables\n\nYour work order data will NOT be affected.",
-                confirmText: "Reset All",
-                confirmClass: "bg-red-600 hover:bg-red-700",
-                onConfirm: () => {
-                  const coreFields = [
-                    "id",
-                    "title", "status", "priority", "category",
-                    "location", "assignee", "requester",
-                    "created", "dueDate", "description"
-                  ];
-                  
-                  const defaultLabels = {
-                    id: "Work Order ID",
-                    title: "Title",
-                    status: "Status",
-                    priority: "Priority",
-                    category: "Category",
-                    location: "Location",
-                    assignee: "Assigned To",
-                    requester: "Requester",
-                    created: "Created Date",
-                    dueDate: "Due Date",
-                    description: "Description"
-                  };
-                  
-                  const defaultShowOnCard = {
-                    id: true,
-                    title: true,
-                    status: true,
-                    priority: false,
-                    category: false,
-                    location: true,
-                    assignee: true,
-                    requester: false,
-                    created: false,
-                    dueDate: true,
-                    description: true
-                  };
-                  
-                  const defaultShowInTable = {
-                    id: true,
-                    title: true,
-                    status: true,
-                    priority: true,
-                    category: false,
-                    location: true,
-                    assignee: true,
-                    requester: false,
-                    created: true,
-                    dueDate: true,
-                    description: false
-                  };
-                  
-                  coreFields.forEach((field) => {
-                    displayConfig.fieldConfig[field] = {
-                      label: defaultLabels[field] || field.charAt(0).toUpperCase() + field.slice(1),
-                      source: field,
-                      showOnCard: defaultShowOnCard[field] !== undefined ? defaultShowOnCard[field] : true,
-                      showInTable: defaultShowInTable[field] !== undefined ? defaultShowInTable[field] : true,
-                    };
-                  });
-                  
-                  Object.keys(displayConfig.fieldConfig).forEach((key) => {
-                    if (key.startsWith("custom_")) {
-                      delete displayConfig.fieldConfig[key];
-                    }
-                  });
-
-                  render();
-                  saveDisplayConfig();
-                  showSectionPage("settings");
-                  toast("✅ Field configuration reset to defaults. Custom fields removed.", "success");
-                  closeConfirmationModal();
-                },
-              });
-              return;
-            }
-          });
-
-          // ===== RESET SOURCES TO DEFAULTS =====
-          document.addEventListener("click", function (e) {
-            const target = e.target.closest("#resetFieldConfigBtn");
-            if (target) {
-              const btnText = target.textContent.trim();
-              // Only handle if this is the "Reset Sources" button
-              if (btnText.includes("Reset Sources") || btnText.includes("Sources")) {
+                // Reset Sources
                 if (!requireLogin()) {
                   toast("Please log in to reset sources.", "warning");
                   return;
                 }
-                
                 openConfirmationModal({
                   title: "Reset Sources to Defaults",
-                  message: "This will change the 'Source' dropdown for all core fields back to the default internal names (title, status, priority, etc.).\n\nYour custom labels and visibility settings will NOT be affected.",
+                  message: "This will change the 'Source' dropdown for all core fields back to the default internal names.\n\nYour custom labels and visibility settings will NOT be affected.",
                   confirmText: "Reset Sources",
                   confirmClass: "bg-amber-600 hover:bg-amber-700",
                   onConfirm: () => {
-                    const coreFields = [
-                      "id",
-                      "title",
-                      "status",
-                      "priority",
-                      "category",
-                      "location",
-                      "assignee",
-                      "requester",
-                      "created",
-                      "dueDate",
-                      "description"
-                    ];
+                    const coreFields = ["id","title","status","priority","category","location","assignee","requester","created","dueDate","description"];
                     coreFields.forEach((field) => {
                       updateFieldConfig(field, { source: field });
                     });
@@ -8612,12 +8560,85 @@
                     closeConfirmationModal();
                   },
                 });
+                return;
+              } else {
+                // Reset All
+                if (!requireLogin()) {
+                  toast("Please log in to reset field configuration.", "warning");
+                  return;
+                }
+                openConfirmationModal({
+                  title: "Reset All Field Configurations",
+                  message: "This will:\n• Reset all core field labels and sources to defaults\n• Remove ALL custom fields\n• Reset visibility toggles on cards and tables\n\nYour work order data will NOT be affected.",
+                  confirmText: "Reset All",
+                  confirmClass: "bg-red-600 hover:bg-red-700",
+                  onConfirm: () => {
+                    const coreFields = ["id","title","status","priority","category","location","assignee","requester","created","dueDate","description"];
+                    const defaultLabels = {
+                      id: "Work Order ID",
+                      title: "Title",
+                      status: "Status",
+                      priority: "Priority",
+                      category: "Category",
+                      location: "Location",
+                      assignee: "Assigned To",
+                      requester: "Requester",
+                      created: "Created Date",
+                      dueDate: "Due Date",
+                      description: "Description"
+                    };
+                    const defaultShowOnCard = {
+                      id: true,
+                      title: true,
+                      status: true,
+                      priority: false,
+                      category: false,
+                      location: true,
+                      assignee: true,
+                      requester: false,
+                      created: false,
+                      dueDate: true,
+                      description: true
+                    };
+                    const defaultShowInTable = {
+                      id: true,
+                      title: true,
+                      status: true,
+                      priority: true,
+                      category: false,
+                      location: true,
+                      assignee: true,
+                      requester: false,
+                      created: true,
+                      dueDate: true,
+                      description: false
+                    };
+                    coreFields.forEach((field) => {
+                      displayConfig.fieldConfig[field] = {
+                        label: defaultLabels[field] || field.charAt(0).toUpperCase() + field.slice(1),
+                        source: field,
+                        showOnCard: defaultShowOnCard[field] !== undefined ? defaultShowOnCard[field] : true,
+                        showInTable: defaultShowInTable[field] !== undefined ? defaultShowInTable[field] : true,
+                      };
+                    });
+                    Object.keys(displayConfig.fieldConfig).forEach((key) => {
+                      if (key.startsWith("custom_")) {
+                        delete displayConfig.fieldConfig[key];
+                      }
+                    });
+                    render();
+                    saveDisplayConfig();
+                    showSectionPage("settings");
+                    toast("✅ Field configuration reset to defaults. Custom fields removed.", "success");
+                    closeConfirmationModal();
+                  },
+                });
+                return;
               }
-              return;
             }
           });
 
-          // ===== REMOVE FIELD =====
+          // Remove field
           document.addEventListener("click", function (e) {
             const target = e.target.closest("[data-remove-field]");
             if (target) {
@@ -8626,7 +8647,6 @@
                 return;
               }
               const key = target.dataset.removeField;
-              // 1. Grab the label from the config BEFORE we delete it
               const config = displayConfig.fieldConfig && displayConfig.fieldConfig[key];
               const label = config ? config.label : key;
 
@@ -8636,11 +8656,8 @@
                 confirmText: "Remove",
                 confirmClass: "bg-red-600 hover:bg-red-700",
                 onConfirm: () => {
-                  // 2. Delete the actual data from every order (Fixes the Drawer!)
                   removeFieldDataFromOrders(label);
-                  // 3. Delete the display configuration
                   removeCustomFieldConfig(key);
-                  // 4. Refresh the Settings page UI
                   showSectionPage("settings");
                   toast(`✅ Removed field "${label}" from all orders.`, "info");
                   closeConfirmationModal();
@@ -8650,27 +8667,20 @@
             }
           });
 
-          // ===== SAVE FIELD CONFIG =====
-          let saveFieldConfigHandler = null;
+          // Save field config
           document.addEventListener("click", function (e) {
             const target = e.target.closest("#saveFieldConfigBtn");
             if (target) {
-              // Use a flag to prevent multiple toasts
               if (target.dataset.saving === "true") return;
-              
               if (!requireLogin()) {
                 toast("Please log in to save field configuration.", "warning");
                 return;
               }
-              
               target.dataset.saving = "true";
               saveDisplayConfig();
               render();
               toast("Field configuration saved.", "success");
-              
-              setTimeout(() => {
-                delete target.dataset.saving;
-              }, 1000);
+              setTimeout(() => delete target.dataset.saving, 1000);
               return;
             }
           });
