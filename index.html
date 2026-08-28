@@ -8069,7 +8069,7 @@
                   console.log(`🔍 [All Orders] Order ${o.id}: ${dateType}Val="${dateVal}"`);
                   
                   const checkDate = (val) => {
-                    if (!val) return true;
+                    if (!val) return false;
                     if (dateFrom && val < dateFrom) return false;
                     if (dateTo && val > dateTo) return false;
                     return true;
