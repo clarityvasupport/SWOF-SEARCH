@@ -9192,51 +9192,24 @@
       document.getElementById("refreshBtn").addEventListener("click", async () => {
         const btn = document.getElementById("refreshBtn");
         const icon = document.getElementById("refreshIcon");
-        const apiUrl = document.getElementById("importApiUrl").value.trim();
         btn.disabled = true;
         icon.classList.add("animate-spin");
 
         try {
-          if (apiUrl) {
-            // Fetch fresh data from API
-            const { headers, rows } = await fetchApiDataFromUrl(apiUrl);
-            
-            // Load saved mapping or infer
-            const savedConfig = loadMappingConfig();
-            if (savedConfig && savedConfig.mapping && savedConfig.mapping.title) {
-              importHeaders = savedConfig.headers || headers;
-              importRows = rows;
-              importSourceName = savedConfig.sourceName || apiUrl;
-              importSourceType = "api";
-              importMapping = savedConfig.mapping || {};
-              importFieldLabels = savedConfig.fieldLabels || {};
-              importFieldTypes = savedConfig.fieldTypes || {};
-              importCustomMappings = savedConfig.customMappings || [];
-            } else {
-              showImportData(headers, rows, apiUrl, "api");
-            }
+          // 1. Sync with cloud (KV) – same as normal page load
+          await loadSharedState();
 
-            // Clear existing orders and force replacement
-            orders = [];
-            history = [];
-            
-            // Apply import with forceReplace = true
-            await applyImport(true, true);
-            
-            saveApiUrl(apiUrl);
-            saveMappingConfig();
-            
-            toast("✅ Dashboard refreshed with fresh API data.", "success");
-          } else {
-            // Fallback to cloud sync
-            await loadSharedState();
-            currentPage = 1;
-            render();
-            if (selectedId && orders.some((o) => o.id === selectedId))
-              renderDrawer(selectedId);
-            else if (selectedId) closeDrawer();
-            toast("Dashboard synced from the cloud.", "success");
-          }
+          // 2. Sync with external API (if configured) – merges new data
+          await autoSyncFromStoredApi();
+
+          // 3. Reset pagination and re‑render
+          currentPage = 1;
+          render();
+          if (selectedId && orders.some((o) => o.id === selectedId))
+            renderDrawer(selectedId);
+          else if (selectedId) closeDrawer();
+
+          toast("Dashboard refreshed successfully.", "success");
         } catch (err) {
           console.error(err);
           toast("❌ Refresh failed: " + err.message, "error");
