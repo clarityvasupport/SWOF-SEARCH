@@ -9199,10 +9199,10 @@
           // 1. Sync with cloud (KV) – same as normal page load
           await loadSharedState();
 
-          // 2. Sync with external API (if configured) – merges new data
+          // 2. Sync with external API (if configured) – merges new/updated orders
           await autoSyncFromStoredApi();
 
-          // 3. Reset pagination and re‑render
+          // 3. Re‑render the dashboard
           currentPage = 1;
           render();
           if (selectedId && orders.some((o) => o.id === selectedId))
@@ -9865,8 +9865,8 @@
           ? importedHeaders
           : loadImportedHeaders();
         currentPage = 1;
-        render();
         await autoSyncFromStoredApi();
+        render();
 
         const hamburger = document.getElementById("hamburgerBtn");
         const sidebar = document.getElementById("sidebarNav");
