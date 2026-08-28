@@ -2067,7 +2067,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.8.14";
+      const APP_VERSION = "1.8.16";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -8888,16 +8888,13 @@
               let value = target.type === "checkbox" ? target.checked : target.value;
               updateFieldConfig(key, { [property]: value });
               render();
+              // Refresh any open section that depends on field config
               const sectionPage = document.getElementById("sectionPage");
               if (!sectionPage.classList.contains("hidden")) {
                 const title = document.getElementById("sectionPageTitle").textContent;
                 if (title === "All Work Orders") {
                   showSectionPage("all-orders");
-                }
-              }
-              if (key === "created") {
-                const sectionPage = document.getElementById("sectionPage");
-                if (!sectionPage.classList.contains("hidden") && document.getElementById("sectionPageTitle").textContent === "Calendar") {
+                } else if (title === "Calendar") {
                   showSectionPage("calendar");
                 }
               }
@@ -8915,11 +8912,14 @@
               const property = target.dataset.fieldProperty;
               updateFieldConfig(key, { [property]: target.value });
               render();
+              // Refresh any open section that depends on field config
               const sectionPage = document.getElementById("sectionPage");
               if (!sectionPage.classList.contains("hidden")) {
                 const title = document.getElementById("sectionPageTitle").textContent;
                 if (title === "All Work Orders") {
                   showSectionPage("all-orders");
+                } else if (title === "Calendar") {
+                  showSectionPage("calendar");
                 }
               }
             }
@@ -9110,7 +9110,7 @@
             }
           });
 
-          // Save field config
+          // Save field config button
           document.addEventListener("click", function (e) {
             const target = e.target.closest("#saveFieldConfigBtn");
             if (target) {
@@ -9122,9 +9122,18 @@
               target.dataset.saving = "true";
               saveDisplayConfig();
               render();
+              // Refresh any open section that depends on field config
+              const sectionPage = document.getElementById("sectionPage");
+              if (!sectionPage.classList.contains("hidden")) {
+                const title = document.getElementById("sectionPageTitle").textContent;
+                if (title === "All Work Orders") {
+                  showSectionPage("all-orders");
+                } else if (title === "Calendar") {
+                  showSectionPage("calendar");
+                }
+              }
               toast("Field configuration saved.", "success");
               setTimeout(() => delete target.dataset.saving, 1000);
-              return;
             }
           });
         }
