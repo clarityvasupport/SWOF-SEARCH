@@ -2067,7 +2067,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.8.17";
+      const APP_VERSION = "1.8.18";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -2185,6 +2185,7 @@
           password: storedPassword || "password",
           importApiUrl: document.getElementById("importApiUrl").value.trim() || loadApiUrl(),
           importMappingConfig: loadMappingConfig() || {},
+          _lastUpdated: Date.now()
         };
         //console.log('[syncSharedStorage] Sending payload with orders count:', payload.orders.length);
         //console.log('[syncSharedStorage] First 3 orders being sent:', payload.orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
@@ -2251,61 +2252,74 @@
       }
 
       async function loadSharedState() {
-        //console.log('[loadSharedState] Called');
+        console.log('[loadSharedState] Called');
         try {
           const res = await fetch("/api/data", { cache: "no-store" });
           if (!res.ok) throw new Error("shared load failed");
           const data = await res.json();
-          //console.log('[loadSharedState] Received data from cloud:', data);
+          console.log('[loadSharedState] Received data from cloud:', data);
 
-          // Restore orders
-          if (data && data.orders) {
-            //console.log('[loadSharedState] Cloud has orders, overwriting local with:', data.orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
-            orders = Array.isArray(data.orders) ? data.orders : orders;
+          // Get local timestamp (stored in localStorage)
+          let localTimestamp = 0;
+          try {
+            localTimestamp = parseInt(localStorage.getItem('wo_local_timestamp') || '0', 10);
+          } catch (_) {}
+
+          // Get cloud timestamp
+          const cloudTimestamp = data._lastUpdated || 0;
+
+          console.log(`[loadSharedState] Local timestamp: ${localTimestamp}, Cloud timestamp: ${cloudTimestamp}`);
+
+          // Only overwrite if cloud data is newer OR local is empty
+          const cloudIsNewer = cloudTimestamp > localTimestamp;
+          const localIsEmpty = !orders || orders.length === 0;
+
+          if (cloudIsNewer || localIsEmpty) {
+            console.log('[loadSharedState] ✅ Cloud data is newer, overwriting local');
+
+            if (data && data.orders) {
+              orders = Array.isArray(data.orders) ? data.orders : orders;
+            }
+            if (data && data.displayConfig && typeof data.displayConfig === "object")
+              displayConfig = data.displayConfig;
+            if (data && data.users)
+              users = Array.isArray(data.users) ? data.users : users;
+            if (data && data.importedHeaders)
+              importedHeaders = Array.isArray(data.importedHeaders) ? data.importedHeaders : importedHeaders;
+            if (data && data.password) storedPassword = data.password;
+            if (data && data.history)
+              history = Array.isArray(data.history) ? data.history : history;
+            if (data && data.importApiUrl) {
+              const input = document.getElementById("importApiUrl");
+              if (input) input.value = data.importApiUrl;
+              saveApiUrl(data.importApiUrl);
+            }
+            if (data && data.importMappingConfig) {
+              const config = data.importMappingConfig;
+              importMapping = config.mapping || {};
+              importFieldLabels = config.fieldLabels || {};
+              importFieldTypes = config.fieldTypes || {};
+              importCustomMappings = config.customMappings || [];
+              importHeaders = config.headers || [];
+              importSourceName = config.sourceName || "";
+              saveMappingConfig();
+            }
+
+            // Update local timestamp
+            localStorage.setItem('wo_local_timestamp', String(cloudTimestamp || Date.now()));
+
+            isOnline = true;
+            updateStorageBadge();
+          } else {
+            console.log('[loadSharedState] ⏳ Local data is newer, keeping local');
+            // Still set online status if the fetch succeeded
+            isOnline = true;
+            updateStorageBadge();
+            // Optionally, push the local data to the cloud if it's newer
+            // but we only do this on the next save.
           }
 
-          // Restore displayConfig
-          if (data && data.displayConfig && typeof data.displayConfig === "object")
-            displayConfig = data.displayConfig;
-
-          // Restore users
-          if (data && data.users)
-            users = Array.isArray(data.users) ? data.users : users;
-
-          // Restore importedHeaders
-          if (data && data.importedHeaders)
-            importedHeaders = Array.isArray(data.importedHeaders)
-              ? data.importedHeaders
-              : importedHeaders;
-
-          // Restore password
-          if (data && data.password) storedPassword = data.password;
-
-          // Restore history
-          if (data && data.history)
-            history = Array.isArray(data.history) ? data.history : history;
-
-          // Restore import configuration
-          if (data && data.importApiUrl) {
-            const input = document.getElementById("importApiUrl");
-            if (input) input.value = data.importApiUrl;
-            saveApiUrl(data.importApiUrl);
-          }
-
-          if (data && data.importMappingConfig) {
-            const config = data.importMappingConfig;
-            importMapping = config.mapping || {};
-            importFieldLabels = config.fieldLabels || {};
-            importFieldTypes = config.fieldTypes || {};
-            importCustomMappings = config.customMappings || [];
-            importHeaders = config.headers || [];
-            importSourceName = config.sourceName || "";
-            saveMappingConfig();
-          }
-
-          isOnline = true;
-          updateStorageBadge();
-          //console.log('[loadSharedState] After processing, orders are:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+          console.log('[loadSharedState] After processing, orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
         } catch {
           console.warn('[loadSharedState] Fallback to localStorage');
           orders = loadOrders();
@@ -2315,7 +2329,7 @@
           importedHeaders = loadImportedHeaders();
           isOnline = false;
           updateStorageBadge();
-          //console.log('[loadSharedState] After fallback, orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+          console.log('[loadSharedState] After fallback, orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
         }
       }
 
@@ -2940,6 +2954,7 @@
       function saveOrders() {
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+          localStorage.setItem('wo_local_timestamp', String(Date.now()));
         } catch {}
         syncSharedStorage();
       }
