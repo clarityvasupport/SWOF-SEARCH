@@ -2045,7 +2045,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.8.2";
+      const APP_VERSION = "1.8.3";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -3896,6 +3896,43 @@
           `<option value="${esc(s)}" ${o.status === s ? "selected" : ""}>${esc(s)}</option>`
         ).join("");
 
+        // ---- NEW: Merge global custom fields with per-order fields ----
+        const allConfigs = getAllFieldConfigs();
+        const globalCustomKeys = Object.keys(allConfigs).filter(k => k.startsWith("custom_"));
+        const globalCustomFields = globalCustomKeys
+          .filter(k => allConfigs[k].showOnCard !== false)
+          .map(k => {
+            const cfg = allConfigs[k];
+            const label = cfg.label || k;
+            const source = cfg.source || "";
+            // Get value from source (if mapped) or from existing customFields
+            let value = source ? displayValue(o, source) : "";
+            if (!value) {
+              const cf = (o.customFields || []).find(f => f.label === label || f._sourceHeader === source);
+              value = cf ? cf.value : "";
+            }
+            return { label, value, source };
+          });
+
+        // Per‑order custom fields that are not already covered by a global field
+        const perOrderFields = (o.customFields || [])
+          .filter(f => f.label && (f.value || f._sourceHeader))
+          .filter(f => !globalCustomFields.some(g => g.label === f.label))
+          .map(f => {
+            const value = customFieldValue(o, f.label) || f.value || "";
+            return { label: f.label, value, source: f._sourceHeader || "" };
+          });
+
+        const allCustomFields = [...globalCustomFields, ...perOrderFields];
+
+        // Build the custom fields display (used in the drawer)
+        const customFieldsDisplay = allCustomFields.length
+          ? allCustomFields.map(f =>
+              `<div class="custom-field-item bg-black/5 rounded-lg p-2 border border-black/10"><strong class="text-black/60">${esc(f.label)}</strong> <span class="text-black/80">${formatFieldValue(f.value, o.id)}</span></div>`
+            ).join("")
+          : '<p class="text-xs text-black/40">No custom fields yet. Click "Add Field" to add one.</p>';
+
+        // Activity log
         const activity = (o.activity || [])
           .filter(
             (a) =>
@@ -3915,14 +3952,7 @@
           )
           .join("");
 
-        const customFieldsDisplay = (o.customFields || [])
-          .filter((f) => f.label && (f.value || f._sourceHeader))
-          .map((f) => {
-            const actualValue = customFieldValue(o, f.label) || f.value || "";
-            return `<div class="custom-field-item bg-black/5 rounded-lg p-2 border border-black/10"><strong class="text-black/60">${esc(f.label)}</strong> <span class="text-black/80">${formatFieldValue(actualValue, o.id)}</span></div>`;
-          })
-          .join("");
-
+        // ---- Build details grid using allCustomFields ----
         const stdDetails = `
           <section>
             <h3 class="text-sm font-black text-black/80 mb-3">Work Order Details</h3>
@@ -3942,21 +3972,13 @@
               )}
               ${detailBox("Requester", o.requester, o.id)}
               ${detailBox("Assigned To", o.assignee, o.id)}
-              ${(o.customFields || [])
-                .filter((f) => f.label && f.label !== "Date Transmitted")
-                .map((f) => {
-                  const actualValue = customFieldValue(o, f.label) || f.value || "";
-                  return detailBox(f.label, actualValue, o.id);
-                })
+              ${allCustomFields
+                .filter(f => f.label !== "Date Transmitted")   // avoid duplication if you have a dedicated field
+                .map(f => detailBox(f.label, f.value, o.id))
                 .join("")}
             </div>
           </section>
         `;
-
-        const allHeaders = allAvailableHeaders(o);
-        const headerOpts = allHeaders
-          .map((h) => `<option value="${esc(h)}">${esc(h)}</option>`)
-          .join("");
 
         const body = document.getElementById("drawerBody");
         body.innerHTML = `
@@ -4630,10 +4652,33 @@
         const headerOpts = allHeaders
           .map((h) => `<option value="${esc(h)}">${esc(h)}</option>`)
           .join("");
-        const fields =
-          Array.isArray(o.customFields) && o.customFields.length
-            ? o.customFields
-            : [{ label: "", value: "", _sourceHeader: "" }];
+
+        // ---- Merge global custom fields with per-order fields ----
+        const allConfigs = getAllFieldConfigs();
+        const globalKeys = Object.keys(allConfigs).filter(k => k.startsWith("custom_"));
+        const globalFields = globalKeys
+          .filter(k => allConfigs[k].showOnCard !== false)
+          .map(k => {
+            const cfg = allConfigs[k];
+            const label = cfg.label || k;
+            const source = cfg.source || "";
+            // Check if this field already exists in o.customFields
+            const existing = (o.customFields || []).find(f => f.label === label || f._sourceHeader === source);
+            if (existing) {
+              // Use existing value, but label from config
+              return { label, value: existing.value || "", _sourceHeader: source };
+            } else {
+              return { label, value: "", _sourceHeader: source };
+            }
+          });
+
+        // Per-order fields not covered by global config
+        const perOrderFields = (o.customFields || [])
+          .filter(f => f.label && !globalFields.some(g => g.label === f.label))
+          .map(f => ({ ...f }));
+
+        const mergedFields = globalFields.length ? globalFields : perOrderFields;
+        const fields = mergedFields.length ? mergedFields : [{ label: "", value: "", _sourceHeader: "" }];
 
         let html = "";
         fields.forEach((f, idx) => {
@@ -4677,6 +4722,7 @@
 
         wrap.dataset.fields = JSON.stringify(fields);
 
+        // ---- Bind events (same as before) ----
         wrap.querySelectorAll(".edit-field-label").forEach((el) => {
           el.addEventListener("input", function () {
             const idx = parseInt(this.dataset.idx);
@@ -5109,6 +5155,21 @@
           _importHeaders: importedHeaders.slice(),
           _rawData: {},
         };
+
+        // ---- NEW: Add global custom fields to the new order ----
+        const allConfigs = getAllFieldConfigs();
+        const globalCustomKeys = Object.keys(allConfigs).filter(k => k.startsWith("custom_"));
+        globalCustomKeys.forEach(k => {
+          const cfg = allConfigs[k];
+          if (cfg.showOnCard !== false) {
+            const label = cfg.label || k;
+            const source = cfg.source || "";
+            if (!o.customFields.some(f => f.label === label)) {
+              o.customFields.push({ label, value: "", _sourceHeader: source });
+            }
+          }
+        });
+
         pushHistory("before creating " + o.id);
         orders.unshift(o);
         saveOrders();
@@ -7626,6 +7687,10 @@
             return fieldConfigs[key].showInTable !== false;
           });
 
+          // ---- Get configured sources for created and dueDate ----
+          const createdSource = displayConfig.fieldConfig?.created?.source || "created";
+          const dueDateSource = displayConfig.fieldConfig?.dueDate?.source || "dueDate";
+
           let headersHTML = "";
           tableColumns.forEach((key) => {
             const cfg = fieldConfigs[key];
@@ -7683,9 +7748,14 @@
                 const matchesAssignee =
                   assignee === "all" || o.assignee === assignee;
                 
-                // Date range filter (checks both created and dueDate)
+                // ---- FIX: Use configured sources for date filtering ----
                 let matchesDate = true;
                 if (dateFrom || dateTo) {
+                  // Get the date values using displayValue with the configured sources
+                  const createdVal = displayValue(o, createdSource);
+                  const dueDateVal = displayValue(o, dueDateSource);
+                  
+                  // Helper to check if a date string matches the range
                   const checkDate = (dateVal) => {
                     if (!dateVal) return true;
                     const d = String(dateVal);
@@ -7694,8 +7764,10 @@
                     if (dateTo && d > dateTo) return false;
                     return true;
                   };
-                  const createdMatch = checkDate(o.created);
-                  const dueMatch = checkDate(o.dueDate);
+                  
+                  const createdMatch = checkDate(createdVal);
+                  const dueMatch = checkDate(dueDateVal);
+                  // Filter matches if either created or due date is within the range
                   matchesDate = createdMatch || dueMatch;
                 }
                 
@@ -7713,9 +7785,7 @@
 
             let rowsHTML = "";
             if (filteredOrders.length === 0) {
-              rowsHTML = `<tr><td colspan="${
-                tableColumns.length + 1
-              }" class="p-12 text-center text-black/40">No work orders found.</td></tr>`;
+              rowsHTML = `<tr><td colspan="${tableColumns.length + 1}" class="p-12 text-center text-black/40">No work orders found.</td></tr>`;
             } else {
               filteredOrders.forEach((o) => {
                 let rowHTML = `<tr class="border-t border-black/10 hover:bg-black/5">`;
@@ -7724,36 +7794,21 @@
                   let val = displayValue(o, cfg.source);
                   
                   if (key === "status") {
-                    val = `<span class="px-2 py-1 rounded-full border ${statusClass(
-                      val
-                    )}">${esc(val)}</span>`;
+                    val = `<span class="px-2 py-1 rounded-full border ${statusClass(val)}">${esc(val)}</span>`;
                   } else if (key === "priority") {
-                    // Priority with color
                     const colorClass = getPriorityColor(val);
                     val = `<span class="px-2 py-1 rounded-md text-[10px] font-bold ${colorClass}">${esc(val)}</span>`;
                   } else if (key === "assignee") {
-                    // Assignee with color
                     const colorClass = getAssigneeColor(val);
                     val = `<span class="px-2 py-1 rounded-md text-[10px] font-bold ${colorClass}">${esc(val)}</span>`;
-                  } else if (
-                    key === "created" ||
-                    key === "dueDate" ||
-                    key === "custom_" ||
-                    (key && key.startsWith("custom_"))
-                  ) {
+                  } else if (key === "created" || key === "dueDate" || (key && key.startsWith("custom_"))) {
                     val = formatDate(val);
                   } else {
                     val = esc(val || "—");
                   }
-                  rowHTML += `<td class="px-4 py-3 ${
-                    key === "title"
-                      ? "font-semibold text-black/80"
-                      : "text-black/70"
-                  }">${val}</td>`;
+                  rowHTML += `<td class="px-4 py-3 ${key === "title" ? "font-semibold text-black/80" : "text-black/70"}">${val}</td>`;
                 });
-                rowHTML += `<td class="px-4 py-3 text-right"><button data-all-open="${esc(
-                  o.id
-                )}" class="px-3 py-1.5 rounded-lg bg-brand-teal/20 text-brand-teal font-bold hover:bg-brand-teal/30 transition">Open</button></td>`;
+                rowHTML += `<td class="px-4 py-3 text-right"><button data-all-open="${esc(o.id)}" class="px-3 py-1.5 rounded-lg bg-brand-teal/20 text-brand-teal font-bold hover:bg-brand-teal/30 transition">Open</button></td>`;
                 rowHTML += `</tr>`;
                 rowsHTML += rowHTML;
               });
@@ -7761,19 +7816,15 @@
 
             document.getElementById("allOrdersBody").innerHTML = rowsHTML;
 
-            document
-              .querySelectorAll("[data-all-open]")
-              .forEach((b) =>
-                b.addEventListener("click", () => openDrawer(b.dataset.allOpen))
-              );
+            document.querySelectorAll("[data-all-open]").forEach((b) =>
+              b.addEventListener("click", () => openDrawer(b.dataset.allOpen))
+            );
 
-            
-            // After the table body is rendered, add drag events to headers
+            // Drag & drop for column reorder (already present)
             const table = document.querySelector('#allOrdersTable');
             if (table) {
               const headers = table.querySelectorAll('thead th');
               headers.forEach((th, index) => {
-                // Skip the last column (Action)
                 if (index === headers.length - 1) return;
                 th.setAttribute('draggable', 'true');
                 th.style.cursor = 'grab';
@@ -7785,14 +7836,13 @@
             }
           };
 
-          // ===== EVENT LISTENERS =====
+          // ---- Bind events ----
           document.getElementById("allOrdersSearch").addEventListener("input", paint);
           document.getElementById("allOrdersStatus").addEventListener("change", paint);
           document.getElementById("allOrdersAssignee").addEventListener("change", paint);
           document.getElementById("allOrdersDateFrom").addEventListener("change", paint);
           document.getElementById("allOrdersDateTo").addEventListener("change", paint);
           
-          // ===== CLEAR FILTERS BUTTON =====
           document.getElementById("allOrdersClearFilters").addEventListener("click", () => {
             document.getElementById("allOrdersSearch").value = "";
             document.getElementById("allOrdersStatus").value = "all";
@@ -7803,7 +7853,6 @@
             toast("Filters cleared.", "info");
           });
 
-          // ===== REFRESH BUTTON =====
           document.getElementById("allOrdersRefresh").addEventListener("click", () => {
             orders = loadOrders();
             const assignees = [
