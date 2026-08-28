@@ -7240,20 +7240,16 @@
           return;
         }
 
+        // Use forceReplace OR the checkbox value
         const replace = forceReplace || document.getElementById('replaceOrdersCheckbox').checked;
-        const replace = document.getElementById('replaceOrdersCheckbox').checked;
-        //console.log('[applyImport] Replace checkbox checked?', replace);
 
         if (replace) {
           orders = [];
           history = [];
-          //console.log('[applyImport] Orders cleared (replace mode).');
           toast("🗑️ Existing orders cleared. New import will replace all data.", "info");
         }
 
         const incoming = importRows.map(makeMappedOrder);
-        //console.log('[applyImport] Incoming orders (first 3):', incoming.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
-
         const isApiImport = importSourceType === "api";
 
         if (!isApiImport) {
@@ -7307,8 +7303,6 @@
           }
         });
 
-        //console.log('[applyImport] After merge, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
-
         // Apply labels from import to all orders
         orders = orders.map((o, i) => {
           const rawRow = o && o._rawData ? o._rawData : {};
@@ -7351,19 +7345,15 @@
           };
         });
 
-        //console.log('[applyImport] After re-map, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
-
-        // ----- Ensure custom fields from import are added to displayConfig with correct visibility -----
+        // ----- Ensure custom fields from import are added to displayConfig -----
         if (importCustomMappings && importCustomMappings.length) {
           if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
-          // Count existing custom fields
           const customKeys = Object.keys(displayConfig.fieldConfig).filter(k => k.startsWith('custom_'));
           let customIndex = customKeys.length + 1;
 
           importCustomMappings.forEach((custom, idx) => {
             const label = custom.label || custom.source || `Custom Field ${customIndex}`;
             const labelNorm = normalize(label);
-            // ---- FIX: normalized match instead of exact === ----
             const existing = Object.values(displayConfig.fieldConfig).find(
               cfg => normalize(cfg.label || "") === labelNorm
             );
@@ -7378,7 +7368,6 @@
               };
               customIndex++;
             } else {
-              // Update existing field's visibility from import mapping
               existing.showOnCard = custom.showOnCard !== undefined ? custom.showOnCard : existing.showOnCard;
               if (custom.source) existing.source = custom.source;
               if (custom.label) existing.label = custom.label;
@@ -7387,13 +7376,12 @@
           });
           saveDisplayConfig();
 
-          // ----- Add imported custom fields to ALL existing orders (so they appear in the drawer) -----
+          // Add imported custom fields to ALL existing orders
           orders.forEach(o => {
             if (!Array.isArray(o.customFields)) o.customFields = [];
             importCustomMappings.forEach(custom => {
               const label = custom.label || custom.source || '';
               const labelNorm = normalize(label);
-              // ---- FIX: normalized match instead of exact === ----
               const alreadyHas = o.customFields.some(f => normalize(f.label || "") === labelNorm);
               if (label && !alreadyHas) {
                 o.customFields.push({
@@ -7407,7 +7395,7 @@
           saveOrders();
         }
 
-        // --- Sync core fields to displayConfig ---
+        // ----- Sync core fields to displayConfig -----
         const defaultLabels = {
           id: "Work Order ID",
           title: "Title",
@@ -7439,69 +7427,60 @@
               showInTable: true,
               type: type,
             };
-            } else {
-              const existing = displayConfig.fieldConfig[field];
-              // 🔥 Only overwrite source if it hasn't been customized (i.e., it's the default field name)
-              const shouldUpdateSource = !existing.source || existing.source === field;
-              displayConfig.fieldConfig[field] = {
-                ...existing,
-                label: label,
-                source: shouldUpdateSource ? (header || field) : existing.source,
-                type: type,
-                // showOnCard and showInTable remain as they were
-              };
-            }
+          } else {
+            const existing = displayConfig.fieldConfig[field];
+            const shouldUpdateSource = !existing.source || existing.source === field;
+            displayConfig.fieldConfig[field] = {
+              ...existing,
+              label: label,
+              source: shouldUpdateSource ? (header || field) : existing.source,
+              type: type,
+            };
+          }
         });
         saveDisplayConfig();
 
+        // Sort orders (most recent created first, then sourceOrder)
         const timeOf = (v) => {
           const s = String(v || "");
           const t = Date.parse(s.length <= 10 ? s + "T00:00:00" : s);
           return Number.isNaN(t) ? 0 : t;
         };
-
-        // ---------- NEW SORT: most recent import first ----------
         orders.sort(
           (a, b) =>
             timeOf(b.created) - timeOf(a.created) ||
             Number(a.sourceOrder ?? 0) - Number(b.sourceOrder ?? 0)
         );
-        //console.log('[applyImport] After sort by sourceOrder desc, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
 
-        // ---------- SAVE TO LOCAL STORAGE (manual, no sync call) ----------
+        // ----- SAVE TO LOCAL STORAGE -----
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
           localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
           localStorage.setItem(USERS_KEY, JSON.stringify(users));
           localStorage.setItem(IMPORTED_HEADERS_KEY, JSON.stringify(importedHeaders));
           localStorage.setItem("wo_password", storedPassword);
-          //console.log('[applyImport] ✅ Data saved to localStorage');
         } catch (e) {
           console.error('[applyImport] ❌ Failed to save to localStorage:', e);
           toast("Failed to save data locally.", "error");
           return;
         }
 
-        // ---------- CLOUD SYNC (one single call with the current correct orders) ----------
-        const ordersToSync = orders.slice(); // snapshot
-        //console.log('[applyImport] ☁️ Syncing to cloud with orders:', ordersToSync.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
-
+        // ----- CLOUD SYNC -----
+        const ordersToSync = orders.slice();
         try {
           const originalOrders = orders;
           orders = ordersToSync;
           await syncSharedStorage();
           orders = originalOrders;
-          //console.log('[applyImport] ✅ Cloud sync completed.');
         } catch (e) {
           console.error('[applyImport] ❌ Cloud sync failed:', e);
           toast("⚠️ Data saved locally but cloud sync failed. Check your connection.", "error");
         }
 
-        // ---------- RELOAD FROM LOCAL STORAGE TO GET THE AUTHORITATIVE DATA ----------
+        // ----- RELOAD FROM LOCAL STORAGE (to get authoritative data) -----
         orders = loadOrders();
-        //console.log('[applyImport] After reload from localStorage, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
 
-        // ---------- Update UI ----------
+        // ----- UPDATE UI -----
         document.getElementById("searchInput").value = "";
         initializeDashboardFilters();
         document.getElementById("statusFilter").value = "all";
@@ -7521,7 +7500,7 @@
         resetImportCenter(true);
         render();
 
-        // ---------- Update assignees ----------
+        // ----- Update assignees -----
         const importedAssignees = new Set(
           orders.map((o) => o.assignee).filter((a) => a && a !== "Unassigned")
         );
@@ -9228,10 +9207,10 @@
 
         try {
           if (apiUrl) {
-            // 1. Fetch data from API
+            // Fetch fresh data from API
             const { headers, rows } = await fetchApiDataFromUrl(apiUrl);
             
-            // 2. Load saved mapping (or infer if none)
+            // Load saved mapping or infer
             const savedConfig = loadMappingConfig();
             if (savedConfig && savedConfig.mapping && savedConfig.mapping.title) {
               importHeaders = savedConfig.headers || headers;
@@ -9243,26 +9222,22 @@
               importFieldTypes = savedConfig.fieldTypes || {};
               importCustomMappings = savedConfig.customMappings || [];
             } else {
-              // Infer mapping from fresh data
               showImportData(headers, rows, apiUrl, "api");
             }
 
-            // 3. Force replacement – clear existing orders
+            // Clear existing orders and force replacement
             orders = [];
             history = [];
             
-            // 4. Apply import with replacement (skip auth because we're already logged in)
-            await applyImport(true); // this will use the current import rows and mapping
+            // Apply import with forceReplace = true
+            await applyImport(true, true);
             
-            // 5. Save API URL and mapping
-            if (apiUrl) {
-              saveApiUrl(apiUrl);
-              saveMappingConfig();
-            }
+            saveApiUrl(apiUrl);
+            saveMappingConfig();
             
             toast("✅ Dashboard refreshed with fresh API data.", "success");
           } else {
-            // No API URL – fallback to cloud sync
+            // Fallback to cloud sync
             await loadSharedState();
             currentPage = 1;
             render();
