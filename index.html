@@ -2067,7 +2067,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.8.18";
+      const APP_VERSION = "1.8.19";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -8250,9 +8250,20 @@
 
           // ---- renderCalendar function (with console logs) ----
           function renderCalendar() {
-            const createdFieldSource = displayConfig.fieldConfig?.created?.source || "created";
-            const source = displayConfig.calendarDateSource || createdFieldSource;
-            const titleSource = displayConfig.fieldConfig?.title?.source || "title"; // Get configured Title source
+            const availableDateFields = getAvailableDateFields();
+            let source = displayConfig.calendarDateSource || "created";
+            const sourceExists = availableDateFields.some(
+              f => f.value === source
+            );
+
+            if (!sourceExists) {
+              source = availableDateFields[0]?.value || "created";
+              displayConfig.calendarDateSource = source;
+              saveDisplayConfig();
+
+            }
+            
+            const titleSource = displayConfig.fieldConfig?.title?.source || "title";
 
             console.log(`📅 [Calendar] Using date source: "${source}"`);
             console.log(`📅 [Calendar] Using title source: "${titleSource}"`);
@@ -8292,7 +8303,7 @@
                 <div class="flex items-center gap-2">
                   <span class="text-xs text-white/40">${events.length} orders</span>
                   <select id="calendarDateSource" class="rounded-xl border border-white/20 bg-black/20 text-white px-3 py-2 text-sm">
-                    ${getAvailableDateFields().map(f => `<option value="${f.value}" ${f.value === source ? 'selected' : ''}>${f.label}</option>`).join('')}
+                    ${availableDateFields.map(f => `<option value="${f.value}" ${f.value === source ? 'selected' : ''}>${f.label}</option>`).join('')}
                   </select>
                 </div>
               </div>
@@ -8306,7 +8317,7 @@
                   const key = `${adjustedYear}-${String(adjustedMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
                   const ds = events.filter(o => o._date === key);
                   return `<button type="button" data-calendar-date="${key}" class="min-h-24 text-left p-2 rounded-xl border ${ds.length ? "border-brand-teal/30 bg-brand-teal/10" : "border-white/10 bg-white/5"} hover:border-brand-teal/50 transition"><span class="text-xs font-black text-white/70">${day}</span>${
-                    ds.slice(0, 3).map(o => `<span class="block mt-2 text-[10px] font-bold text-white/60 truncate">${esc(o._displayTitle)}</span>`).join('')
+                    ds.slice(0, 3).map(o => `<span class="block mt-2 text-[10px] font-bold text-white/60 truncate">${esc(o.id)}</span>`).join('')
                   }${
                     ds.length > 3 ? `<span class="text-[9px] text-brand-teal">${ds.length - 3} more</span>` : ''
                   }</button>`;
@@ -8334,7 +8345,7 @@
                     dateTo.dispatchEvent(new Event("change", { bubbles: true }));
                   }
                   // Sync the date type dropdown with the calendar source
-                  const sourceVal = displayConfig.calendarDateSource || displayConfig.fieldConfig?.created?.source || "created";
+                  const sourceVal = displayConfig.calendarDateSource || "created";
                   const dateType = document.getElementById("allOrdersDateType");
                   if (dateType) {
                     let found = false;
