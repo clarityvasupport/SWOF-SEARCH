@@ -2045,7 +2045,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.8.4";
+      const APP_VERSION = "1.8.5";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -7686,7 +7686,7 @@
             </tr></thead><tbody id="allOrdersBody"></tbody></table></div>
           </div>`;
 
-          // ----- paint function (with console logs) -----
+          // ----- paint function (with date normalisation) -----
           const paint = () => {
             const q = normalize(document.getElementById("allOrdersSearch").value);
             const st = document.getElementById("allOrdersStatus").value;
@@ -7716,16 +7716,15 @@
                 
                 let matchesDate = true;
                 if (dateFrom || dateTo) {
-                  const createdVal = displayValue(o, createdSource);
-                  const dueDateVal = displayValue(o, dueDateSource);
+                  // ---- FIX: normalise dates before comparison ----
+                  const createdVal = parseDateValue(displayValue(o, createdSource));
+                  const dueDateVal = parseDateValue(displayValue(o, dueDateSource));
                   console.log(`🔍 [All Orders] Order ${o.id}: createdVal="${createdVal}", dueDateVal="${dueDateVal}"`);
                   
                   const checkDate = (dateVal) => {
                     if (!dateVal) return true;
-                    const d = String(dateVal);
-                    if (!d) return true;
-                    if (dateFrom && d < dateFrom) return false;
-                    if (dateTo && d > dateTo) return false;
+                    if (dateFrom && dateVal < dateFrom) return false;
+                    if (dateTo && dateVal > dateTo) return false;
                     return true;
                   };
                   
