@@ -2045,7 +2045,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.8.8";
+      const APP_VERSION = "1.8.9";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -2329,7 +2329,6 @@
           if (!source) return false;
           let dateCount = 0;
           let totalCount = 0;
-          // Check up to 500 orders
           const sample = orders.slice(0, 500);
           for (const o of sample) {
             const val = displayValue(o, source);
@@ -2350,9 +2349,7 @@
         Object.keys(allConfigs).forEach(key => {
           const cfg = allConfigs[key];
           const source = cfg.source || key;
-          // Skip if the source is empty or it's clearly a non-date field
           if (!source) return;
-          // Check if this field actually contains date values
           if (fieldHasDateValues(source)) {
             configuredDateFields.push({
               key: key,
@@ -2372,6 +2369,13 @@
         let selectedFields = configuredDateFields;
         if (selectedSources.length > 0) {
           selectedFields = configuredDateFields.filter(f => selectedSources.includes(f.source));
+        } else {
+          // If user has not selected any, default to all (or empty? We'll default to all to avoid empty dropdown)
+          // But we want to respect the user's choice – if they cleared all, we return empty array.
+          // However, the settings page defaults to all when first loaded, so we'll keep that.
+          // For consistency, if the array is empty but we have date fields, we treat as "show all".
+          // This matches the initial state.
+          selectedFields = configuredDateFields;
         }
 
         // 4. Build the final array for the dropdown
@@ -3354,6 +3358,7 @@
         });
       }
 
+      // Add this near the login/updateLoginUI function
       function updateLoginUI() {
         const loginBtn = document.getElementById("loginBtn");
         const loginText = document.getElementById("loginBtnText");
@@ -3367,6 +3372,12 @@
           loginBtn.classList.add("bg-brand-success", "hover:bg-[#6EAD30]");
         }
         toggleEditability();
+        
+        // ---- NEW: Refresh calendar checkboxes if settings page is open ----
+        const sectionPage = document.getElementById('sectionPage');
+        if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Settings') {
+          renderCalendarCheckboxes();
+        }
       }
 
       function requireLogin() {
@@ -5821,19 +5832,33 @@
         const s = String(v).trim();
         if (!s) return "";
         
-        // ----- STRICT DATE PATTERNS -----
+        // ----- STRICT DATE PATTERNS (with time handling) -----
         
-        // YYYY-MM-DD
-        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-        
-        // YYYY-MM-DDTHH:mm:ss (ISO datetime) - extract date part
-        if (s.includes('T')) {
-          const datePart = s.split('T')[0];
-          if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return datePart;
+        // If the string contains a space and a time part (HH:MM or HH:MM:SS), extract the date part
+        let datePart = s;
+        if (s.includes(' ')) {
+          const parts = s.split(' ');
+          const timePart = parts[1] || '';
+          // Check if second part looks like a time
+          if (/^(\d{1,2}:\d{2}(:\d{2})?)$/.test(timePart)) {
+            datePart = parts[0];
+          }
         }
         
-        // DD/MM/YYYY or MM/DD/YYYY with 4-digit year
-        const slashMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+        // Now try to parse datePart
+        const d = datePart.trim();
+        
+        // YYYY-MM-DD (already)
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+        
+        // YYYY-MM-DDTHH:mm:ss (ISO) – already handled by splitting on T earlier, but we'll keep
+        if (d.includes('T')) {
+          const isoDate = d.split('T')[0];
+          if (/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return isoDate;
+        }
+        
+        // DD/MM/YYYY or MM/DD/YYYY with 4-digit year (allow time to be stripped earlier)
+        const slashMatch = d.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
         if (slashMatch) {
           let month = parseInt(slashMatch[1], 10);
           let day = parseInt(slashMatch[2], 10);
@@ -5849,7 +5874,7 @@
         }
         
         // DD/MM/YY or MM/DD/YY with 2-digit year
-        const shortMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+        const shortMatch = d.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
         if (shortMatch) {
           let month = parseInt(shortMatch[1], 10);
           let day = parseInt(shortMatch[2], 10);
@@ -5865,7 +5890,7 @@
         }
         
         // Month DD, YYYY (e.g., "Aug 27, 2026" or "August 27, 2026")
-        const monthNameMatch = s.match(/^([A-Za-z]{3,9})\s+(\d{1,2})(?:,?\s*)(\d{4})$/);
+        const monthNameMatch = d.match(/^([A-Za-z]{3,9})\s+(\d{1,2})(?:,?\s*)(\d{4})$/);
         if (monthNameMatch) {
           const months = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
           const month = months[monthNameMatch[1].toLowerCase().slice(0,3)];
@@ -5878,7 +5903,7 @@
         }
         
         // DD Month YYYY (e.g., "27 Aug 2026")
-        const dayMonthMatch = s.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})$/);
+        const dayMonthMatch = d.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})$/);
         if (dayMonthMatch) {
           const months = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
           const month = months[dayMonthMatch[2].toLowerCase().slice(0,3)];
@@ -5890,7 +5915,7 @@
           return "";
         }
         
-        // If none of the strict patterns matched, return empty string
+        // If we still have nothing, return empty string
         return "";
       }
 
@@ -8585,6 +8610,22 @@
             const container = document.getElementById('calendarFieldCheckboxes');
             if (!container) return;
 
+            // ---- Add login check ----
+            if (!isLoggedIn) {
+              container.innerHTML = `
+                <div class="col-span-full text-sm text-white/40">
+                  🔒 <button id="loginToManageCalendarFields" class="text-brand-teal hover:underline font-bold">Log in</button> to manage calendar date fields.
+                </div>
+              `;
+              // Bind login button
+              const loginBtn = document.getElementById('loginToManageCalendarFields');
+              if (loginBtn) {
+                loginBtn.addEventListener('click', () => openLoginModal());
+              }
+              return;
+            }
+
+            // ---- Only proceed if logged in ----
             // Gather all configured fields that have date values (using threshold)
             const allConfigs = getAllFieldConfigs();
             const dateFields = [];
@@ -8630,15 +8671,7 @@
               saveDisplayConfig();
             }
 
-            // Ensure any new date fields are automatically checked
             const selectedSources = displayConfig.calendarDateFields || [];
-            dateFields.forEach(f => {
-              if (!selectedSources.includes(f.source)) {
-                // Only add if it's a core date field (created/dueDate) or was recently added
-                // This prevents auto-adding new fields to existing selections
-              }
-            });
-
             let html = '';
             dateFields.forEach(f => {
               const checked = selectedSources.includes(f.source) ? 'checked' : '';
@@ -8651,7 +8684,7 @@
             });
             container.innerHTML = html;
 
-            // Bind change events
+            // Bind change events (only if logged in, which we already checked)
             container.querySelectorAll('.calendar-field-checkbox').forEach(cb => {
               cb.addEventListener('change', function() {
                 const source = this.dataset.source;
@@ -8665,16 +8698,13 @@
                 }
                 saveDisplayConfig();
                 
-                // ---- CRITICAL: Refresh the calendar page to update the dropdown ----
+                // Refresh the calendar page to update the dropdown
                 const sectionPage = document.getElementById('sectionPage');
                 if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Calendar') {
                   showSectionPage('calendar');
                 }
                 
-                // Show a temporary "Saved" indicator
-                const indicator = document.createElement('span');
-                indicator.textContent = ' ✓ Saved';
-                indicator.className = 'text-green-400 text-sm font-bold ml-2';
+                // Show "Saved" indicator
                 const parent = this.closest('label');
                 if (parent && !parent.querySelector('.saved-indicator')) {
                   const savedSpan = document.createElement('span');
@@ -8690,11 +8720,14 @@
 
             // Select All button
             document.getElementById('calendarSelectAllBtn')?.addEventListener('click', () => {
+              if (!isLoggedIn) {
+                toast('Please log in to manage calendar fields.', 'warning');
+                return;
+              }
               const allSources = dateFields.map(f => f.source);
               displayConfig.calendarDateFields = allSources;
               saveDisplayConfig();
               renderCalendarCheckboxes();
-              // Refresh calendar
               const sectionPage = document.getElementById('sectionPage');
               if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Calendar') {
                 showSectionPage('calendar');
@@ -8704,6 +8737,10 @@
 
             // Clear All button
             document.getElementById('calendarClearAllBtn')?.addEventListener('click', () => {
+              if (!isLoggedIn) {
+                toast('Please log in to manage calendar fields.', 'warning');
+                return;
+              }
               displayConfig.calendarDateFields = [];
               saveDisplayConfig();
               renderCalendarCheckboxes();
