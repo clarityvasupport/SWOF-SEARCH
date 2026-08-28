@@ -1781,17 +1781,6 @@
                 <input id="formRequester" class="field-input border-black/20" />
               </div>
 
-              <div>
-                <label class="field-label text-black/60"
-                  >Date Transmitted</label
-                >
-                <input
-                  id="formDateTransmitted"
-                  type="date"
-                  class="field-input border-black/20"
-                />
-              </div>
-
               <!-- ====== CUSTOM FIELDS (EDIT MODAL) ====== -->
               <div
                 class="sm:col-span-2 rounded-xl border border-black/10 p-4 bg-black/5"
@@ -2067,7 +2056,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.9.0";
+      const APP_VERSION = "1.12.0";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -3997,17 +3986,24 @@
           closeDrawer();
           return;
         }
-        
-        const createdSource = displayConfig.fieldConfig?.created?.source || "created";
 
+        const fieldConfigs = getAllFieldConfigs();
+
+        // Resolve sources for core fields
+        const getSource = (key) => fieldConfigs[key]?.source || key;
+        const getValue = (key) => displayValue(o, getSource(key));
+
+        // ----- Update status badge and basic info -----
         const badge = document.getElementById("drawerStatusBadge");
         badge.textContent = o.status;
         badge.className = `px-2.5 py-1 rounded-full text-[11px] font-bold border ${statusClass(o.status)}`;
         document.getElementById("drawerNumber").textContent = o.id;
         document.getElementById("drawerTitle").textContent = o.title || "Untitled";
-        document.getElementById("drawerCreatedText").textContent = `Created ${formatDate(displayValue(o, createdSource))}${o.requester ? " • Requested by " + o.requester : ""}`;
+        document.getElementById("drawerCreatedText").textContent =
+          `Created ${formatDate(displayValue(o, getSource('created')))}` +
+          (o.requester ? ` • Requested by ${displayValue(o, getSource('requester'))}` : "");
 
-        // Status dropdown
+        // Status dropdown (unchanged)
         const dataStatuses = orders.map(o => o.status).filter(Boolean);
         const uniqueStatuses = Array.from(new Set(dataStatuses)).sort();
         const statusOpts = uniqueStatuses.length ? uniqueStatuses : ["Open"];
@@ -4016,45 +4012,45 @@
           `<option value="${esc(s)}" ${o.status === s ? "selected" : ""}>${esc(s)}</option>`
         ).join("");
 
-        // ---- Build global + per‑order custom fields ----
-        const allConfigs = getAllFieldConfigs();
-        const globalCustomKeys = Object.keys(allConfigs).filter(k => k.startsWith("custom_"));
+        // ----- Build details grid using configured sources -----
+        const detailFields = [
+          { key: 'category', label: 'Category' },
+          { key: 'location', label: 'Location' },
+          { key: 'created', label: 'Created' },
+          { key: 'dueDate', label: (fieldConfigs.dueDate?.label || 'Due Date') },
+          { key: 'requester', label: 'Requester' },
+          { key: 'assignee', label: 'Assigned To' },
+        ];
+
+        const detailsHTML = detailFields
+          .map(f => detailBox(f.label, getValue(f.key), o.id))
+          .join("");
+
+        // ----- Custom fields (global + per‑order) -----
+        const globalCustomKeys = Object.keys(fieldConfigs).filter(k => k.startsWith("custom_"));
         const globalCustomFields = globalCustomKeys
-          .filter(k => allConfigs[k].showOnCard !== false)
+          .filter(k => fieldConfigs[k].showOnCard !== false)
           .map(k => {
-            const cfg = allConfigs[k];
+            const cfg = fieldConfigs[k];
             const label = cfg.label || k;
             const source = cfg.source || "";
-            // Try to get value from source (raw data) or from existing customFields
-            let value = source ? displayValue(o, source) : "";
-            if (!value) {
-              const cf = (o.customFields || []).find(f => f.label === label || f._sourceHeader === source);
-              value = cf ? cf.value : "";
-            }
+            const value = source ? displayValue(o, source) : "";
             return { label, value, source };
           });
 
-        // Per‑order fields that are NOT already covered by a global field (by label OR source)
         const perOrderFields = (o.customFields || [])
           .filter(f => f.label && (f.value || f._sourceHeader))
-          .filter(f => !globalCustomFields.some(g =>
-            g.label === f.label || (g.source && f._sourceHeader === g.source)
-          ))
-          .map(f => {
-            const value = customFieldValue(o, f.label) || f.value || "";
-            return { label: f.label, value, source: f._sourceHeader || "" };
-          });
+          .filter(f => !globalCustomFields.some(g => g.label === f.label || (g.source && f._sourceHeader === g.source)))
+          .map(f => ({ label: f.label, value: customFieldValue(o, f.label) || f.value || "", source: f._sourceHeader || "" }));
 
         const allCustomFields = [...globalCustomFields, ...perOrderFields];
-
-        // Build display list for the "Custom Fields" section
         const customFieldsDisplay = allCustomFields.length
           ? allCustomFields.map(f =>
               `<div class="custom-field-item bg-black/5 rounded-lg p-2 border border-black/10"><strong class="text-black/60">${esc(f.label)}</strong> <span class="text-black/80">${formatFieldValue(f.value, o.id)}</span></div>`
             ).join("")
           : '<p class="text-xs text-black/40">No custom fields yet. Click "Add Field" to add one.</p>';
 
-        // Activity
+        // ----- Activity (unchanged) -----
         const activity = (o.activity || [])
           .filter(a => !/prepared for import from|updated by import|import/i.test(String(a.text || "")))
           .slice().reverse()
@@ -4062,28 +4058,8 @@
             `<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-brand-teal mt-1.5 shrink-0"></div><div><p class="text-sm text-black/80">${esc(a.text)}</p><p class="text-[11px] text-black/40 mt-0.5">${esc(a.date)}</p></div></div>`
           ).join("");
 
-        // Details grid (using allCustomFields)
-        const stdDetails = `
-          <section>
-            <h3 class="text-sm font-black text-black/80 mb-3">Work Order Details</h3>
-            <div class="detail-box-grid">
-              ${detailBox("Category", o.category, o.id)}
-              ${detailBox("Location", o.location, o.id)}
-              ${detailBox("Created", formatDate(displayValue(o, createdSource)), o.id)}
-              ${detailBox(
-                o.cardDateLabel || displayConfig.cardDateLabel || "Due Date",
-                formatDate(displayValue(o, o.cardDateSource || displayConfig.cardDateSource || "dueDate")),
-                o.id
-              )}
-              ${detailBox("Requester", o.requester, o.id)}
-              ${detailBox("Assigned To", o.assignee, o.id)}
-              ${allCustomFields
-                .filter(f => f.label !== "Date Transmitted")
-                .map(f => detailBox(f.label, f.value, o.id))
-                .join("")}
-            </div>
-          </section>
-        `;
+        // ----- Assigned User section (using resolved assignee) -----
+        const assigneeValue = getValue('assignee') || "Unassigned";
 
         const body = document.getElementById("drawerBody");
         body.innerHTML = `
@@ -4097,13 +4073,18 @@
 
             <section><h3 class="text-sm font-black text-black/80 mb-2">Description</h3><p class="text-sm leading-6 text-black/60 whitespace-pre-wrap">${esc(o.description || "No description provided.")}</p></section>
 
-            ${stdDetails}
+            <section>
+              <h3 class="text-sm font-black text-black/80 mb-3">Work Order Details</h3>
+              <div class="detail-box-grid">
+                ${detailsHTML}
+              </div>
+            </section>
 
             <section>
               <h3 class="text-sm font-black text-black/80 mb-3">Assigned User</h3>
               <div class="flex items-center gap-3 p-3 rounded-xl border border-black/10">
-                <div class="w-11 h-11 rounded-full bg-brand-teal/20 text-brand-teal flex items-center justify-center font-black text-sm">${esc(initials(o.assignee))}</div>
-                <div><p class="text-sm font-bold text-black/80">${esc(o.assignee || "Unassigned")}</p><p class="text-xs text-black/40">Assigned technician / responsible user</p></div>
+                <div class="w-11 h-11 rounded-full bg-brand-teal/20 text-brand-teal flex items-center justify-center font-black text-sm">${esc(initials(assigneeValue))}</div>
+                <div><p class="text-sm font-bold text-black/80">${esc(assigneeValue)}</p><p class="text-xs text-black/40">Assigned technician / responsible user</p></div>
               </div>
             </section>
 
@@ -4121,6 +4102,32 @@
         const o = orders.find((x) => x.id === orderId);
         if (!o) return;
         if (!Array.isArray(o.customFields)) o.customFields = [];
+
+        // --- Duplicate prevention ---
+        const newLabel = ""; // We'll check for existing empty labels (which are placeholders)
+        // But we want to prevent adding a field if there is already a field with a non‑empty label
+        // that matches the new one. However, the user is about to type a label, so we can't check yet.
+        // Better: Check if there is already an empty field (placeholder) – if so, focus it.
+        const emptyField = o.customFields.find(f => !f.label && !f.value && !f._sourceHeader);
+        if (emptyField) {
+          toast("There is already an empty field. Fill it or remove it first.", "info");
+          // Focus the first empty label input
+          setTimeout(() => {
+            const editor = document.getElementById("drawerCustomFieldsEditor");
+            const inputs = editor?.querySelectorAll(".drawer-field-label");
+            if (inputs) {
+              for (const inp of inputs) {
+                if (!inp.value.trim()) {
+                  inp.focus();
+                  break;
+                }
+              }
+            }
+          }, 50);
+          return;
+        }
+
+        // No empty field found – add a new one
         o.customFields.push({ label: "", value: "", _sourceHeader: "" });
         renderDrawerCustomFieldsEditor(o);
         updateDrawerCustomFieldsDisplay(o);
@@ -4655,19 +4662,29 @@
         const o = orders.find((x) => x.id === id);
         if (!o) return;
         editingId = id;
-        document.getElementById("editModalTitle").textContent = o.id.startsWith(
-          "NEW-"
-        )
+
+        // Get field configurations
+        const fieldConfigs = getAllFieldConfigs();
+
+        // Helper: resolve value and source for a given key
+        const getSource = (key) => fieldConfigs[key]?.source || key;
+        const getValue = (key) => displayValue(o, getSource(key));
+
+        // Set modal title and subtitle
+        document.getElementById("editModalTitle").textContent = o.id.startsWith("NEW-")
           ? "New Work Order"
           : "Edit Work Order";
         document.getElementById("editModalSub").textContent = o.id;
-        document.getElementById("formId").value = o.id;
-        document.getElementById("formTitle").value = o.title || "";
-        document.getElementById("formStatus").value = o.status || "Open";
-        document.getElementById("formPriority").value = o.priority || "Medium";
-        document.getElementById("formCategory").value = o.category || "";
-        document.getElementById("formLocation").value = o.location || "";
 
+        // Populate form fields with resolved values from configured sources
+        document.getElementById("formId").value = o.id;
+        document.getElementById("formTitle").value = getValue('title') || o.title || "";
+        document.getElementById("formStatus").value = getValue('status') || o.status || "Open";
+        document.getElementById("formPriority").value = getValue('priority') || o.priority || "Medium";
+        document.getElementById("formCategory").value = getValue('category') || o.category || "";
+        document.getElementById("formLocation").value = getValue('location') || o.location || "";
+        
+        // Assignee dropdown: populate with all known assignees, then select resolved one
         const assigneeSelect = document.getElementById("formAssignee");
         const names = [
           ...new Set([
@@ -4679,25 +4696,22 @@
         assigneeSelect.innerHTML = names
           .map((n) => `<option value="${esc(n)}">${esc(n)}</option>`)
           .join("");
-        assigneeSelect.value = o.assignee || "Unassigned";
+        const resolvedAssignee = getValue('assignee') || o.assignee || "Unassigned";
+        assigneeSelect.value = resolvedAssignee;
 
-        document.getElementById("formDueDate").value = toInputDate(o.dueDate);
-        document.getElementById("formCreated").value = toInputDate(
-          o.created || nowDate()
-        );
-        document.getElementById("formRequester").value = o.requester || "";
-        document.getElementById("formDescription").value = o.description || "";
-        document.getElementById("formDateTransmitted").value = toInputDate(
-          o.dateTransmitted || customFieldValue(o, "Date Transmitted")
-        );
-
+        // Date fields
+        document.getElementById("formDueDate").value = toInputDate(getValue('dueDate') || o.dueDate);
+        document.getElementById("formCreated").value = toInputDate(getValue('created') || o.created || nowDate());
+        document.getElementById("formRequester").value = getValue('requester') || o.requester || "";
+        document.getElementById("formDescription").value = getValue('description') || o.description || "";
+                
+        // Render custom fields (already uses the order's customFields array – unchanged)
         renderEditCustomFields(o);
 
+        // Card date source/label (unchanged, uses displayConfig)
         const cardSource = document.getElementById("cardDateSource");
-        const orderCardSource =
-          o.cardDateSource || displayConfig.cardDateSource || "dueDate";
-        const orderCardLabel =
-          o.cardDateLabel || displayConfig.cardDateLabel || "Due Date";
+        const orderCardSource = o.cardDateSource || displayConfig.cardDateSource || "dueDate";
+        const orderCardLabel = o.cardDateLabel || displayConfig.cardDateLabel || "Due Date";
         if (cardSource) {
           const allHeaders = allAvailableHeaders(o);
           const stdOpts = [
@@ -4712,15 +4726,12 @@
           ];
           const allOpts = [...stdOpts];
           allHeaders.forEach((h) => {
-            if (!allOpts.some((x) => x[0] === h))
-              allOpts.push([h, h + " (Imported)"]);
+            if (!allOpts.some((x) => x[0] === h)) allOpts.push([h, h + " (Imported)"]);
           });
           cardSource.innerHTML = allOpts
             .map(
               ([v, l]) =>
-                `<option value="${esc(v)}" ${
-                  orderCardSource === v ? "selected" : ""
-                }>${esc(l)}</option>`
+                `<option value="${esc(v)}" ${orderCardSource === v ? "selected" : ""}>${esc(l)}</option>`
             )
             .join("");
         }
@@ -4730,6 +4741,7 @@
         }
         renderCardExtraChoices(o);
 
+        // Show the modal
         document.getElementById("editModal").classList.remove("hidden");
         document.body.classList.add("overflow-hidden");
         updateUndoButtons();
@@ -5162,21 +5174,8 @@
             nowDate(),
           requester: document.getElementById("formRequester").value.trim(),
           description: document.getElementById("formDescription").value.trim(),
-          dateTransmitted: dateTransmitted || "",
           customFields: finalCustomFields,
         });
-
-        if (
-          dateTransmitted &&
-          !finalCustomFields.some((f) => normalize(f.label || "") === normalize("Date Transmitted"))
-        ) {
-          o.customFields.push({
-            label: "Date Transmitted",
-            value: dateTransmitted,
-            _sourceHeader: "",
-          });
-          wrap.dataset.fields = JSON.stringify(o.customFields);
-        }
 
         const cardSource = document.getElementById("cardDateSource");
         const cardLabel = document.getElementById("cardDateLabel");
@@ -5239,7 +5238,6 @@
           requester: "",
           created: nowDate(),
           dueDate: "",
-          dateTransmitted: "",
           customFields: [],
           activity: [{ date: nowStamp(), text: "Work order created" }],
           _importHeaders: importedHeaders.slice(),
@@ -9442,23 +9440,42 @@
       document
         .getElementById("deleteFromEditBtn")
         .addEventListener("click", deleteFromEdit);
-      document
-        .getElementById("addEditCustomFieldBtn")
-        .addEventListener("click", () => {
-          if (!requireLogin()) return;
-          const o = orders.find((x) => x.id === editingId);
-          if (!o) return;
-          if (!Array.isArray(o.customFields)) o.customFields = [];
-          o.customFields.push({ label: "", value: "", _sourceHeader: "" });
-          saveOrders();
-          renderEditCustomFields(o);
-          toast("New field added. Fill in the details.", "info");
+      document.getElementById("addEditCustomFieldBtn").addEventListener("click", () => {
+        if (!requireLogin()) return;
+        const o = orders.find((x) => x.id === editingId);
+        if (!o) return;
+        if (!Array.isArray(o.customFields)) o.customFields = [];
+
+        // Check for an empty field (placeholder) – if exists, focus it
+        const emptyField = o.customFields.find(f => !f.label && !f.value && !f._sourceHeader);
+        if (emptyField) {
+          toast("There is already an empty field. Fill it or remove it first.", "info");
           setTimeout(() => {
             const wrap = document.getElementById("editCustomFields");
-            const inputs = wrap.querySelectorAll(".edit-field-label");
-            if (inputs.length) inputs[inputs.length - 1].focus();
+            const inputs = wrap?.querySelectorAll(".edit-field-label");
+            if (inputs) {
+              for (const inp of inputs) {
+                if (!inp.value.trim()) {
+                  inp.focus();
+                  break;
+                }
+              }
+            }
           }, 50);
-        });
+          return;
+        }
+
+        // No empty field – add new one
+        o.customFields.push({ label: "", value: "", _sourceHeader: "" });
+        saveOrders();
+        renderEditCustomFields(o);
+        toast("New field added. Fill in the details.", "info");
+        setTimeout(() => {
+          const wrap = document.getElementById("editCustomFields");
+          const inputs = wrap?.querySelectorAll(".edit-field-label");
+          if (inputs && inputs.length) inputs[inputs.length - 1].focus();
+        }, 50);
+      });
       document
         .getElementById("closeEditModalBtn")
         .addEventListener("click", closeEdit);
