@@ -5922,49 +5922,40 @@
         const s = String(v).trim();
         if (!s) return "";
 
-        // ISO date with optional time
-        const isoMatch = s.match(/^(\d{4}-\d{2}-\d{2})(?:T|$)/);
-        if (isoMatch) return isoMatch[1];
+        // --- NEW: Strip off time part (after space or 'T') ---
+        let datePart = s;
+        const timeSeparator = s.search(/[ T]/);
+        if (timeSeparator !== -1) {
+          datePart = s.slice(0, timeSeparator).trim();
+        }
 
-        // MM/DD/YYYY or DD/MM/YYYY (must be exactly 2/4 digits)
-        const mdyMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        // Try MM/DD/YYYY or DD/MM/YYYY (with improved ambiguity handling)
+        const mdyMatch = datePart.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
         if (mdyMatch) {
           let month = parseInt(mdyMatch[1], 10);
           let day = parseInt(mdyMatch[2], 10);
           let year = parseInt(mdyMatch[3], 10);
+
+          // If month > 12, then it must be DD/MM – swap
           if (month > 12 && day <= 12) {
             [month, day] = [day, month];
           }
+          // If both are valid months, we assume MM/DD (US format) – your data is US, so keep as is.
+          // If you want to be more robust, you could add a heuristic based on the majority pattern in the column.
+
           if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
             return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
           }
           return "";
         }
 
-        // Month DD, YYYY (e.g., "Jan 1, 2024")
-        const monthNameMatch = s.match(/^([A-Za-z]{3,9})\s+(\d{1,2})(?:,?\s*)(\d{4})$/);
-        if (monthNameMatch) {
-          const months = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
-          const month = months[monthNameMatch[1].toLowerCase().slice(0,3)];
-          const day = parseInt(monthNameMatch[2], 10);
-          const year = parseInt(monthNameMatch[3], 10);
-          if (month && day >= 1 && day <= 31) {
-            return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-          }
-          return "";
-        }
-
-        // DD Month YYYY (e.g., "1 Jan 2024")
-        const dayMonthMatch = s.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})$/);
-        if (dayMonthMatch) {
-          const months = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
-          const month = months[dayMonthMatch[2].toLowerCase().slice(0,3)];
-          const day = parseInt(dayMonthMatch[1], 10);
-          const year = parseInt(dayMonthMatch[3], 10);
-          if (month && day >= 1 && day <= 31) {
-            return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-          }
-          return "";
+        // Fallback: let the Date constructor try (supports many formats, including ISO)
+        const d = new Date(s);
+        if (!isNaN(d)) {
+          const year = d.getFullYear();
+          const month = d.getMonth() + 1;
+          const day = d.getDate();
+          return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
         }
 
         return "";
