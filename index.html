@@ -5854,11 +5854,13 @@
       function parseDateValue(v) {
         if (v === null || v === undefined || v === "") return "";
         
-        // If it's a Date object, use UTC to avoid timezone shift
+        // If it's a Date object, use Manila timezone (UTC+8) for display
         if (v instanceof Date) {
-          const year = v.getUTCFullYear();
-          const month = String(v.getUTCMonth() + 1).padStart(2, "0");
-          const day = String(v.getUTCDate()).padStart(2, "0");
+          // Add 8 hours to convert UTC to Manila time (if the Date is already in UTC)
+          const manilaDate = new Date(v.getTime() + 8 * 60 * 60 * 1000);
+          const year = manilaDate.getUTCFullYear();
+          const month = String(manilaDate.getUTCMonth() + 1).padStart(2, "0");
+          const day = String(manilaDate.getUTCDate()).padStart(2, "0");
           return `${year}-${month}-${day}`;
         }
         
@@ -5875,9 +5877,28 @@
         const s = String(v).trim();
         if (!s) return "";
         
-        // ----- STRICT DATE PATTERNS (MM/DD/YYYY HH:mm:ss) -----
+        // ---- DETECT ISO DATETIME WITH TIMEZONE ----
+        // e.g., "2026-08-27T18:00:00.000Z" or "2026-08-27T18:00:00+00:00"
+        const isoMatch = s.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})(?:\.\d{3})?(?:Z|[\+\-]\d{2}:\d{2})?$/);
+        if (isoMatch) {
+          // Parse the date and time, then apply Manila offset (UTC+8)
+          const datePart = isoMatch[1];
+          const timePart = isoMatch[2];
+          // Create a Date object from the ISO string (which is in UTC if it ends with Z)
+          const d = new Date(s);
+          // If it's a valid date, add 8 hours for Manila timezone
+          if (!isNaN(d)) {
+            const manilaDate = new Date(d.getTime() + 8 * 60 * 60 * 1000);
+            const year = manilaDate.getUTCFullYear();
+            const month = String(manilaDate.getUTCMonth() + 1).padStart(2, "0");
+            const day = String(manilaDate.getUTCDate()).padStart(2, "0");
+            return `${year}-${month}-${day}`;
+          }
+          // Fallback to just the date part (UTC) if something fails
+          return datePart;
+        }
         
-        // MM/DD/YYYY HH:mm:ss (most common from your API)
+        // ---- MM/DD/YYYY (with or without time) ----
         const mdyMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
         if (mdyMatch) {
           const month = parseInt(mdyMatch[1], 10);
@@ -5889,16 +5910,10 @@
           return "";
         }
         
-        // YYYY-MM-DD
+        // ---- YYYY-MM-DD (without time) ----
         if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
         
-        // YYYY-MM-DDTHH:mm:ss (ISO datetime) - extract date part
-        if (s.includes('T')) {
-          const datePart = s.split('T')[0];
-          if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return datePart;
-        }
-        
-        // DD/MM/YYYY with 4-digit year
+        // ---- DD/MM/YYYY ----
         const dmyMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
         if (dmyMatch) {
           let month = parseInt(dmyMatch[1], 10);
@@ -5913,7 +5928,7 @@
           return "";
         }
         
-        // Month DD, YYYY (e.g., "Aug 27, 2026")
+        // ---- Month DD, YYYY ----
         const monthNameMatch = s.match(/^([A-Za-z]{3,9})\s+(\d{1,2})(?:,?\s*)(\d{4})$/);
         if (monthNameMatch) {
           const months = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
@@ -5926,7 +5941,7 @@
           return "";
         }
         
-        // DD Month YYYY (e.g., "27 Aug 2026")
+        // ---- DD Month YYYY ----
         const dayMonthMatch = s.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})$/);
         if (dayMonthMatch) {
           const months = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
