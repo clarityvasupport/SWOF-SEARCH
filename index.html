@@ -7062,7 +7062,7 @@
             renderImportPreview();
 
             if (importMapping.title) {
-              applyImport(true);
+              applyImport(true, false, true);
               return true;
             } else {
               toast(
@@ -7074,7 +7074,7 @@
           } else {
             showImportData(headers, rows, apiUrl, "api");
             if (importMapping.title) {
-              applyImport(true);
+              applyImport(true, false, true);
               toast("🔄 Synced with inferred mapping.", "success");
               return true;
             } else {
@@ -7219,7 +7219,7 @@
           document.body.classList.remove("overflow-hidden");
       }
 
-      async function applyImport(skipAuth = false, forceReplace = false) {
+      async function applyImport(skipAuth = false, forceReplace = false, ignoreCheckbox = false) {
         driveFileTypeCache.clear();
         if (!skipAuth && !requireLogin()) return;
         if (!importRows.length) {
@@ -7232,7 +7232,7 @@
         }
 
         // Use forceReplace OR the checkbox value
-        const replace = forceReplace || document.getElementById('replaceOrdersCheckbox').checked;
+        const replace = forceReplace || (ignoreCheckbox ? false : document.getElementById('replaceOrdersCheckbox').checked);
 
         if (replace) {
           orders = [];
