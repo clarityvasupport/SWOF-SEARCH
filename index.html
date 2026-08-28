@@ -2045,7 +2045,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.8.7";
+      const APP_VERSION = "1.8.8";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -2324,22 +2324,35 @@
         const allConfigs = getAllFieldConfigs();
         const fields = [];
 
-        // Helper: check if a field (by source) has at least one date value
+        // Helper: check if a field (by source) has at least 30% date-like values
         function fieldHasDateValues(source) {
           if (!source) return false;
-          // Check first 200 orders for performance
-          const sample = orders.slice(0, 200);
-          return sample.some(o => {
+          let dateCount = 0;
+          let totalCount = 0;
+          // Check up to 500 orders
+          const sample = orders.slice(0, 500);
+          for (const o of sample) {
             const val = displayValue(o, source);
-            return parseDateValue(val) !== "";
-          });
+            if (val && typeof val === 'string' && val.trim()) {
+              totalCount++;
+              if (parseDateValue(val) !== "") {
+                dateCount++;
+              }
+            }
+          }
+          if (totalCount === 0) return false;
+          // At least 30% of non-empty values must be date-like
+          return (dateCount / totalCount) >= 0.3;
         }
 
-        // Build a list of all configured fields that have date data
+        // 1. Build list of configured fields that have date values (threshold check)
         const configuredDateFields = [];
         Object.keys(allConfigs).forEach(key => {
           const cfg = allConfigs[key];
           const source = cfg.source || key;
+          // Skip if the source is empty or it's clearly a non-date field
+          if (!source) return;
+          // Check if this field actually contains date values
           if (fieldHasDateValues(source)) {
             configuredDateFields.push({
               key: key,
@@ -2349,20 +2362,25 @@
           }
         });
 
-        // If the user has selected specific fields for the calendar, filter by that list
+        // 2. If no date fields found, return empty
+        if (configuredDateFields.length === 0) {
+          return [];
+        }
+
+        // 3. Filter by user's selected fields (if any)
         const selectedSources = displayConfig.calendarDateFields || [];
         let selectedFields = configuredDateFields;
         if (selectedSources.length > 0) {
           selectedFields = configuredDateFields.filter(f => selectedSources.includes(f.source));
         }
 
-        // Build the final array for the dropdown
+        // 4. Build the final array for the dropdown
         const result = selectedFields.map(f => ({
           value: f.source,
           label: f.label
         }));
 
-        // Ensure 'created' is at the top if it exists
+        // 5. Ensure 'created' is at the top if it exists
         const createdIdx = result.findIndex(f => f.value === 'created');
         if (createdIdx > 0) {
           const [created] = result.splice(createdIdx, 1);
@@ -5781,66 +5799,98 @@
 
       function parseDateValue(v) {
         if (v === null || v === undefined || v === "") return "";
-        // If it's a Date object, convert to local YYYY-MM-DD
+        
+        // If it's a Date object
         if (v instanceof Date) {
           const year = v.getFullYear();
           const month = String(v.getMonth() + 1).padStart(2, "0");
           const day = String(v.getDate()).padStart(2, "0");
           return `${year}-${month}-${day}`;
         }
+        
         // Excel numeric date handling
         if (typeof v === "number" && window.XLSX && XLSX.SSF) {
           try {
             const d = XLSX.SSF.parse_date_code(v);
-            if (d) {
+            if (d && d.d >= 1 && d.d <= 31 && d.m >= 1 && d.m <= 12) {
               return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
             }
           } catch (_) {}
         }
+        
         const s = String(v).trim();
         if (!s) return "";
         
-        // If already in YYYY-MM-DD format, return as-is
+        // ----- STRICT DATE PATTERNS -----
+        
+        // YYYY-MM-DD
         if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-
-        // If it contains 'T', assume ISO datetime, extract the date part
+        
+        // YYYY-MM-DDTHH:mm:ss (ISO datetime) - extract date part
         if (s.includes('T')) {
           const datePart = s.split('T')[0];
           if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return datePart;
         }
-
-        // Try to parse with Date, but use local components to avoid timezone shift
-        const d = new Date(s);
-        if (!isNaN(d)) {
-          const year = d.getFullYear();
-          const month = String(d.getMonth() + 1).padStart(2, "0");
-          const day = String(d.getDate()).padStart(2, "0");
-          return `${year}-${month}-${day}`;
-        }
-
-        // Try common slash/dash formats with manual parse to avoid timezone issues
-        const parts = s.split(/[\/\-,\s]+/).filter(p => p);
-        if (parts.length === 3) {
-          // Check if first part is a year (4 digits) -> YYYY-MM-DD
-          if (/^\d{4}$/.test(parts[0])) {
-            return `${parts[0]}-${String(parts[1]).padStart(2, "0")}-${String(parts[2]).padStart(2, "0")}`;
+        
+        // DD/MM/YYYY or MM/DD/YYYY with 4-digit year
+        const slashMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+        if (slashMatch) {
+          let month = parseInt(slashMatch[1], 10);
+          let day = parseInt(slashMatch[2], 10);
+          let year = parseInt(slashMatch[3], 10);
+          // If month > 12, it's DD/MM/YYYY
+          if (month > 12 && day <= 12) {
+            [month, day] = [day, month];
           }
-          // Check if third part is a year (4 digits)
-          if (/^\d{4}$/.test(parts[2])) {
-            let month = parseInt(parts[0], 10);
-            let day = parseInt(parts[1], 10);
-            let year = parseInt(parts[2], 10);
-            // If month > 12, maybe it's DD/MM/YYYY
-            if (month > 12 && day <= 12) {
-              [month, day] = [day, month];
-            }
-            if (year >= 0 && year < 100) year += 2000;
-            if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-              return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-            }
+          if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+            return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
           }
           return "";
         }
+        
+        // DD/MM/YY or MM/DD/YY with 2-digit year
+        const shortMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+        if (shortMatch) {
+          let month = parseInt(shortMatch[1], 10);
+          let day = parseInt(shortMatch[2], 10);
+          let year = parseInt(shortMatch[3], 10);
+          if (month > 12 && day <= 12) {
+            [month, day] = [day, month];
+          }
+          if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+            year = year >= 70 ? 1900 + year : 2000 + year;
+            return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          }
+          return "";
+        }
+        
+        // Month DD, YYYY (e.g., "Aug 27, 2026" or "August 27, 2026")
+        const monthNameMatch = s.match(/^([A-Za-z]{3,9})\s+(\d{1,2})(?:,?\s*)(\d{4})$/);
+        if (monthNameMatch) {
+          const months = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
+          const month = months[monthNameMatch[1].toLowerCase().slice(0,3)];
+          const day = parseInt(monthNameMatch[2], 10);
+          const year = parseInt(monthNameMatch[3], 10);
+          if (month && day >= 1 && day <= 31) {
+            return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          }
+          return "";
+        }
+        
+        // DD Month YYYY (e.g., "27 Aug 2026")
+        const dayMonthMatch = s.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})$/);
+        if (dayMonthMatch) {
+          const months = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 };
+          const month = months[dayMonthMatch[2].toLowerCase().slice(0,3)];
+          const day = parseInt(dayMonthMatch[1], 10);
+          const year = parseInt(dayMonthMatch[3], 10);
+          if (month && day >= 1 && day <= 31) {
+            return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          }
+          return "";
+        }
+        
+        // If none of the strict patterns matched, return empty string
         return "";
       }
 
@@ -8535,15 +8585,32 @@
             const container = document.getElementById('calendarFieldCheckboxes');
             if (!container) return;
 
-            // Gather all configured fields that have date values
+            // Gather all configured fields that have date values (using threshold)
             const allConfigs = getAllFieldConfigs();
             const dateFields = [];
+            
+            function fieldHasDateValues(source) {
+              if (!source) return false;
+              let dateCount = 0;
+              let totalCount = 0;
+              const sample = orders.slice(0, 500);
+              for (const o of sample) {
+                const val = displayValue(o, source);
+                if (val && typeof val === 'string' && val.trim()) {
+                  totalCount++;
+                  if (parseDateValue(val) !== "") {
+                    dateCount++;
+                  }
+                }
+              }
+              if (totalCount === 0) return false;
+              return (dateCount / totalCount) >= 0.3;
+            }
+
             Object.keys(allConfigs).forEach(key => {
               const cfg = allConfigs[key];
               const source = cfg.source || key;
-              // Check if at least one order has a date value for this source
-              const hasDate = orders.some(o => parseDateValue(displayValue(o, source)) !== "");
-              if (hasDate) {
+              if (source && fieldHasDateValues(source)) {
                 dateFields.push({
                   key: key,
                   source: source,
@@ -8557,15 +8624,21 @@
               return;
             }
 
-            // Ensure calendarDateFields array exists
+            // Ensure calendarDateFields array exists and has defaults
             if (!displayConfig.calendarDateFields) {
-              displayConfig.calendarDateFields = [];
-              // By default, include all date fields
               displayConfig.calendarDateFields = dateFields.map(f => f.source);
               saveDisplayConfig();
             }
 
+            // Ensure any new date fields are automatically checked
             const selectedSources = displayConfig.calendarDateFields || [];
+            dateFields.forEach(f => {
+              if (!selectedSources.includes(f.source)) {
+                // Only add if it's a core date field (created/dueDate) or was recently added
+                // This prevents auto-adding new fields to existing selections
+              }
+            });
+
             let html = '';
             dateFields.forEach(f => {
               const checked = selectedSources.includes(f.source) ? 'checked' : '';
@@ -8591,16 +8664,31 @@
                   displayConfig.calendarDateFields = displayConfig.calendarDateFields.filter(s => s !== source);
                 }
                 saveDisplayConfig();
-                // If calendar is open, refresh it
+                
+                // ---- CRITICAL: Refresh the calendar page to update the dropdown ----
                 const sectionPage = document.getElementById('sectionPage');
                 if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Calendar') {
                   showSectionPage('calendar');
                 }
-                toast('Calendar field selection updated.', 'info');
+                
+                // Show a temporary "Saved" indicator
+                const indicator = document.createElement('span');
+                indicator.textContent = ' ✓ Saved';
+                indicator.className = 'text-green-400 text-sm font-bold ml-2';
+                const parent = this.closest('label');
+                if (parent && !parent.querySelector('.saved-indicator')) {
+                  const savedSpan = document.createElement('span');
+                  savedSpan.className = 'saved-indicator text-green-400 text-sm font-bold ml-2';
+                  savedSpan.textContent = '✓ Saved';
+                  parent.appendChild(savedSpan);
+                  setTimeout(() => {
+                    if (savedSpan.parentNode) savedSpan.remove();
+                  }, 2000);
+                }
               });
             });
 
-            // Select All / Clear All buttons
+            // Select All button
             document.getElementById('calendarSelectAllBtn')?.addEventListener('click', () => {
               const allSources = dateFields.map(f => f.source);
               displayConfig.calendarDateFields = allSources;
@@ -8614,6 +8702,7 @@
               toast('All date fields selected for calendar.', 'info');
             });
 
+            // Clear All button
             document.getElementById('calendarClearAllBtn')?.addEventListener('click', () => {
               displayConfig.calendarDateFields = [];
               saveDisplayConfig();
