@@ -4021,20 +4021,20 @@
         ).join("");
 
         // ----- Core details grid (using configured sources) -----
+        // NOTE: We're NOT including "Assigned To" here – it goes in the dedicated footer section below
         const detailFields = [
           { key: 'category', label: fieldConfigs.category?.label || 'Category' },
           { key: 'location', label: fieldConfigs.location?.label || 'Location' },
           { key: 'created', label: fieldConfigs.created?.label || 'Created' },
           { key: 'dueDate', label: fieldConfigs.dueDate?.label || 'Due Date' },
           { key: 'requester', label: fieldConfigs.requester?.label || 'Requester' },
-          { key: 'assignee', label: fieldConfigs.assignee?.label || 'Assigned To' },
         ];
 
         const detailsHTML = detailFields
           .map(f => detailBox(f.label, getValue(f.key), o.id))
           .join("");
 
-        // ----- Custom fields (global + per‑order) -----
+        // ----- Custom fields (global + per‑order) – also in grid style -----
         const globalCustomKeys = Object.keys(fieldConfigs).filter(k => k.startsWith("custom_"));
         const globalCustomFields = globalCustomKeys
           .filter(k => fieldConfigs[k].showOnCard !== false)
@@ -4042,24 +4042,21 @@
             const cfg = fieldConfigs[k];
             const label = cfg.label || k;
             const source = cfg.source || "";
-            // Strict: only from raw header
             const value = source ? displayValue(o, source) : "";
-            return { label, value, source };
+            return { label, value };
           });
 
         const perOrderFields = (o.customFields || [])
           .filter(f => f.label && (f.value || f._sourceHeader))
-          .filter(f => !globalCustomFields.some(g => g.label === f.label || (g.source && f._sourceHeader === g.source)))
-          .map(f => ({ label: f.label, value: customFieldValue(o, f.label) || f.value || "", source: f._sourceHeader || "" }));
+          .filter(f => !globalCustomFields.some(g => g.label === f.label))
+          .map(f => ({ label: f.label, value: customFieldValue(o, f.label) || f.value || "" }));
 
         const allCustomFields = [...globalCustomFields, ...perOrderFields];
 
-        // Build display list for the "Custom Fields" section
-        const customFieldsDisplay = allCustomFields.length
-          ? allCustomFields.map(f =>
-              `<div class="custom-field-item bg-black/5 rounded-lg p-2 border border-black/10"><strong class="text-black/60">${esc(f.label)}</strong> <span class="text-black/80">${formatFieldValue(f.value, o.id)}</span></div>`
-            ).join("")
-          : '<p class="text-xs text-black/40">No custom fields yet. Click "Add Field" to add one.</p>';
+        // Render custom fields using the same detail-box style
+        const customFieldsHTML = allCustomFields.length
+          ? allCustomFields.map(f => detailBox(f.label, f.value, o.id)).join("")
+          : '<p class="text-xs text-black/40 col-span-2">No custom fields yet. Click "Add Field" to add one.</p>';
 
         // ----- Activity (unchanged) -----
         const activity = (o.activity || [])
@@ -4069,7 +4066,7 @@
             `<div class="flex gap-3"><div class="w-2 h-2 rounded-full bg-brand-teal mt-1.5 shrink-0"></div><div><p class="text-sm text-black/80">${esc(a.text)}</p><p class="text-[11px] text-black/40 mt-0.5">${esc(a.date)}</p></div></div>`
           ).join("");
 
-        // ----- Assigned User (using resolved assignee) -----
+        // ----- Assigned User – FOOTER (at the bottom) -----
         const assigneeValue = getValue('assignee') || "Unassigned";
 
         const body = document.getElementById("drawerBody");
@@ -4094,20 +4091,11 @@
               </div>
             </section>
 
-            <!-- Assigned User -->
-            <section>
-              <h3 class="text-sm font-black text-black/80 mb-3">Assigned User</h3>
-              <div class="flex items-center gap-3 p-3 rounded-xl border border-black/10">
-                <div class="w-11 h-11 rounded-full bg-brand-teal/20 text-brand-teal flex items-center justify-center font-black text-sm">${esc(initials(assigneeValue))}</div>
-                <div><p class="text-sm font-bold text-black/80">${esc(assigneeValue)}</p><p class="text-xs text-black/40">Assigned technician / responsible user</p></div>
-              </div>
-            </section>
-
-            <!-- Custom Fields -->
+            <!-- Custom Fields (using the same grid style) -->
             <section>
               <h3 class="text-sm font-black text-black/80 mb-3">Custom Fields</h3>
-              <div class="space-y-2">
-                ${customFieldsDisplay}
+              <div class="detail-box-grid">
+                ${customFieldsHTML}
               </div>
               <button id="drawerAddFieldBtn" class="mt-3 text-xs font-bold text-brand-teal hover:underline transition">
                 + Add Field
@@ -4115,8 +4103,17 @@
               <div id="drawerCustomFieldsEditor" class="mt-3 space-y-2"></div>
             </section>
 
+            <!-- Assigned User – FOOTER -->
+            <section class="pt-4 border-t border-black/10">
+              <h3 class="text-sm font-black text-black/80 mb-3">Assigned User</h3>
+              <div class="flex items-center gap-3 p-3 rounded-xl border border-black/10 bg-black/5">
+                <div class="w-11 h-11 rounded-full bg-brand-teal/20 text-brand-teal flex items-center justify-center font-black text-sm">${esc(initials(assigneeValue))}</div>
+                <div><p class="text-sm font-bold text-black/80">${esc(assigneeValue)}</p><p class="text-xs text-black/40">Assigned technician / responsible user</p></div>
+              </div>
+            </section>
+
             <!-- Activity -->
-            <section>
+            <section class="pt-4 border-t border-black/10">
               <h3 class="text-sm font-black text-black/80 mb-3">Activity</h3>
               <div class="space-y-4">${activity || '<p class="text-sm text-black/40">No activity recorded.</p>'}</div>
             </section>
