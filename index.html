@@ -2045,7 +2045,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.8.9";
+      const APP_VERSION = "1.8.12";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -7947,7 +7947,7 @@
         // ======================= ALL WORK ORDERS =======================
         if (page === "all-orders") {
           title.textContent = "All Work Orders";
-          sub.textContent = "Complete work-order register. Use the date filter dropdown to search by Created or Due date.";
+          sub.textContent = "Complete work-order register. Use the date filter dropdown to search by any configured date field.";
 
           const assignees = [
             ...new Set(
@@ -7969,11 +7969,25 @@
           const createdSource = displayConfig.fieldConfig?.created?.source || "created";
           const dueDateSource = displayConfig.fieldConfig?.dueDate?.source || "dueDate";
 
+          // ---- NEW: Get available date fields for the dropdown ----
+          const dateFieldOptions = getAvailableDateFields();
+
           let headersHTML = "";
           tableColumns.forEach((key) => {
             const cfg = fieldConfigs[key];
             headersHTML += `<th class="px-4 py-3 text-left text-black/60" data-field-key="${esc(key)}">${esc(cfg.label || key)}</th>`;
           });
+
+          // ---- Build dropdown options ----
+          let dateDropdownHTML = `<select id="allOrdersDateType" class="rounded-xl border border-black/10 bg-white text-black px-3 py-3 text-sm">`;
+          if (dateFieldOptions.length === 0) {
+            dateDropdownHTML += `<option value="created">Created Date</option>`;
+          } else {
+            dateFieldOptions.forEach(f => {
+              dateDropdownHTML += `<option value="${esc(f.value)}">${esc(f.label)}</option>`;
+            });
+          }
+          dateDropdownHTML += `</select>`;
 
           body.innerHTML = `<div class="bg-white text-black border border-black/10 rounded-2xl shadow-sm overflow-hidden">
             <div class="p-5 border-b border-black/10">
@@ -7990,11 +8004,8 @@
                   <input id="allOrdersDateTo" type="date" class="border-0 bg-transparent text-black text-sm py-2 px-1 focus:outline-none focus:ring-0" />
                 </div>
 
-                <!-- NEW: Date type dropdown -->
-                <select id="allOrdersDateType" class="rounded-xl border border-black/10 bg-white text-black px-3 py-3 text-sm">
-                  <option value="created">Created Date</option>
-                  <option value="dueDate">Due Date</option>
-                </select>
+                <!-- Date type dropdown (syncs with calendar) -->
+                ${dateDropdownHTML}
                 
                 <div class="flex gap-2">
                   <button id="allOrdersRefresh" class="px-4 py-3 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white text-sm font-bold transition">↻ Refresh</button>
@@ -8015,11 +8026,10 @@
             const assignee = document.getElementById("allOrdersAssignee").value;
             const dateFrom = document.getElementById("allOrdersDateFrom").value;
             const dateTo = document.getElementById("allOrdersDateTo").value;
-            const dateType = document.getElementById("allOrdersDateType").value; // "created" or "dueDate"
+            const dateType = document.getElementById("allOrdersDateType").value; // This is now the source
 
-            //console.log(`🔍 [All Orders] Date filter - dateFrom: "${dateFrom}", dateTo: "${dateTo}"`);
-            //console.log(`🔍 [All Orders] Filtering by: ${dateType === "created" ? "Created Date" : "Due Date"}`);
-            //console.log(`🔍 [All Orders] Using createdSource: "${createdSource}", dueDateSource: "${dueDateSource}"`);
+            console.log(`🔍 [All Orders] Date filter - dateFrom: "${dateFrom}", dateTo: "${dateTo}"`);
+            console.log(`🔍 [All Orders] Filtering by source: "${dateType}"`);
 
             const filteredOrders = orders
               .filter((o) => {
@@ -8040,10 +8050,9 @@
                 
                 let matchesDate = true;
                 if (dateFrom || dateTo) {
-                  // Choose which source to use based on dropdown
-                  const source = dateType === "created" ? createdSource : dueDateSource;
-                  const dateVal = parseDateValue(displayValue(o, source));
-                  //console.log(`🔍 [All Orders] Order ${o.id}: ${dateType}Val="${dateVal}"`);
+                  // Use the selected source (which can be any configured field)
+                  const dateVal = parseDateValue(displayValue(o, dateType));
+                  console.log(`🔍 [All Orders] Order ${o.id}: ${dateType}Val="${dateVal}"`);
                   
                   const checkDate = (val) => {
                     if (!val) return true;
@@ -8133,7 +8142,9 @@
             document.getElementById("allOrdersAssignee").value = "all";
             document.getElementById("allOrdersDateFrom").value = "";
             document.getElementById("allOrdersDateTo").value = "";
-            document.getElementById("allOrdersDateType").value = "created";
+            // Reset to the default (first option, usually "created" or the first available)
+            const dt = document.getElementById("allOrdersDateType");
+            if (dt.options.length) dt.value = dt.options[0].value;
             paint();
             toast("Filters cleared.", "info");
           });
@@ -8236,8 +8247,7 @@
             document.querySelectorAll("[data-calendar-date]").forEach(b => {
               b.addEventListener("click", function() {
                 const date = this.dataset.calendarDate;
-                //console.log(`📅 [Calendar] Clicked date: "${date}"`);
-                // Navigate to All Work Orders
+                console.log(`📅 [Calendar] Clicked date: "${date}"`);
                 document.querySelector('[data-nav-page="all-orders"]').click();
                 setTimeout(() => {
                   const dateFrom = document.getElementById("allOrdersDateFrom");
@@ -8245,18 +8255,29 @@
                   if (dateFrom) {
                     dateFrom.value = date;
                     dateFrom.dispatchEvent(new Event("change", { bubbles: true }));
-                    //console.log(`📅 [Calendar] Set dateFrom to "${date}"`);
                   }
                   if (dateTo) {
                     dateTo.value = date;
                     dateTo.dispatchEvent(new Event("change", { bubbles: true }));
-                    //console.log(`📅 [Calendar] Set dateTo to "${date}"`);
                   }
-                  // Also set the date type dropdown to "created" so the filter makes sense
+                  // ---- NEW: Sync the date type dropdown with the calendar source ----
+                  const source = displayConfig.calendarDateSource || displayConfig.fieldConfig?.created?.source || "created";
                   const dateType = document.getElementById("allOrdersDateType");
                   if (dateType) {
-                    dateType.value = "created";
+                    // Try to find the exact source in the dropdown
+                    let found = false;
+                    for (let i = 0; i < dateType.options.length; i++) {
+                      if (dateType.options[i].value === source) {
+                        dateType.value = source;
+                        found = true;
+                        break;
+                      }
+                    }
+                    if (!found && dateType.options.length) {
+                      dateType.value = dateType.options[0].value;
+                    }
                     dateType.dispatchEvent(new Event("change", { bubbles: true }));
+                    console.log(`📅 [Calendar] Set dateType to "${source}"`);
                   }
                   const searchInput = document.getElementById("allOrdersSearch");
                   if (searchInput) {
