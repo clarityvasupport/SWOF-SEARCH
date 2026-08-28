@@ -2045,7 +2045,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.8.6";
+      const APP_VERSION = "1.8.7";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -2164,8 +2164,8 @@
           importApiUrl: document.getElementById("importApiUrl").value.trim() || loadApiUrl(),
           importMappingConfig: loadMappingConfig() || {},
         };
-        console.log('[syncSharedStorage] Sending payload with orders count:', payload.orders.length);
-        console.log('[syncSharedStorage] First 3 orders being sent:', payload.orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+        //console.log('[syncSharedStorage] Sending payload with orders count:', payload.orders.length);
+        //console.log('[syncSharedStorage] First 3 orders being sent:', payload.orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
 
         try {
           const res = await fetch("/api/data", {
@@ -2175,7 +2175,7 @@
           });
           if (!res.ok) throw new Error("shared sync failed");
           const data = await res.json();
-          console.log('[syncSharedStorage] Response from cloud:', data);
+          //console.log('[syncSharedStorage] Response from cloud:', data);
           // The cloud worker returns { status: 'ok' } – it does NOT return data.
           // If it ever does, we would overwrite orders.
           if (data && data.data) {
@@ -2190,7 +2190,7 @@
           }
           isOnline = true;
           updateStorageBadge();
-          console.log('[syncSharedStorage] After sync, orders are:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+          //console.log('[syncSharedStorage] After sync, orders are:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
         } catch {
           console.warn('[syncSharedStorage] Sync failed – saving to localStorage fallback.');
           try {
@@ -2229,16 +2229,16 @@
       }
 
       async function loadSharedState() {
-        console.log('[loadSharedState] Called');
+        //console.log('[loadSharedState] Called');
         try {
           const res = await fetch("/api/data", { cache: "no-store" });
           if (!res.ok) throw new Error("shared load failed");
           const data = await res.json();
-          console.log('[loadSharedState] Received data from cloud:', data);
+          //console.log('[loadSharedState] Received data from cloud:', data);
 
           // Restore orders
           if (data && data.orders) {
-            console.log('[loadSharedState] Cloud has orders, overwriting local with:', data.orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+            //console.log('[loadSharedState] Cloud has orders, overwriting local with:', data.orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
             orders = Array.isArray(data.orders) ? data.orders : orders;
           }
 
@@ -2283,7 +2283,7 @@
 
           isOnline = true;
           updateStorageBadge();
-          console.log('[loadSharedState] After processing, orders are:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+          //console.log('[loadSharedState] After processing, orders are:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
         } catch {
           console.warn('[loadSharedState] Fallback to localStorage');
           orders = loadOrders();
@@ -2293,7 +2293,7 @@
           importedHeaders = loadImportedHeaders();
           isOnline = false;
           updateStorageBadge();
-          console.log('[loadSharedState] After fallback, orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+          //console.log('[loadSharedState] After fallback, orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
         }
       }
 
@@ -2321,11 +2321,10 @@
       }
 
       function getAvailableDateFields() {
-        const fields = [];
         const allConfigs = getAllFieldConfigs();
-        const fieldKeys = Object.keys(allConfigs);
-        
-        // Helper to check if a field has at least one date value among orders
+        const fields = [];
+
+        // Helper: check if a field (by source) has at least one date value
         function fieldHasDateValues(source) {
           if (!source) return false;
           // Check first 200 orders for performance
@@ -2336,60 +2335,41 @@
           });
         }
 
-        // 1. Add core and custom fields from config that have date values
-        fieldKeys.forEach(key => {
+        // Build a list of all configured fields that have date data
+        const configuredDateFields = [];
+        Object.keys(allConfigs).forEach(key => {
           const cfg = allConfigs[key];
           const source = cfg.source || key;
           if (fieldHasDateValues(source)) {
-            fields.push({
-              value: source,
+            configuredDateFields.push({
+              key: key,
+              source: source,
               label: cfg.label || key
             });
           }
         });
 
-        // 2. Also scan rawData headers from all orders for any column that has date values
-        // that are not already covered.
-        const existingSources = new Set(fields.map(f => f.value));
-        const allHeaders = new Set();
-        orders.forEach(o => {
-          if (o._rawData) {
-            Object.keys(o._rawData).forEach(h => allHeaders.add(h));
-          }
-        });
-        allHeaders.forEach(header => {
-          if (!existingSources.has(header) && fieldHasDateValues(header)) {
-            // Try to find a config label for this header
-            let label = header;
-            // Search in config for a field with this source
-            for (const key of fieldKeys) {
-              if (allConfigs[key].source === header) {
-                label = allConfigs[key].label || header;
-                break;
-              }
-            }
-            fields.push({
-              value: header,
-              label: label
-            });
-          }
-        });
+        // If the user has selected specific fields for the calendar, filter by that list
+        const selectedSources = displayConfig.calendarDateFields || [];
+        let selectedFields = configuredDateFields;
+        if (selectedSources.length > 0) {
+          selectedFields = configuredDateFields.filter(f => selectedSources.includes(f.source));
+        }
 
-        // 3. Sort fields by label
-        fields.sort((a, b) => a.label.localeCompare(b.label));
+        // Build the final array for the dropdown
+        const result = selectedFields.map(f => ({
+          value: f.source,
+          label: f.label
+        }));
 
-        // Ensure 'created' and 'dueDate' are at the top if they exist
-        const priority = ['created', 'dueDate'];
-        const sorted = [];
-        priority.forEach(p => {
-          const idx = fields.findIndex(f => f.value === p);
-          if (idx !== -1) {
-            sorted.push(fields.splice(idx, 1)[0]);
-          }
-        });
-        // Then add the rest
-        sorted.push(...fields);
-        return sorted;
+        // Ensure 'created' is at the top if it exists
+        const createdIdx = result.findIndex(f => f.value === 'created');
+        if (createdIdx > 0) {
+          const [created] = result.splice(createdIdx, 1);
+          result.unshift(created);
+        }
+
+        return result;
       }
 
       // ===== GENERATE CONSISTENT ASSIGNEE COLOR =====
@@ -2910,7 +2890,7 @@
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
           const result = raw ? JSON.parse(raw) : structuredClone(seedOrders);
-          console.log('[loadOrders] Loaded orders from localStorage:', result.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+          //console.log('[loadOrders] Loaded orders from localStorage:', result.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
           return result;
         } catch {
           console.warn('[loadOrders] Failed to parse, returning seed.');
@@ -3283,7 +3263,7 @@
       }
 
       function initializeDashboardFilters() {
-        console.log('[initializeDashboardFilters] Called. Current orders count:', orders.length);
+        //console.log('[initializeDashboardFilters] Called. Current orders count:', orders.length);
         const status = document.getElementById("statusFilter");
         const priority = document.getElementById("priorityFilter");
         const sort = document.getElementById("sortSelect");
@@ -3488,7 +3468,7 @@
       // ===== RENDER FUNCTIONS =====
       function render() {
         initializeDashboardFilters();
-        console.log('[render] Current `orders` array (first 3):', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+        //console.log('[render] Current `orders` array (first 3):', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
         orders = orders.filter(Boolean).map((o, i) => ({
           ...o,
           id: String(o.id ?? `WO-${i + 1}`).trim() || `WO-${i + 1}`,
@@ -5969,7 +5949,7 @@
         }
 
         // --- DEBUG: Log what we found (remove after confirmation) ---
-        console.log(`[DEBUG] Row ${i} – remarksValue: "${remarksValue}"`);
+        //console.log(`[DEBUG] Row ${i} – remarksValue: "${remarksValue}"`);
 
         // --- Step 4: Override status to COMPLETED ONLY if the remarks field contains "complete" ---
         let finalStatus;
@@ -5982,7 +5962,7 @@
         }
 
         // --- DEBUG: Log the final status ---
-        console.log(`[DEBUG] Row ${i} – finalStatus: "${finalStatus}"`);
+        //console.log(`[DEBUG] Row ${i} – finalStatus: "${finalStatus}"`);
 
         // --- Get other fields ---
         const rawPriority = String(get("priority") || "").trim();
@@ -6895,11 +6875,11 @@
 
         // 2. Attempt the sync
         try {
-          console.log(`[AutoSync] Attempt ${retryCount + 1} to sync from ${url}`);
+          //console.log(`[AutoSync] Attempt ${retryCount + 1} to sync from ${url}`);
           const success = await fetchAndApplyWithSavedMapping(url);
           
           if (success) {
-            console.log('[AutoSync] ✅ Sync successful.');
+            //console.log('[AutoSync] ✅ Sync successful.');
             return true;
           } else {
             // 3. If it failed and we haven't retried too many times, retry
@@ -7135,17 +7115,17 @@
         }
 
         const replace = document.getElementById('replaceOrdersCheckbox').checked;
-        console.log('[applyImport] Replace checkbox checked?', replace);
+        //console.log('[applyImport] Replace checkbox checked?', replace);
 
         if (replace) {
           orders = [];
           history = [];
-          console.log('[applyImport] Orders cleared (replace mode).');
+          //console.log('[applyImport] Orders cleared (replace mode).');
           toast("🗑️ Existing orders cleared. New import will replace all data.", "info");
         }
 
         const incoming = importRows.map(makeMappedOrder);
-        console.log('[applyImport] Incoming orders (first 3):', incoming.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+        //console.log('[applyImport] Incoming orders (first 3):', incoming.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
 
         const isApiImport = importSourceType === "api";
 
@@ -7200,7 +7180,7 @@
           }
         });
 
-        console.log('[applyImport] After merge, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+        //console.log('[applyImport] After merge, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
 
         // Apply labels from import to all orders
         orders = orders.map((o, i) => {
@@ -7244,7 +7224,7 @@
           };
         });
 
-        console.log('[applyImport] After re-map, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+        //console.log('[applyImport] After re-map, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
 
         // ----- Ensure custom fields from import are added to displayConfig with correct visibility -----
         if (importCustomMappings && importCustomMappings.length) {
@@ -7353,7 +7333,7 @@
             timeOf(b.created) - timeOf(a.created) ||
             Number(a.sourceOrder ?? 0) - Number(b.sourceOrder ?? 0)
         );
-        console.log('[applyImport] After sort by sourceOrder desc, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+        //console.log('[applyImport] After sort by sourceOrder desc, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
 
         // ---------- SAVE TO LOCAL STORAGE (manual, no sync call) ----------
         try {
@@ -7362,7 +7342,7 @@
           localStorage.setItem(USERS_KEY, JSON.stringify(users));
           localStorage.setItem(IMPORTED_HEADERS_KEY, JSON.stringify(importedHeaders));
           localStorage.setItem("wo_password", storedPassword);
-          console.log('[applyImport] ✅ Data saved to localStorage');
+          //console.log('[applyImport] ✅ Data saved to localStorage');
         } catch (e) {
           console.error('[applyImport] ❌ Failed to save to localStorage:', e);
           toast("Failed to save data locally.", "error");
@@ -7371,14 +7351,14 @@
 
         // ---------- CLOUD SYNC (one single call with the current correct orders) ----------
         const ordersToSync = orders.slice(); // snapshot
-        console.log('[applyImport] ☁️ Syncing to cloud with orders:', ordersToSync.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+        //console.log('[applyImport] ☁️ Syncing to cloud with orders:', ordersToSync.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
 
         try {
           const originalOrders = orders;
           orders = ordersToSync;
           await syncSharedStorage();
           orders = originalOrders;
-          console.log('[applyImport] ✅ Cloud sync completed.');
+          //console.log('[applyImport] ✅ Cloud sync completed.');
         } catch (e) {
           console.error('[applyImport] ❌ Cloud sync failed:', e);
           toast("⚠️ Data saved locally but cloud sync failed. Check your connection.", "error");
@@ -7386,7 +7366,7 @@
 
         // ---------- RELOAD FROM LOCAL STORAGE TO GET THE AUTHORITATIVE DATA ----------
         orders = loadOrders();
-        console.log('[applyImport] After reload from localStorage, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+        //console.log('[applyImport] After reload from localStorage, first 3 orders:', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
 
         // ---------- Update UI ----------
         document.getElementById("searchInput").value = "";
@@ -7795,9 +7775,9 @@
             const dateTo = document.getElementById("allOrdersDateTo").value;
             const dateType = document.getElementById("allOrdersDateType").value; // "created" or "dueDate"
 
-            console.log(`🔍 [All Orders] Date filter - dateFrom: "${dateFrom}", dateTo: "${dateTo}"`);
-            console.log(`🔍 [All Orders] Filtering by: ${dateType === "created" ? "Created Date" : "Due Date"}`);
-            console.log(`🔍 [All Orders] Using createdSource: "${createdSource}", dueDateSource: "${dueDateSource}"`);
+            //console.log(`🔍 [All Orders] Date filter - dateFrom: "${dateFrom}", dateTo: "${dateTo}"`);
+            //console.log(`🔍 [All Orders] Filtering by: ${dateType === "created" ? "Created Date" : "Due Date"}`);
+            //console.log(`🔍 [All Orders] Using createdSource: "${createdSource}", dueDateSource: "${dueDateSource}"`);
 
             const filteredOrders = orders
               .filter((o) => {
@@ -7821,7 +7801,7 @@
                   // Choose which source to use based on dropdown
                   const source = dateType === "created" ? createdSource : dueDateSource;
                   const dateVal = parseDateValue(displayValue(o, source));
-                  console.log(`🔍 [All Orders] Order ${o.id}: ${dateType}Val="${dateVal}"`);
+                  //console.log(`🔍 [All Orders] Order ${o.id}: ${dateType}Val="${dateVal}"`);
                   
                   const checkDate = (val) => {
                     if (!val) return true;
@@ -7950,7 +7930,7 @@
             const createdFieldSource = displayConfig.fieldConfig?.created?.source || "created";
             const source = displayConfig.calendarDateSource || createdFieldSource;
 
-            console.log(`📅 [Calendar] Using date source: "${source}"`);
+            //console.log(`📅 [Calendar] Using date source: "${source}"`);
 
             const now = new Date();
             const month = now.getMonth() + calendarMonthOffset;
@@ -7965,7 +7945,7 @@
               .map(o => {
                 const rawDate = displayValue(o, source);
                 const parsed = parseDateValue(rawDate);
-                console.log(`📅 [Calendar] Order ${o.id}: raw="${rawDate}" → parsed="${parsed}"`);
+                //console.log(`📅 [Calendar] Order ${o.id}: raw="${rawDate}" → parsed="${parsed}"`);
                 return { ...o, _date: parsed };
               })
               .filter(o => o._date && o._date.startsWith(`${adjustedYear}-${String(adjustedMonth + 1).padStart(2, "0")}`))
@@ -8014,7 +7994,7 @@
             document.querySelectorAll("[data-calendar-date]").forEach(b => {
               b.addEventListener("click", function() {
                 const date = this.dataset.calendarDate;
-                console.log(`📅 [Calendar] Clicked date: "${date}"`);
+                //console.log(`📅 [Calendar] Clicked date: "${date}"`);
                 // Navigate to All Work Orders
                 document.querySelector('[data-nav-page="all-orders"]').click();
                 setTimeout(() => {
@@ -8023,12 +8003,12 @@
                   if (dateFrom) {
                     dateFrom.value = date;
                     dateFrom.dispatchEvent(new Event("change", { bubbles: true }));
-                    console.log(`📅 [Calendar] Set dateFrom to "${date}"`);
+                    //console.log(`📅 [Calendar] Set dateFrom to "${date}"`);
                   }
                   if (dateTo) {
                     dateTo.value = date;
                     dateTo.dispatchEvent(new Event("change", { bubbles: true }));
-                    console.log(`📅 [Calendar] Set dateTo to "${date}"`);
+                    //console.log(`📅 [Calendar] Set dateTo to "${date}"`);
                   }
                   // Also set the date type dropdown to "created" so the filter makes sense
                   const dateType = document.getElementById("allOrdersDateType");
@@ -8167,8 +8147,8 @@
             const dateFrom = document.getElementById("analyticsDateFrom").value;
             const dateTo = document.getElementById("analyticsDateTo").value;
 
-            console.log(`🔍 [Analytics] Filtering by: ${dateType === "created" ? "Created Date" : "Due Date"}`);
-            console.log(`🔍 [Analytics] Date range: ${dateFrom} → ${dateTo}`);
+            //console.log(`🔍 [Analytics] Filtering by: ${dateType === "created" ? "Created Date" : "Due Date"}`);
+            //console.log(`🔍 [Analytics] Date range: ${dateFrom} → ${dateTo}`);
 
             // Get the appropriate source from field config
             const source = dateType === "created"
@@ -8411,6 +8391,20 @@
           const fieldConfigs = getAllFieldConfigs();
           const allHeaders = allAvailableHeaders();
 
+          // --- Calendar Configuration HTML ---
+          const calendarConfigHTML = `
+            <div class="bg-white/5 border border-white/10 rounded-2xl p-5 mt-4">
+              <h3 class="font-black text-white">Calendar Date Fields</h3>
+              <p class="text-sm text-white/50 mt-1">Select which fields appear in the Calendar dropdown. Only fields with date values are shown.</p>
+              <div id="calendarFieldCheckboxes" class="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+              <div class="mt-3 flex gap-2">
+                <button id="calendarSelectAllBtn" class="px-3 py-1.5 rounded-lg bg-brand-teal/20 text-brand-teal font-bold text-xs hover:bg-brand-teal/30 transition">Select All</button>
+                <button id="calendarClearAllBtn" class="px-3 py-1.5 rounded-lg bg-white/10 text-white/60 font-bold text-xs hover:bg-white/20 transition">Clear All</button>
+              </div>
+            </div>
+          `;
+
+          // --- Field Config HTML (unchanged) ---
           let fieldConfigHTML = `<div class="bg-white/5 border border-white/10 rounded-2xl p-5 mt-4">
             <h3 class="font-black text-white">Field Configuration</h3>
             <p class="text-sm text-white/50 mt-1">Customize which fields appear on cards and in the All Work Orders table. Rename fields and map them to different headers.</p>
@@ -8509,6 +8503,7 @@
             </div>
           </div>`;
 
+          // --- Build the settings page HTML with the new calendar section ---
           body.innerHTML = `<div class="max-w-3xl space-y-4">
             <div class="bg-white/5 border border-white/10 rounded-2xl p-5">
               <h3 class="font-black text-white">Local Data</h3>
@@ -8518,19 +8513,124 @@
                 <button id="settingsReset" class="px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/10 transition">Reset Demo Data</button>
               </div>
             </div>
+
             <div class="bg-white/5 border border-white/10 rounded-2xl p-5">
               <h3 class="font-black text-white">Import Behavior</h3>
               <p class="text-sm text-white/50 mt-1">Existing Work Order IDs are updated; new IDs are added. Imported records are sorted newest-created first.</p>
             </div>
+
             <div class="bg-white/5 border border-white/10 rounded-2xl p-5">
               <h3 class="font-black text-white">Security</h3>
               <p class="text-sm text-white/50 mt-1">Change your admin password. This will be stored in the cloud (KV) and synced across devices.</p>
               <button id="openChangePasswordBtn" class="mt-4 px-4 py-2.5 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white font-bold text-sm transition">Change Password</button>
             </div>
+
+            ${calendarConfigHTML}
+
             ${fieldConfigHTML}
           </div>`;
 
-          // ----- settings event listeners (re‑bind) -----
+          // ----- Helper function to render the calendar checkboxes -----
+          function renderCalendarCheckboxes() {
+            const container = document.getElementById('calendarFieldCheckboxes');
+            if (!container) return;
+
+            // Gather all configured fields that have date values
+            const allConfigs = getAllFieldConfigs();
+            const dateFields = [];
+            Object.keys(allConfigs).forEach(key => {
+              const cfg = allConfigs[key];
+              const source = cfg.source || key;
+              // Check if at least one order has a date value for this source
+              const hasDate = orders.some(o => parseDateValue(displayValue(o, source)) !== "");
+              if (hasDate) {
+                dateFields.push({
+                  key: key,
+                  source: source,
+                  label: cfg.label || key
+                });
+              }
+            });
+
+            if (dateFields.length === 0) {
+              container.innerHTML = '<p class="text-xs text-white/40">No date fields found. Import data with date columns or configure fields.</p>';
+              return;
+            }
+
+            // Ensure calendarDateFields array exists
+            if (!displayConfig.calendarDateFields) {
+              displayConfig.calendarDateFields = [];
+              // By default, include all date fields
+              displayConfig.calendarDateFields = dateFields.map(f => f.source);
+              saveDisplayConfig();
+            }
+
+            const selectedSources = displayConfig.calendarDateFields || [];
+            let html = '';
+            dateFields.forEach(f => {
+              const checked = selectedSources.includes(f.source) ? 'checked' : '';
+              html += `
+                <label class="flex items-center gap-2 text-sm text-white/80 cursor-pointer">
+                  <input type="checkbox" class="calendar-field-checkbox" data-source="${esc(f.source)}" ${checked} />
+                  ${esc(f.label)}
+                </label>
+              `;
+            });
+            container.innerHTML = html;
+
+            // Bind change events
+            container.querySelectorAll('.calendar-field-checkbox').forEach(cb => {
+              cb.addEventListener('change', function() {
+                const source = this.dataset.source;
+                if (!displayConfig.calendarDateFields) displayConfig.calendarDateFields = [];
+                if (this.checked) {
+                  if (!displayConfig.calendarDateFields.includes(source)) {
+                    displayConfig.calendarDateFields.push(source);
+                  }
+                } else {
+                  displayConfig.calendarDateFields = displayConfig.calendarDateFields.filter(s => s !== source);
+                }
+                saveDisplayConfig();
+                // If calendar is open, refresh it
+                const sectionPage = document.getElementById('sectionPage');
+                if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Calendar') {
+                  showSectionPage('calendar');
+                }
+                toast('Calendar field selection updated.', 'info');
+              });
+            });
+
+            // Select All / Clear All buttons
+            document.getElementById('calendarSelectAllBtn')?.addEventListener('click', () => {
+              const allSources = dateFields.map(f => f.source);
+              displayConfig.calendarDateFields = allSources;
+              saveDisplayConfig();
+              renderCalendarCheckboxes();
+              // Refresh calendar
+              const sectionPage = document.getElementById('sectionPage');
+              if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Calendar') {
+                showSectionPage('calendar');
+              }
+              toast('All date fields selected for calendar.', 'info');
+            });
+
+            document.getElementById('calendarClearAllBtn')?.addEventListener('click', () => {
+              displayConfig.calendarDateFields = [];
+              saveDisplayConfig();
+              renderCalendarCheckboxes();
+              const sectionPage = document.getElementById('sectionPage');
+              if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Calendar') {
+                showSectionPage('calendar');
+              }
+              toast('Calendar fields cleared.', 'info');
+            });
+          }
+
+          // ----- Render the checkboxes -----
+          renderCalendarCheckboxes();
+
+          // ===== Existing settings event listeners =====
+
           document
             .getElementById("settingsRefresh")
             .addEventListener("click", () => {
@@ -8559,7 +8659,7 @@
               });
             });
 
-          // Field config event listeners (unchanged)
+          // --- Field config event listeners (unchanged) ---
           document.addEventListener("change", function (e) {
             const target = e.target;
             if (target.dataset.fieldKey && target.dataset.fieldProperty) {
@@ -8655,7 +8755,7 @@
             toast(`✅ Field "${label}" added to all orders.`, "success");
           });
 
-          // Reset buttons
+          // Reset buttons (both Reset All and Reset Sources)
           document.addEventListener("click", function (e) {
             const target = e.target.closest("#resetFieldConfigBtn");
             if (target) {
