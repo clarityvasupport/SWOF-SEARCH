@@ -1957,89 +1957,47 @@
       </div>
     </div>
 
-    <!-- ========================= IMAGE PREVIEW MODAL ========================= -->
+    <!-- ========================= IMAGE PREVIEW MODAL (Carousel) ========================= -->
     <div id="imagePreviewModal" class="fixed inset-0 z-[80] hidden">
-      <div
-        id="imagePreviewModalBackdrop"
-        class="absolute inset-0 bg-black/75 backdrop-blur-sm"
-      ></div>
-      <div
-        class="relative min-h-full flex items-center justify-center p-4 sm:p-8"
-      >
-        <div
-          class="relative w-full max-w-5xl bg-white text-black rounded-3xl shadow-2xl overflow-hidden"
-        >
-          <div
-            class="flex items-center justify-between gap-3 border-b border-black/10 px-4 py-3"
-          >
-            <div class="flex items-center gap-3">
-              <h3 class="text-sm font-black text-black">Attachment preview</h3>
-              <span id="imagePreviewCounter" class="text-xs text-black/50 font-semibold"></span>
+      <div id="imagePreviewModalBackdrop" class="absolute inset-0 bg-black/75 backdrop-blur-sm"></div>
+      <div class="relative min-h-full flex items-center justify-center p-4 sm:p-8">
+        <div class="relative w-full max-w-5xl bg-white text-black rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+          <!-- Header -->
+          <div class="flex-shrink-0 flex items-center justify-between gap-3 border-b border-black/10 px-4 py-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <h3 class="text-sm font-black text-black truncate">Attachment preview</h3>
+              <span id="imagePreviewCounter" class="text-xs text-black/50 font-semibold whitespace-nowrap"></span>
             </div>
-            <div class="flex items-center gap-2">
-              <div
-                class="flex items-center gap-1 rounded-lg border border-black/10 bg-black/5 p-1"
-              >
-                <button
-                  id="zoomOutImagePreviewBtn"
-                  type="button"
-                  class="h-8 w-8 rounded-md hover:bg-black/10 text-black/70 text-lg font-bold"
-                  aria-label="Zoom out"
-                >
-                  −
-                </button>
-                <span
-                  id="imagePreviewZoomValue"
-                  class="min-w-[48px] text-center text-[11px] font-bold text-black/70"
-                  >100%</span
-                >
-                <button
-                  id="zoomInImagePreviewBtn"
-                  type="button"
-                  class="h-8 w-8 rounded-md hover:bg-black/10 text-black/70 text-lg font-bold"
-                  aria-label="Zoom in"
-                >
-                  +
-                </button>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <!-- Zoom controls (visible only for images) -->
+              <div id="imagePreviewZoomControls" class="flex items-center gap-1 rounded-lg border border-black/10 bg-black/5 p-1">
+                <button id="zoomOutImagePreviewBtn" type="button" class="h-8 w-8 rounded-md hover:bg-black/10 text-black/70 text-lg font-bold" aria-label="Zoom out">−</button>
+                <span id="imagePreviewZoomValue" class="min-w-[48px] text-center text-[11px] font-bold text-black/70">100%</span>
+                <button id="zoomInImagePreviewBtn" type="button" class="h-8 w-8 rounded-md hover:bg-black/10 text-black/70 text-lg font-bold" aria-label="Zoom in">+</button>
+                <button id="resetImagePreviewZoomBtn" type="button" class="rounded-lg border border-black/10 bg-black/5 px-2 py-1 text-[11px] font-semibold text-black/70 hover:bg-black/10 transition">Reset</button>
               </div>
-              <button
-                id="resetImagePreviewZoomBtn"
-                type="button"
-                class="rounded-lg border border-black/10 bg-black/5 px-2 py-1 text-[11px] font-semibold text-black/70 hover:bg-black/10 transition"
-              >
-                Reset
-              </button>
-              <button
-                id="closeImagePreviewModalBtn"
-                type="button"
-                class="w-9 h-9 rounded-lg hover:bg-black/5 text-black/50 flex items-center justify-center text-xl"
-              >
-                ✕
-              </button>
+              <button id="closeImagePreviewModalBtn" type="button" class="w-9 h-9 rounded-lg hover:bg-black/5 text-black/50 flex items-center justify-center text-xl">✕</button>
             </div>
           </div>
-          <div class="relative p-4 sm:p-6 bg-black/5">
-            <!-- Navigation arrows -->
-            <button id="imagePreviewPrevBtn" type="button" class="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center text-xl transition opacity-60 hover:opacity-100" aria-label="Previous image">
-              ‹
-            </button>
-            <button id="imagePreviewNextBtn" type="button" class="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center text-xl transition opacity-60 hover:opacity-100" aria-label="Next image">
-              ›
-            </button>
-            <div
-              id="imagePreviewModalViewport"
-              class="max-h-[75vh] overflow-auto rounded-xl border border-black/10 bg-white p-2 group relative"
-            >
-              <img
-                id="imagePreviewModalImg"
-                src=""
-                alt="Full attachment preview"
-                draggable="false"
-                class="mx-auto block max-w-full rounded-xl bg-white shadow-sm transition-transform duration-150 ease-out cursor-grab active:cursor-grabbing select-none"
-                style="touch-action: none; user-select: none"
-              />
-              <!-- PDF iframe will be inserted here dynamically -->
-            </div>
+
+          <!-- Viewer body (flex-1, centers content) -->
+          <div class="flex-1 relative bg-black/5 overflow-hidden min-h-[300px] flex items-center justify-center" id="imagePreviewModalViewport">
+            <!-- Image element (hidden when PDF is shown) -->
+            <img id="imagePreviewModalImg" src="" alt="Attachment preview" draggable="false"
+                class="hidden max-w-full max-h-[calc(90vh-160px)] object-contain rounded-xl bg-white shadow-sm transition-transform duration-150 ease-out cursor-grab active:cursor-grabbing select-none"
+                style="touch-action: none; user-select: none;" />
+
+            <!-- PDF iframe (hidden when image is shown) -->
+            <iframe id="pdfPreviewIframe" class="hidden w-full h-full min-h-[calc(90vh-180px)] rounded-lg" style="border:none;"></iframe>
+
+            <!-- Navigation arrows (always visible when >1 item) -->
+            <button id="imagePreviewPrevBtn" type="button" class="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center text-2xl transition opacity-70 hover:opacity-100 hidden" aria-label="Previous">‹</button>
+            <button id="imagePreviewNextBtn" type="button" class="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center text-2xl transition opacity-70 hover:opacity-100 hidden" aria-label="Next">›</button>
+          </div>
+
+          <!-- Thumbnail strip (footer) -->
+          <div id="imagePreviewThumbnails" class="flex-shrink-0 border-t border-black/10 p-3 bg-white overflow-x-auto flex items-center gap-2 justify-center min-h-[60px]">
+            <!-- Thumbnails will be inserted here dynamically -->
           </div>
         </div>
       </div>
@@ -5339,143 +5297,181 @@
       function openImagePreviewModal(srcOrGallery, alt = "Attachment preview", isPdf = false) {
         const modal = document.getElementById("imagePreviewModal");
         const image = document.getElementById("imagePreviewModalImg");
+        const iframe = document.getElementById("pdfPreviewIframe");
         const viewport = document.getElementById("imagePreviewModalViewport");
         const counter = document.getElementById("imagePreviewCounter");
         const prevBtn = document.getElementById("imagePreviewPrevBtn");
         const nextBtn = document.getElementById("imagePreviewNextBtn");
+        const thumbnails = document.getElementById("imagePreviewThumbnails");
+        const zoomControls = document.getElementById("imagePreviewZoomControls");
 
-        if (!modal || !image) return;
+        if (!modal || !viewport) return;
 
-        // Handle PDF preview
-        if (isPdf || (typeof srcOrGallery === 'string' && isPdfUrl(srcOrGallery))) {
-          const pdfUrl = typeof srcOrGallery === 'string' ? srcOrGallery : String(srcOrGallery);
-          imageGallery = [pdfUrl];
-          currentImageIndex = 0;
-          currentIsPdf = true;
-
-          image.style.display = "none";
-
-          let iframe = document.getElementById("pdfPreviewIframe");
-          if (!iframe) {
-            iframe = document.createElement("iframe");
-            iframe.id = "pdfPreviewIframe";
-            iframe.className = "w-full h-full min-h-[70vh] rounded-lg";
-            iframe.style.border = "none";
-            viewport.appendChild(iframe);
-          }
-          iframe.style.display = "block";
-          iframe.src = pdfUrl;
-
-          if (counter) counter.textContent = "";
-
-          if (prevBtn) prevBtn.style.display = "none";
-          if (nextBtn) nextBtn.style.display = "none";
-
-          modal.classList.remove("hidden");
-          document.body.classList.add("overflow-hidden");
-          return;
-        }
-
-        // ===== IMAGE GALLERY LOGIC =====
-        currentIsPdf = false;
-
-        const iframe = document.getElementById("pdfPreviewIframe");
-        if (iframe) iframe.style.display = "none";
-
+        // Build gallery array: each item is { url, type: 'image' | 'pdf' }
+        let items = [];
         if (typeof srcOrGallery === 'string' && srcOrGallery.startsWith('[')) {
           try {
-            imageGallery = JSON.parse(srcOrGallery);
+            const parsed = JSON.parse(srcOrGallery);
+            items = parsed.map(url => ({ url, type: isPdfUrl(url) ? 'pdf' : 'image' }));
           } catch {
-            imageGallery = [srcOrGallery];
+            items = [{ url: srcOrGallery, type: isPdf ? 'pdf' : 'image' }];
           }
         } else if (Array.isArray(srcOrGallery)) {
-          imageGallery = srcOrGallery;
+          items = srcOrGallery.map(url => ({ url, type: isPdfUrl(url) ? 'pdf' : 'image' }));
         } else {
-          imageGallery = [String(srcOrGallery)];
+          items = [{ url: String(srcOrGallery), type: isPdf ? 'pdf' : 'image' }];
         }
 
-        imageGallery = imageGallery.filter(url => url && url.trim());
+        // Filter out empty
+        items = items.filter(item => item.url && item.url.trim());
 
-        if (imageGallery.length === 0) {
-          toast("No images to display.", "error");
+        if (!items.length) {
+          toast("No items to preview.", "error");
           return;
         }
 
-        currentImageIndex = 0;
-        showImageAtIndex(currentImageIndex, alt);
+        // Store globally
+        window._previewItems = items;
+        window._previewCurrentIndex = 0;
+        window._previewAlt = alt || "Attachment preview";
 
+        // Show first item
+        showPreviewItem(0);
+
+        // Update counter
         if (counter) {
-          counter.textContent = imageGallery.length > 1 ? `1 / ${imageGallery.length}` : "";
+          counter.textContent = items.length > 1 ? `1 / ${items.length}` : "";
         }
 
-        // Navigation buttons will be shown/hidden by showImageAtIndex
-        // (no need to set them here)
+        // Show/hide navigation buttons based on count
+        if (prevBtn) prevBtn.style.display = items.length > 1 ? "flex" : "none";
+        if (nextBtn) nextBtn.style.display = items.length > 1 ? "flex" : "none";
+
+        // Render thumbnails
+        renderThumbnails(items);
+
+        // Show zoom controls only if first item is image (will be updated on navigation)
+        updateZoomControlsVisibility(items[0].type === 'image');
 
         modal.classList.remove("hidden");
         document.body.classList.add("overflow-hidden");
       }
 
-      function showImageAtIndex(index, alt = "Attachment preview") {
+      function showPreviewItem(index) {
+        const items = window._previewItems || [];
+        if (!items.length) return;
+
+        // Clamp index
+        if (index < 0) index = 0;
+        if (index >= items.length) index = items.length - 1;
+        window._previewCurrentIndex = index;
+
+        const item = items[index];
         const image = document.getElementById("imagePreviewModalImg");
+        const iframe = document.getElementById("pdfPreviewIframe");
         const counter = document.getElementById("imagePreviewCounter");
         const prevBtn = document.getElementById("imagePreviewPrevBtn");
         const nextBtn = document.getElementById("imagePreviewNextBtn");
+        const zoomControls = document.getElementById("imagePreviewZoomControls");
+        const thumbnails = document.getElementById("imagePreviewThumbnails");
 
-        if (!image || !imageGallery.length) return;
+        // Update counter
+        if (counter) {
+          counter.textContent = items.length > 1 ? `${index + 1} / ${items.length}` : "";
+        }
 
-        // Clamp index
-        currentImageIndex = Math.max(0, Math.min(index, imageGallery.length - 1));
-        const src = imageGallery[currentImageIndex];
+        // Update navigation buttons visibility
+        if (prevBtn) prevBtn.style.display = items.length > 1 && index > 0 ? "flex" : "none";
+        if (nextBtn) nextBtn.style.display = items.length > 1 && index < items.length - 1 ? "flex" : "none";
 
-        // Hide iframe
-        const iframe = document.getElementById("pdfPreviewIframe");
-        if (iframe) iframe.style.display = "none";
-
-        // Show image
-        image.style.display = "block";
-
-        // Reset zoom and position
+        // Reset zoom/pan for images
         imagePreviewTranslate = { x: 0, y: 0 };
         imagePreviewZoom = 1;
         image.style.transform = "translate(0px, 0px) scale(1)";
         const zoomValue = document.getElementById("imagePreviewZoomValue");
         if (zoomValue) zoomValue.textContent = "100%";
 
-        // Load the image
+        // Hide both initially
         image.style.display = "none";
-        image.alt = alt || `Attachment ${currentImageIndex + 1}`;
-        image.onerror = null;
-        image.onload = null;
+        iframe.style.display = "none";
+        iframe.src = "";
 
-        loadDriveImage(image, src, {
-          size: 2000,
-          onFail: () => {
-            image.style.display = "none";
-            image.alt = "Image could not be loaded from Drive";
-          },
+        // Show zoom controls based on type
+        const isImage = item.type === 'image';
+        updateZoomControlsVisibility(isImage);
+
+        if (isImage) {
+          // Show image
+          image.style.display = "block";
+          image.alt = window._previewAlt || `Attachment ${index + 1}`;
+          image.onerror = null;
+          image.onload = null;
+          // Load image (with Drive fallback)
+          loadDriveImage(image, item.url, {
+            size: 2000,
+            onFail: () => {
+              image.style.display = "none";
+              image.alt = "Image could not be loaded from Drive";
+            },
+          });
+        } else {
+          // Show PDF
+          iframe.style.display = "block";
+          iframe.src = getPdfViewerUrl(item.url);
+        }
+
+        // Highlight active thumbnail
+        if (thumbnails) {
+          const thumbs = thumbnails.querySelectorAll('.thumbnail-item');
+          thumbs.forEach((el, i) => {
+            el.classList.toggle('ring-2', i === index);
+            el.classList.toggle('ring-brand-teal', i === index);
+          });
+          // Scroll thumbnail into view
+          const activeThumb = thumbs[index];
+          if (activeThumb) {
+            activeThumb.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+          }
+        }
+      }
+
+      function renderThumbnails(items) {
+        const container = document.getElementById("imagePreviewThumbnails");
+        if (!container) return;
+
+        if (items.length <= 1) {
+          container.innerHTML = '';
+          return;
+        }
+
+        let html = '';
+        items.forEach((item, index) => {
+          const isImage = item.type === 'image';
+          const thumbUrl = isImage ? normalizeThumbnailMediaUrl(item.url) : '';
+          const icon = isImage ? '' : `<svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" stroke-linecap="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /><path stroke-width="1.5" stroke-linecap="round" d="M15 3v5a1 1 0 001 1h5" /></svg>`;
+          html += `
+            <button type="button" data-thumb-index="${index}" class="thumbnail-item flex-shrink-0 w-16 h-16 rounded-lg border-2 border-transparent hover:border-brand-teal/50 overflow-hidden bg-white/80 flex items-center justify-center transition-all duration-150 ${index === 0 ? 'ring-2 ring-brand-teal' : ''}">
+              ${isImage ? `<img src="${esc(thumbUrl)}" alt="Thumbnail" class="w-full h-full object-cover" />` : icon}
+            </button>
+          `;
         });
+        container.innerHTML = html;
 
-        // Update counter
-        if (counter) {
-          counter.textContent = imageGallery.length > 1
-            ? `${currentImageIndex + 1} / ${imageGallery.length}`
-            : "";
-        }
+        // Bind click events on thumbnails
+        container.querySelectorAll('.thumbnail-item').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const idx = parseInt(this.dataset.thumbIndex);
+            if (!isNaN(idx) && idx >= 0 && idx < items.length) {
+              showPreviewItem(idx);
+            }
+          });
+        });
+      }
 
-        // ----- FIX: Show/hide navigation buttons based on position -----
-        if (prevBtn) {
-          if (imageGallery.length > 1 && currentImageIndex > 0) {
-            prevBtn.style.display = "flex";
-          } else {
-            prevBtn.style.display = "none";
-          }
-        }
-        if (nextBtn) {
-          if (imageGallery.length > 1 && currentImageIndex < imageGallery.length - 1) {
-            nextBtn.style.display = "flex";
-          } else {
-            nextBtn.style.display = "none";
-          }
+      function updateZoomControlsVisibility(show) {
+        const controls = document.getElementById("imagePreviewZoomControls");
+        if (controls) {
+          controls.style.display = show ? "flex" : "none";
         }
       }
 
@@ -5483,32 +5479,22 @@
         const modal = document.getElementById("imagePreviewModal");
         if (!modal) return;
         modal.classList.add("hidden");
-        
+
         const image = document.getElementById("imagePreviewModalImg");
         if (image) image.src = "";
-        
-        // Clean up PDF iframe
+
         const iframe = document.getElementById("pdfPreviewIframe");
         if (iframe) {
           iframe.src = "";
           iframe.style.display = "none";
         }
-        
-        currentIsPdf = false;
-        imageGallery = [];
-        currentImageIndex = 0;
-        
-        if (
-          document.getElementById("editModal").classList.contains("hidden") &&
-          document.getElementById("statusModal").classList.contains("hidden") &&
-          document
-            .getElementById("confirmModal")
-            .classList.contains("hidden") &&
-          document.getElementById("importModal").classList.contains("hidden") &&
-          !selectedId
-        ) {
-          document.body.classList.remove("overflow-hidden");
-        }
+
+        // Reset gallery state
+        window._previewItems = [];
+        window._previewCurrentIndex = 0;
+        window._previewAlt = "";
+
+        document.body.classList.remove("overflow-hidden");
       }
 
       function openConfirmationModal({
@@ -7328,6 +7314,59 @@
         return el;
       }
 
+      // ===== LOADING TOAST (with spinner) =====
+      let loadingToastElement = null;
+
+      function showLoadingToast(message) {
+        // Remove any existing loading toast first
+        hideLoadingToast();
+
+        const stack = document.getElementById("toastStack");
+        if (!stack) return;
+
+        const el = document.createElement("div");
+        el.className = "toast border rounded-xl shadow-soft px-4 py-3 text-sm font-semibold flex items-center justify-between bg-slate-300 text-black";
+
+        // Spinner (uses existing animate-spin class)
+        const spinner = document.createElement("span");
+        spinner.className = "inline-block w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin mr-2";
+        spinner.style.animation = "spin 0.8s linear infinite";
+
+        const textSpan = document.createElement("span");
+        textSpan.textContent = message;
+        textSpan.className = "flex-1";
+
+        // Close button (allows user to dismiss manually)
+        const closeBtn = document.createElement("button");
+        closeBtn.innerHTML = "✕";
+        closeBtn.className = "ml-3 text-black/50 hover:text-black/80 transition text-base leading-none";
+        closeBtn.style.background = "none";
+        closeBtn.style.border = "none";
+        closeBtn.style.cursor = "pointer";
+        closeBtn.addEventListener("click", function(e) {
+          e.stopPropagation();
+          hideLoadingToast();
+        });
+
+        el.appendChild(spinner);
+        el.appendChild(textSpan);
+        el.appendChild(closeBtn);
+        stack.appendChild(el);
+        loadingToastElement = el;
+      }
+
+      function hideLoadingToast() {
+        if (loadingToastElement) {
+          // Animate out
+          loadingToastElement.classList.add("toast-out");
+          loadingToastElement.addEventListener("animationend", function onEnd() {
+            this.removeEventListener("animationend", onEnd);
+            if (this.parentNode) this.remove();
+          });
+          loadingToastElement = null;
+        }
+      }
+
       function updateUndoButtons() {
         const validCount = history.filter((entry) =>
           isHistoryValid(entry)
@@ -8759,23 +8798,20 @@
         btn.disabled = true;
         icon.classList.add("animate-spin");
 
+        showLoadingToast("🔄 Refreshing dashboard...");
+
         try {
-          // 1. Sync with cloud (KV) – same as normal page load
           await loadSharedState();
-
-          // 2. Sync with external API (if configured) – merges new/updated orders (never replaces)
           await autoSyncFromStoredApi();
-
-          // 3. Re‑render the dashboard
           currentPage = 1;
           render();
           if (selectedId && orders.some((o) => o.id === selectedId))
             renderDrawer(selectedId);
           else if (selectedId) closeDrawer();
-
+          hideLoadingToast();
           toast("Dashboard refreshed successfully.", "success");
         } catch (err) {
-          console.error(err);
+          hideLoadingToast();
           toast("❌ Refresh failed: " + err.message, "error");
         } finally {
           btn.disabled = false;
@@ -9162,59 +9198,53 @@
           return;
         }
       });
+
       // ===== IMAGE GALLERY NAVIGATION =====
       document.getElementById("imagePreviewPrevBtn").addEventListener("click", function(e) {
         e.stopPropagation();
-        if (currentImageIndex > 0) {
-          showImageAtIndex(currentImageIndex - 1);
-        }
+        const items = window._previewItems || [];
+        const idx = (window._previewCurrentIndex || 0) - 1;
+        if (idx >= 0 && idx < items.length) showPreviewItem(idx);
       });
 
       document.getElementById("imagePreviewNextBtn").addEventListener("click", function(e) {
         e.stopPropagation();
-        if (currentImageIndex < imageGallery.length - 1) {
-          showImageAtIndex(currentImageIndex + 1);
-        }
+        const items = window._previewItems || [];
+        const idx = (window._previewCurrentIndex || 0) + 1;
+        if (idx >= 0 && idx < items.length) showPreviewItem(idx);
       });
 
       // Keyboard support for arrow keys in image preview
       document.addEventListener("keydown", function(e) {
         const modal = document.getElementById("imagePreviewModal");
         if (modal.classList.contains("hidden")) return;
-        
-        // If it's a PDF, don't navigate with arrows
-        if (currentIsPdf) {
-          if (e.key === "Escape") {
-            closeImagePreviewModal();
-          }
+
+        // If it's a PDF, still allow Escape but not arrows
+        if (e.key === "Escape") {
+          closeImagePreviewModal();
           return;
         }
-        
+
+        const items = window._previewItems || [];
+        if (items.length <= 1) return;
+
         if (e.key === "ArrowLeft") {
           e.preventDefault();
-          if (currentImageIndex > 0) showImageAtIndex(currentImageIndex - 1);
+          const idx = (window._previewCurrentIndex || 0) - 1;
+          if (idx >= 0) showPreviewItem(idx);
         } else if (e.key === "ArrowRight") {
           e.preventDefault();
-          if (currentImageIndex < imageGallery.length - 1) showImageAtIndex(currentImageIndex + 1);
-        } else if (e.key === "Escape") {
-          closeImagePreviewModal();
+          const idx = (window._previewCurrentIndex || 0) + 1;
+          if (idx < items.length) showPreviewItem(idx);
         }
       });
       document.addEventListener("keydown", (e) => {
         // Only handle Escape key
         if (e.key !== "Escape") return;
 
-        // --- MODAL PRIORITY ORDER (topmost first) ---
+        // --- MODAL PRIORITY ORDER (topmost z-index first) ---
 
-        // 1. Image Preview Modal (highest priority)
-        const imageModal = document.getElementById("imagePreviewModal");
-        if (!imageModal.classList.contains("hidden")) {
-          e.preventDefault(); // Prevent browser navigation
-          closeImagePreviewModal();
-          return;
-        }
-
-        // 2. Change Password Modal
+        // 1. Change Password Modal (z-[95])
         const changePasswordModal = document.getElementById("changePasswordModal");
         if (!changePasswordModal.classList.contains("hidden")) {
           e.preventDefault();
@@ -9222,7 +9252,7 @@
           return;
         }
 
-        // 3. Login Modal
+        // 2. Login Modal (z-[90])
         const loginModal = document.getElementById("loginModal");
         if (!loginModal.classList.contains("hidden")) {
           e.preventDefault();
@@ -9230,31 +9260,15 @@
           return;
         }
 
-        // 4. Import Center Modal
-        const importModal = document.getElementById("importModal");
-        if (!importModal.classList.contains("hidden")) {
+        // 3. Image Preview Modal (z-[80])
+        const imageModal = document.getElementById("imagePreviewModal");
+        if (!imageModal.classList.contains("hidden")) {
           e.preventDefault();
-          closeImportModal();
+          closeImagePreviewModal();
           return;
         }
 
-        // 5. Edit Modal
-        const editModal = document.getElementById("editModal");
-        if (!editModal.classList.contains("hidden")) {
-          e.preventDefault();
-          closeEdit();
-          return;
-        }
-
-        // 6. Status Modal
-        const statusModal = document.getElementById("statusModal");
-        if (!statusModal.classList.contains("hidden")) {
-          e.preventDefault();
-          closeStatusModal();
-          return;
-        }
-
-        // 7. Confirmation Modal
+        // 4. Confirmation Modal (z-[75])
         const confirmModal = document.getElementById("confirmModal");
         if (!confirmModal.classList.contains("hidden")) {
           e.preventDefault();
@@ -9262,14 +9276,38 @@
           return;
         }
 
-        // 8. Detail Drawer (Sidebar)
+        // 5. Import Center Modal (z-[70])
+        const importModal = document.getElementById("importModal");
+        if (!importModal.classList.contains("hidden")) {
+          e.preventDefault();
+          closeImportModal();
+          return;
+        }
+
+        // 6. Status Modal (z-[65])
+        const statusModal = document.getElementById("statusModal");
+        if (!statusModal.classList.contains("hidden")) {
+          e.preventDefault();
+          closeStatusModal();
+          return;
+        }
+
+        // 7. Edit Modal (z-[60])
+        const editModal = document.getElementById("editModal");
+        if (!editModal.classList.contains("hidden")) {
+          e.preventDefault();
+          closeEdit();
+          return;
+        }
+
+        // 8. Detail Drawer (Sidebar, z-50)
         if (selectedId) {
           e.preventDefault();
           closeDrawer();
           return;
         }
 
-        // 9. Section Page (All Work Orders, Calendar, etc.)
+        // 9. Section Page (z-[35])
         const sectionPage = document.getElementById("sectionPage");
         if (!sectionPage.classList.contains("hidden")) {
           e.preventDefault();
@@ -9450,107 +9488,126 @@
       // ========================= INIT =========================
       initializeDashboardFilters();
       (async function initApp() {
-        await loadSharedState();
-        orders = Array.isArray(orders) && orders.length ? orders : loadOrders();
-        users = Array.isArray(users) && users.length ? users : loadUsers();
-        importedHeaders = Array.isArray(importedHeaders)
-          ? importedHeaders
-          : loadImportedHeaders();
-        currentPage = 1;
+        // Show loading toast immediately
+        showLoadingToast("🔄 Loading data...");
+
+        try {
+          // 1. Sync with cloud (KV)
+          await loadSharedState();
+
+          // 2. Load from localStorage (fallback if cloud empty)
+          orders = Array.isArray(orders) && orders.length ? orders : loadOrders();
+          users = Array.isArray(users) && users.length ? users : loadUsers();
+          importedHeaders = Array.isArray(importedHeaders) ? importedHeaders : loadImportedHeaders();
+
+          // 3. Render the initial dashboard
+          currentPage = 1;
           render();
-         try {
-            await autoSyncFromStoredApi();
-          } catch (err) {
-            console.warn('⚠️ External API sync failed, continuing with local data:', err);
-            // Optionally show a toast notification (if toast is defined)
-            // toast('⚠️ External API sync failed – showing local data.', 'error');
+
+          // 4. Sync with external API (if URL configured)
+          await autoSyncFromStoredApi();
+
+          // 5. Re‑render after API sync
+          render();
+
+          // 6. Hide loading toast on success
+          hideLoadingToast();
+
+          // 7. Setup UI extras (sidebar, admin toggle, etc.)
+          const hamburger = document.getElementById("hamburgerBtn");
+          const sidebar = document.getElementById("sidebarNav");
+          let autoCloseEnabled = true;
+
+          function openSidebar() {
+            sidebar.classList.add("open");
+            document.body.classList.add("overflow-hidden");
           }
-          render(); // <- Always render the dashboard
 
-        const hamburger = document.getElementById("hamburgerBtn");
-        const sidebar = document.getElementById("sidebarNav");
-        let autoCloseEnabled = true;
-
-        function openSidebar() {
-          sidebar.classList.add("open");
-          document.body.classList.add("overflow-hidden");
-        }
-
-        function closeSidebar() {
-          sidebar.classList.remove("open");
-          document.body.classList.remove("overflow-hidden");
-        }
-
-        function toggleSidebar() {
-          if (sidebar.classList.contains("open")) {
-            closeSidebar();
-          } else {
-            openSidebar();
+          function closeSidebar() {
+            sidebar.classList.remove("open");
+            document.body.classList.remove("overflow-hidden");
           }
-        }
 
-        document.addEventListener("click", function (e) {
-          if (!autoCloseEnabled) return;
-          if (!sidebar.classList.contains("open")) return;
-          const isClickInsideSidebar = sidebar.contains(e.target);
-          const isClickOnHamburger = hamburger.contains(e.target);
-          if (!isClickInsideSidebar && !isClickOnHamburger) {
-            closeSidebar();
-          }
-        });
-
-        const adminToggleBtn = document.getElementById("adminToggleBtn");
-        const adminNav = document.getElementById("adminNav");
-        const adminArrow = document.getElementById("adminArrow");
-
-        if (adminToggleBtn && adminNav) {
-          adminToggleBtn.addEventListener("click", function () {
-            adminNav.classList.toggle("collapsed");
-            adminArrow.classList.toggle("rotated");
-            const isCollapsed = adminNav.classList.contains("collapsed");
-            localStorage.setItem(
-              "adminCollapsed",
-              isCollapsed ? "true" : "false"
-            );
-          });
-          const saved = localStorage.getItem("adminCollapsed");
-          if (saved === "true") {
-            adminNav.classList.add("collapsed");
-            adminArrow.classList.add("rotated");
-          }
-        }
-
-        const toggleAutoCloseBtn =
-          document.getElementById("toggleAutoCloseBtn");
-        const pinIcon = document.getElementById("pinIcon");
-        if (toggleAutoCloseBtn) {
-          toggleAutoCloseBtn.addEventListener("click", function (e) {
-            e.stopPropagation();
-            autoCloseEnabled = !autoCloseEnabled;
-            if (autoCloseEnabled) {
-              pinIcon.classList.remove("text-black/30");
-              pinIcon.classList.add("text-black/80");
-              pinIcon.style.transform = "rotate(0deg)";
+          function toggleSidebar() {
+            if (sidebar.classList.contains("open")) {
+              closeSidebar();
             } else {
-              pinIcon.classList.remove("text-black/80");
-              pinIcon.classList.add("text-black/30");
-              pinIcon.style.transform = "rotate(90deg)";
+              openSidebar();
             }
-            toast(
-              `Auto-close outside is now ${autoCloseEnabled ? "ON" : "OFF"}`,
-              "info"
-            );
-          });
-        }
+          }
 
-        if (hamburger && sidebar) {
-          hamburger.addEventListener("click", toggleSidebar);
-          hamburger.addEventListener("keydown", (e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              toggleSidebar();
+          document.addEventListener("click", function (e) {
+            if (!autoCloseEnabled) return;
+            if (!sidebar.classList.contains("open")) return;
+            const isClickInsideSidebar = sidebar.contains(e.target);
+            const isClickOnHamburger = hamburger.contains(e.target);
+            if (!isClickInsideSidebar && !isClickOnHamburger) {
+              closeSidebar();
             }
           });
+
+          const adminToggleBtn = document.getElementById("adminToggleBtn");
+          const adminNav = document.getElementById("adminNav");
+          const adminArrow = document.getElementById("adminArrow");
+
+          if (adminToggleBtn && adminNav) {
+            adminToggleBtn.addEventListener("click", function () {
+              adminNav.classList.toggle("collapsed");
+              adminArrow.classList.toggle("rotated");
+              const isCollapsed = adminNav.classList.contains("collapsed");
+              localStorage.setItem(
+                "adminCollapsed",
+                isCollapsed ? "true" : "false"
+              );
+            });
+            const saved = localStorage.getItem("adminCollapsed");
+            if (saved === "true") {
+              adminNav.classList.add("collapsed");
+              adminArrow.classList.add("rotated");
+            }
+          }
+
+          const toggleAutoCloseBtn = document.getElementById("toggleAutoCloseBtn");
+          const pinIcon = document.getElementById("pinIcon");
+          if (toggleAutoCloseBtn) {
+            toggleAutoCloseBtn.addEventListener("click", function (e) {
+              e.stopPropagation();
+              autoCloseEnabled = !autoCloseEnabled;
+              if (autoCloseEnabled) {
+                pinIcon.classList.remove("text-black/30");
+                pinIcon.classList.add("text-black/80");
+                pinIcon.style.transform = "rotate(0deg)";
+              } else {
+                pinIcon.classList.remove("text-black/80");
+                pinIcon.classList.add("text-black/30");
+                pinIcon.style.transform = "rotate(90deg)";
+              }
+              toast(
+                `Auto-close outside is now ${autoCloseEnabled ? "ON" : "OFF"}`,
+                "info"
+              );
+            });
+          }
+
+          if (hamburger && sidebar) {
+            hamburger.addEventListener("click", toggleSidebar);
+            hamburger.addEventListener("keydown", (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                toggleSidebar();
+              }
+            });
+          }
+
+          // All done – loading toast is already hidden (we hid it earlier)
+          // but we also hide it on success just in case.
+          hideLoadingToast();
+
+        } catch (err) {
+          // Hide loading toast on error
+          hideLoadingToast();
+          console.error("Init error:", err);
+          toast("⚠️ Failed to load data. Check console for details.", "error");
         }
       })();
     </script>
