@@ -2014,7 +2014,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "2.0.3";
+      const APP_VERSION = "2.0.4";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -3288,10 +3288,8 @@
         const statusEl = document.getElementById("statusFilter");
         const priorityEl = document.getElementById("priorityFilter");
         const sortEl = document.getElementById("sortSelect");
-        const searchEl = document.getElementById("searchInput");
-        const clearBtn = document.getElementById("clearFiltersBtn");
 
-        // --- 1. Status dropdown ---
+        // --- 1. Status dropdown: rebuild from current orders ---
         if (statusEl) {
           const dataStatuses = orders.map(o => o.status).filter(Boolean);
           const uniqueStatuses = Array.from(new Set(dataStatuses)).sort();
@@ -3299,10 +3297,17 @@
           uniqueStatuses.forEach(s => {
             options += `<option value="${esc(s)}">${esc(s)}</option>`;
           });
-          statusEl.innerHTML = options;
-          // Preserve selected value if still valid
+          // Only update if the options changed to avoid unnecessary DOM updates
+          if (statusEl.innerHTML !== options) {
+            statusEl.innerHTML = options;
+          }
+          // Preserve selected value if it still exists, else "all"
           const currentVal = statusEl.value;
-          if (!uniqueStatuses.includes(currentVal)) statusEl.value = "all";
+          if (uniqueStatuses.includes(currentVal) && currentVal !== "all") {
+            statusEl.value = currentVal;
+          } else {
+            statusEl.value = "all";
+          }
         }
 
         // --- 2. Priority dropdown (static) ---
@@ -3328,58 +3333,9 @@
           `;
         }
 
-        // Set defaults
+        // Set defaults if not set
         if (priorityEl && !priorityEl.value) priorityEl.value = "all";
         if (sortEl && !sortEl.value) sortEl.value = "created_desc";
-
-        // --- 4. Bind events (use the filter bar container to avoid duplicates) ---
-        const filterBar = document.querySelector('section.sticky.top-\\[64px\\]');
-        if (filterBar) {
-          // Remove any existing inline listeners by cloning and replacing
-          const newFilterBar = filterBar.cloneNode(true);
-          filterBar.parentNode.replaceChild(newFilterBar, filterBar);
-
-          const newStatus = newFilterBar.querySelector("#statusFilter");
-          const newPriority = newFilterBar.querySelector("#priorityFilter");
-          const newSort = newFilterBar.querySelector("#sortSelect");
-          const newSearch = newFilterBar.querySelector("#searchInput");
-          const newClear = newFilterBar.querySelector("#clearFiltersBtn");
-
-          if (newSearch) {
-            newSearch.addEventListener("input", function() {
-              currentPage = 1;
-              render();
-            });
-          }
-          if (newStatus) {
-            newStatus.addEventListener("change", function() {
-              currentPage = 1;
-              render();
-            });
-          }
-          if (newPriority) {
-            newPriority.addEventListener("change", function() {
-              currentPage = 1;
-              render();
-            });
-          }
-          if (newSort) {
-            newSort.addEventListener("change", function() {
-              currentPage = 1;
-              render();
-            });
-          }
-          if (newClear) {
-            newClear.addEventListener("click", function() {
-              if (newSearch) newSearch.value = "";
-              if (newStatus) newStatus.value = "all";
-              if (newPriority) newPriority.value = "all";
-              if (newSort) newSort.value = "created_desc";
-              currentPage = 1;
-              render();
-            });
-          }
-        }
       }
 
       // ===== LOGIN FUNCTIONS =====
@@ -7670,6 +7626,12 @@
           title.textContent = "All Work Orders";
           sub.textContent = "Complete work-order register. Use the date filter dropdown to search by any configured date field.";
 
+          // ---------- 1. Build dynamic options ----------
+          // Statuses from orders
+          const statuses = [...new Set(orders.map(o => o.status).filter(Boolean))].sort();
+          const statusOpts = statuses.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+
+          // Assignees
           const assignees = [
             ...new Set(
               orders
@@ -7695,7 +7657,7 @@
             headersHTML += `<th class="px-4 py-3 text-left text-black/60" data-field-key="${esc(key)}" style="min-width:80px;">${esc(cfg.label || key)}</th>`;
           });
 
-          // ---- Build dropdown options ----
+          // ---- Build date dropdown options ----
           let dateDropdownHTML = ``;
           if (dateFieldOptions.length === 0) {
             dateDropdownHTML += `<option value="created">Created Date</option>`;
@@ -7705,12 +7667,19 @@
             });
           }
 
+          // ---------- 2. Build the page HTML ----------
           body.innerHTML = `<div class="bg-white text-black border border-black/10 rounded-2xl shadow-sm overflow-hidden">
             <div class="p-3 border-b border-black/10 overflow-x-auto">
               <div class="flex flex-nowrap items-center gap-2 min-w-max">
                 <input id="allOrdersSearch" class="min-w-[120px] max-w-[180px] rounded-xl border border-black/10 bg-white text-black placeholder:text-black/40 px-3 py-2 text-sm" placeholder="Search...">
-                <select id="allOrdersStatus" class="rounded-xl border border-black/10 bg-white text-black px-2 py-2 text-sm max-w-[120px]"><option value="all">All Status</option><option>Open</option><option>In Progress</option><option>On Hold</option><option>Completed</option><option>Overdue</option><option>Cancelled</option></select>
-                <select id="allOrdersAssignee" class="rounded-xl border border-black/10 bg-white text-black px-2 py-2 text-sm max-w-[120px]"><option value="all">All Assignees</option>${assigneeOpts}</select>
+                <select id="allOrdersStatus" class="rounded-xl border border-black/10 bg-white text-black px-2 py-2 text-sm max-w-[120px]">
+                  <option value="all">All Status</option>
+                  ${statusOpts}
+                </select>
+                <select id="allOrdersAssignee" class="rounded-xl border border-black/10 bg-white text-black px-2 py-2 text-sm max-w-[120px]">
+                  <option value="all">All Assignees</option>
+                  ${assigneeOpts}
+                </select>
                 
                 <div class="flex items-center gap-1 bg-white border border-black/10 rounded-xl px-2 py-1 whitespace-nowrap">
                   <span class="text-xs text-black/40">From</span>
@@ -7733,7 +7702,7 @@
             </tr></thead><tbody id="allOrdersBody"></tbody></table></div>
           </div>`;
 
-          // ----- paint function -----
+          // ---------- 3. paint function and event bindings ----------
           const paint = () => {
             const q = normalize(document.getElementById("allOrdersSearch").value);
             const st = document.getElementById("allOrdersStatus").value;
@@ -7829,7 +7798,7 @@
             setTimeout(initColumnResizing, 50);
           };
 
-          // ----- Column Resizing -----
+          // ----- Column Resizing (unchanged) -----
           function initColumnResizing() {
             const table = document.getElementById('allOrdersTable');
             if (!table) return;
@@ -7840,7 +7809,6 @@
             headers.forEach((th, index) => {
               if (index === headers.length - 1) return;
               
-              // Remove old handle if exists
               const oldHandle = th.querySelector('.resize-handle');
               if (oldHandle) oldHandle.remove();
               
@@ -7910,7 +7878,8 @@
 
           document.getElementById("allOrdersRefresh").addEventListener("click", () => {
             orders = loadOrders();
-            const assignees = [
+            // Rebuild assignee dropdown (since orders may have new assignees)
+            const newAssignees = [
               ...new Set(
                 orders
                   .map((o) => o.assignee)
@@ -7919,7 +7888,7 @@
             ];
             const sel = document.getElementById("allOrdersAssignee");
             const currentVal = sel.value;
-            sel.innerHTML = `<option value="all">All Assignees</option>${assignees
+            sel.innerHTML = `<option value="all">All Assignees</option>${newAssignees
               .map((a) => `<option value="${esc(a)}">${esc(a)}</option>`)
               .join("")}`;
             sel.value = currentVal;
