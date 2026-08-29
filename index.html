@@ -2056,7 +2056,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "2.00.0";
+      const APP_VERSION = "2.0.1";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -2145,6 +2145,7 @@
             DISPLAY_CONFIG_KEY,
             JSON.stringify(displayConfig)
           );
+          localStorage.setItem('wo_local_timestamp', String(Date.now()));
         } catch {}
         syncSharedStorage();
       }
