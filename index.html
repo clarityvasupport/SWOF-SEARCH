@@ -2014,7 +2014,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "2.0.1";
+      const APP_VERSION = "2.0.2";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -3284,29 +3284,33 @@
       }
 
       function initializeDashboardFilters() {
-        //console.log('[initializeDashboardFilters] Called. Current orders count:', orders.length);
         const status = document.getElementById("statusFilter");
         const priority = document.getElementById("priorityFilter");
         const sort = document.getElementById("sortSelect");
 
-        // --- Populate status filter with unique statuses from data (raw values) ---
+        // --- Rebuild status filter from current orders ---
         if (status) {
           const dataStatuses = orders.map(o => o.status).filter(Boolean);
           const uniqueStatuses = Array.from(new Set(dataStatuses)).sort();
-          // Always include "all" option
           let options = `<option value="all">All Status</option>`;
           uniqueStatuses.forEach(s => {
             options += `<option value="${esc(s)}">${esc(s)}</option>`;
           });
           status.innerHTML = options;
-          if (!status.value) status.value = "all";
+          // Preserve selected value if it still exists, otherwise default to "all"
+          const currentVal = status.value;
+          if (uniqueStatuses.includes(currentVal)) {
+            status.value = currentVal;
+          } else {
+            status.value = "all";
+          }
         }
 
+        // Priority dropdown (static)
         if (priority && !priority.options.length) {
           priority.innerHTML = `<option value="all">All Priority</option><option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option>`;
         }
         if (sort && !sort.value) sort.value = "created_desc";
-        if (status && !status.value) status.value = "all";
         if (priority && !priority.value) priority.value = "all";
       }
 
@@ -5263,8 +5267,24 @@
       let imagePreviewDrag = null;
 
       function applyImagePreviewTransform() {
-        const image = document.getElementById("imagePreviewModalImg");
+  const image = document.getElementById("imagePreviewModalImg");
         if (!image) return;
+
+        // Clamp zoom between 1 and 4
+        imagePreviewZoom = Math.min(Math.max(imagePreviewZoom, 1), 4);
+
+        // Calculate max translation based on image displayed size and viewport size
+        const viewport = document.getElementById("imagePreviewModalViewport");
+        if (image.complete && image.naturalWidth > 0 && viewport) {
+          const viewRect = viewport.getBoundingClientRect();
+          // Get the image's current displayed dimensions (after scaling)
+          const displayWidth = image.offsetWidth * imagePreviewZoom;
+          const displayHeight = image.offsetHeight * imagePreviewZoom;
+          const maxX = Math.max(0, (displayWidth - viewRect.width) / 2);
+          const maxY = Math.max(0, (displayHeight - viewRect.height) / 2);
+          imagePreviewTranslate.x = Math.min(Math.max(imagePreviewTranslate.x, -maxX), maxX);
+          imagePreviewTranslate.y = Math.min(Math.max(imagePreviewTranslate.y, -maxY), maxY);
+        }
 
         image.style.transform = `translate(${imagePreviewTranslate.x}px, ${imagePreviewTranslate.y}px) scale(${imagePreviewZoom})`;
         image.style.transformOrigin = "center center";
@@ -5275,7 +5295,7 @@
         const image = document.getElementById("imagePreviewModalImg");
         if (!image) return;
 
-        imagePreviewZoom = Math.min(Math.max(level, 1), 3);
+        imagePreviewZoom = Math.min(Math.max(level, 1), 4);
         applyImagePreviewTransform();
 
         if (zoomValue) {
@@ -5285,7 +5305,10 @@
 
       function resetImagePreviewZoom() {
         imagePreviewTranslate = { x: 0, y: 0 };
-        setImagePreviewZoom(1);
+        imagePreviewZoom = 1;
+        applyImagePreviewTransform();
+        const zoomValue = document.getElementById("imagePreviewZoomValue");
+        if (zoomValue) zoomValue.textContent = "100%";
       }
 
       //============= OPEN IMAGE PREVIEW MODAL WITH NEXT ==============
@@ -5406,14 +5429,29 @@
           image.alt = window._previewAlt || `Attachment ${index + 1}`;
           image.onerror = null;
           image.onload = null;
+
           // Load image (with Drive fallback)
           loadDriveImage(image, item.url, {
             size: 2000,
             onFail: () => {
               image.style.display = "none";
               image.alt = "Image could not be loaded from Drive";
+              // Also call applyImagePreviewTransform? No need.
             },
           });
+
+          // Add onload to apply transform after image loads
+          image.onload = function() {
+            applyImagePreviewTransform();
+          };
+          image.onerror = function() {
+            image.style.display = "none";
+            image.alt = "Image could not be loaded from Drive";
+          };
+          // If image is already loaded (cached), onload might not fire, so call transform after a short delay
+          if (image.complete && image.naturalWidth > 0) {
+            setTimeout(applyImagePreviewTransform, 50);
+          }
         } else {
           // Show PDF
           iframe.style.display = "block";
