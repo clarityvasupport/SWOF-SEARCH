@@ -3172,7 +3172,8 @@
         const pr = document.getElementById("priorityFilter").value || "all";
         const sort = document.getElementById("sortSelect").value || "created_desc";
 
-        // console.log("Filtering by status:", st); // Debug
+        // Debug (remove after testing)
+        // console.log("Filtering by status:", st, "priority:", pr);
 
         let list = orders.filter((o) => {
           const hay = normalize(
@@ -3284,60 +3285,100 @@
       }
 
       function initializeDashboardFilters() {
-        const status = document.getElementById("statusFilter");
-        const priority = document.getElementById("priorityFilter");
-        const sort = document.getElementById("sortSelect");
+        const statusEl = document.getElementById("statusFilter");
+        const priorityEl = document.getElementById("priorityFilter");
+        const sortEl = document.getElementById("sortSelect");
+        const searchEl = document.getElementById("searchInput");
+        const clearBtn = document.getElementById("clearFiltersBtn");
 
-        // --- Rebuild status filter from current orders ---
-        if (status) {
+        // --- 1. Status dropdown ---
+        if (statusEl) {
           const dataStatuses = orders.map(o => o.status).filter(Boolean);
           const uniqueStatuses = Array.from(new Set(dataStatuses)).sort();
           let options = `<option value="all">All Status</option>`;
           uniqueStatuses.forEach(s => {
             options += `<option value="${esc(s)}">${esc(s)}</option>`;
           });
-          status.innerHTML = options;
-          // Preserve selected value if it still exists, otherwise default to "all"
-          const currentVal = status.value;
-          if (uniqueStatuses.includes(currentVal)) {
-            status.value = currentVal;
-          } else {
-            status.value = "all";
+          statusEl.innerHTML = options;
+          // Preserve selected value if still valid
+          const currentVal = statusEl.value;
+          if (!uniqueStatuses.includes(currentVal)) statusEl.value = "all";
+        }
+
+        // --- 2. Priority dropdown (static) ---
+        if (priorityEl && !priorityEl.options.length) {
+          priorityEl.innerHTML = `
+            <option value="all">All Priority</option>
+            <option value="Critical">Critical</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          `;
+        }
+
+        // --- 3. Sort dropdown (static) ---
+        if (sortEl && !sortEl.options.length) {
+          sortEl.innerHTML = `
+            <option value="created_desc">Newest Created</option>
+            <option value="created_asc">Oldest Created</option>
+            <option value="due_asc">Due Soonest</option>
+            <option value="title_asc">Title A–Z</option>
+            <option value="priority">Priority (High→Low)</option>
+            <option value="status">Status (A–Z)</option>
+          `;
+        }
+
+        // Set defaults
+        if (priorityEl && !priorityEl.value) priorityEl.value = "all";
+        if (sortEl && !sortEl.value) sortEl.value = "created_desc";
+
+        // --- 4. Bind events (use the filter bar container to avoid duplicates) ---
+        const filterBar = document.querySelector('section.sticky.top-\\[64px\\]');
+        if (filterBar) {
+          // Remove any existing inline listeners by cloning and replacing
+          const newFilterBar = filterBar.cloneNode(true);
+          filterBar.parentNode.replaceChild(newFilterBar, filterBar);
+
+          const newStatus = newFilterBar.querySelector("#statusFilter");
+          const newPriority = newFilterBar.querySelector("#priorityFilter");
+          const newSort = newFilterBar.querySelector("#sortSelect");
+          const newSearch = newFilterBar.querySelector("#searchInput");
+          const newClear = newFilterBar.querySelector("#clearFiltersBtn");
+
+          if (newSearch) {
+            newSearch.addEventListener("input", function() {
+              currentPage = 1;
+              render();
+            });
           }
-        }
-
-        // Priority dropdown (static)
-        if (priority && !priority.options.length) {
-          priority.innerHTML = `<option value="all">All Priority</option><option value="Critical">Critical</option><option value="High">High</option><option value="Medium">Medium</option><option value="Low">Low</option>`;
-        }
-        if (sort && !sort.value) sort.value = "created_desc";
-        if (priority && !priority.value) priority.value = "all";
-
-        // Force a render when filter changes
-        if (status) {
-          // Remove old listener to avoid duplicates
-          const newStatus = status.cloneNode(true);
-          status.parentNode.replaceChild(newStatus, status);
-          newStatus.addEventListener("change", function() {
-            currentPage = 1;
-            render();
-          });
-        }
-        if (priority) {
-          const newPriority = priority.cloneNode(true);
-          priority.parentNode.replaceChild(newPriority, priority);
-          newPriority.addEventListener("change", function() {
-            currentPage = 1;
-            render();
-          });
-        }
-        if (sort) {
-          const newSort = sort.cloneNode(true);
-          sort.parentNode.replaceChild(newSort, sort);
-          newSort.addEventListener("change", function() {
-            currentPage = 1;
-            render();
-          });
+          if (newStatus) {
+            newStatus.addEventListener("change", function() {
+              currentPage = 1;
+              render();
+            });
+          }
+          if (newPriority) {
+            newPriority.addEventListener("change", function() {
+              currentPage = 1;
+              render();
+            });
+          }
+          if (newSort) {
+            newSort.addEventListener("change", function() {
+              currentPage = 1;
+              render();
+            });
+          }
+          if (newClear) {
+            newClear.addEventListener("click", function() {
+              if (newSearch) newSearch.value = "";
+              if (newStatus) newStatus.value = "all";
+              if (newPriority) newPriority.value = "all";
+              if (newSort) newSort.value = "created_desc";
+              currentPage = 1;
+              render();
+            });
+          }
         }
       }
 
@@ -3552,16 +3593,12 @@
 
       // ===== RENDER FUNCTIONS =====
       function render() {
-        initializeDashboardFilters();
-        //console.log('[render] Current `orders` array (first 3):', orders.slice(0, 3).map(o => ({ id: o.id, status: o.status })));
+        // Normalize orders
         orders = orders.filter(Boolean).map((o, i) => ({
           ...o,
           id: String(o.id ?? `WO-${i + 1}`).trim() || `WO-${i + 1}`,
-          title:
-            String(o.title ?? "Untitled Work Order").trim() ||
-            "Untitled Work Order",
+          title: String(o.title ?? "Untitled Work Order").trim() || "Untitled Work Order",
           description: String(o.description ?? "").trim(),
-          // --- CRITICAL: Do NOT normalize status – keep raw value ---
           status: o.status || "Open",
           priority: normalizePriority(o.priority || "Medium"),
           category: String(o.category ?? "General").trim() || "General",
@@ -3576,6 +3613,10 @@
           _rawData: o._rawData || {},
         }));
 
+        // Rebuild filter dropdowns and re-bind events
+        initializeDashboardFilters();
+
+        // Get filtered and sorted list (single declaration)
         const list = getFilteredOrders();
         const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
         currentPage = Math.min(Math.max(1, currentPage), totalPages);
@@ -3589,49 +3630,30 @@
             html += cardHTML(item);
           } catch (err) {
             console.error("Card render error:", item, err);
-            html += `<article class="bg-white border border-red-200 rounded-2xl p-5"><p class="text-xs font-bold text-red-600">Unable to render this Work Order</p><p class="text-xs text-black/50 mt-1">${esc(
-              String(item.id || "Unknown ID")
-            )}</p></article>`;
+            html += `<article class="bg-white border border-red-200 rounded-2xl p-5"><p class="text-xs font-bold text-red-600">Unable to render this Work Order</p><p class="text-xs text-black/50 mt-1">${esc(String(item.id || "Unknown ID"))}</p></article>`;
           }
         }
         grid.innerHTML = html;
 
-        document
-          .getElementById("emptyState")
-          .classList.toggle("hidden", list.length !== 0);
+        // Empty state
+        document.getElementById("emptyState").classList.toggle("hidden", list.length !== 0);
         document.getElementById("resultCount").textContent = list.length
-          ? `Showing ${start + 1}–${Math.min(
-              start + PAGE_SIZE,
-              list.length
-            )} of ${list.length} filtered work orders • ${orders.length} total`
+          ? `Showing ${start + 1}–${Math.min(start + PAGE_SIZE, list.length)} of ${list.length} filtered work orders • ${orders.length} total`
           : `0 of ${orders.length} work orders`;
-        document.getElementById(
-          "pageInfo"
-        ).textContent = `Page ${currentPage} • ${pageItems.length} of ${list.length}`;
+        document.getElementById("pageInfo").textContent = `Page ${currentPage} • ${pageItems.length} of ${list.length}`;
         document.getElementById("prevPageBtn").disabled = currentPage <= 1;
-        document.getElementById("nextPageBtn").disabled =
-          currentPage >= totalPages;
+        document.getElementById("nextPageBtn").disabled = currentPage >= totalPages;
 
+        // Update stats (hidden spans for summary)
         document.getElementById("statTotal").textContent = orders.length;
-        document.getElementById("statOpen").textContent = orders.filter(
-          (o) => o.status === "Open"
-        ).length;
-        document.getElementById("statProgress").textContent = orders.filter(
-          (o) => o.status === "In Progress"
-        ).length;
-        document.getElementById("statCompleted").textContent = orders.filter(
-          (o) => o.status === "Completed"
-        ).length;
-        document.getElementById("statOverdue").textContent = orders.filter(
-          (o) => o.status === "Overdue"
-        ).length;
+        document.getElementById("statOpen").textContent = orders.filter(o => o.status === "Open").length;
+        document.getElementById("statProgress").textContent = orders.filter(o => o.status === "In Progress").length;
+        document.getElementById("statCompleted").textContent = orders.filter(o => o.status === "Completed").length;
+        document.getElementById("statOverdue").textContent = orders.filter(o => o.status === "Overdue").length;
 
-        // --- DYNAMIC SIDEBAR SUMMARY (matches dropdown filter) ---
+        // Sidebar summary
         const statusMap = {};
-        orders.forEach(o => {
-          const s = o.status || 'Unknown';
-          statusMap[s] = (statusMap[s] || 0) + 1;
-        });
+        orders.forEach(o => { const s = o.status || 'Unknown'; statusMap[s] = (statusMap[s] || 0) + 1; });
         const sortedStatuses = Object.keys(statusMap).sort();
         const summaryList = document.getElementById('statusSummaryList');
         if (summaryList) {
@@ -3650,38 +3672,35 @@
         document.getElementById("sideTotal").textContent = orders.length;
         document.getElementById("sideUpdated").textContent = "Just now";
         document.getElementById("bottomResultCount").textContent = list.length
-          ? `Showing ${start + 1}–${Math.min(
-              start + PAGE_SIZE,
-              list.length
-            )} of ${list.length} work orders`
+          ? `Showing ${start + 1}–${Math.min(start + PAGE_SIZE, list.length)} of ${list.length} work orders`
           : "0 work orders";
-        document.getElementById(
-          "bottomPageInfo"
-        ).textContent = `Page ${currentPage} of ${totalPages}`;
+        document.getElementById("bottomPageInfo").textContent = `Page ${currentPage} of ${totalPages}`;
 
-        grid.querySelectorAll("[data-open]").forEach((el) => {
+        // Bind event listeners to cards (open, status change, edit)
+        grid.querySelectorAll("[data-open]").forEach(el => {
           el.addEventListener("click", () => openDrawer(el.dataset.open));
         });
-        grid.querySelectorAll("[data-status-select]").forEach((el) => {
-          el.addEventListener("change", function (e) {
+        grid.querySelectorAll("[data-status-select]").forEach(el => {
+          el.addEventListener("change", function(e) {
             e.stopPropagation();
             const id = this.dataset.statusSelect;
             const val = this.value;
             changeStatusDirect(id, val);
           });
         });
-        grid.querySelectorAll("[data-edit]").forEach((el) => {
+        grid.querySelectorAll("[data-edit]").forEach(el => {
           el.addEventListener("click", (e) => {
             e.stopPropagation();
             openEdit(el.dataset.edit);
           });
         });
         if (!isLoggedIn) {
-          grid.querySelectorAll("[data-status-select]").forEach((el) => {
+          grid.querySelectorAll("[data-status-select]").forEach(el => {
             el.disabled = true;
             el.classList.add("opacity-50", "cursor-not-allowed");
           });
         }
+
         updateUndoButtons();
         toggleEditability();
         updateStorageBadge();
