@@ -2014,7 +2014,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "2.0.2";
+      const APP_VERSION = "2.0.3";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -3170,8 +3170,9 @@
         const q = normalize(document.getElementById("searchInput").value || "");
         const st = document.getElementById("statusFilter").value || "all";
         const pr = document.getElementById("priorityFilter").value || "all";
-        const sort =
-          document.getElementById("sortSelect").value || "created_desc";
+        const sort = document.getElementById("sortSelect").value || "created_desc";
+
+        // console.log("Filtering by status:", st); // Debug
 
         let list = orders.filter((o) => {
           const hay = normalize(
@@ -3187,11 +3188,10 @@
               o.priority,
             ].join(" ")
           );
-          return (
-            (!q || hay.includes(q)) &&
-            (st === "all" || o.status === st) &&
-            (pr === "all" || o.priority === pr)
-          );
+          const matchSearch = !q || hay.includes(q);
+          const matchStatus = st === "all" || o.status === st;
+          const matchPriority = pr === "all" || o.priority === pr;
+          return matchSearch && matchStatus && matchPriority;
         });
 
         const timeOf = (v) => {
@@ -3224,7 +3224,7 @@
               String(a.status).localeCompare(String(b.status)) ||
               timeOf(b.created) - timeOf(a.created)
             );
-          // default: created_desc (with sourceOrder tie‑breaker)
+          // default: created_desc
           return timeOf(b.created) - timeOf(a.created) ||
             Number(a.sourceOrder ?? 0) - Number(b.sourceOrder ?? 0);
         });
@@ -3312,6 +3312,33 @@
         }
         if (sort && !sort.value) sort.value = "created_desc";
         if (priority && !priority.value) priority.value = "all";
+
+        // Force a render when filter changes
+        if (status) {
+          // Remove old listener to avoid duplicates
+          const newStatus = status.cloneNode(true);
+          status.parentNode.replaceChild(newStatus, status);
+          newStatus.addEventListener("change", function() {
+            currentPage = 1;
+            render();
+          });
+        }
+        if (priority) {
+          const newPriority = priority.cloneNode(true);
+          priority.parentNode.replaceChild(newPriority, priority);
+          newPriority.addEventListener("change", function() {
+            currentPage = 1;
+            render();
+          });
+        }
+        if (sort) {
+          const newSort = sort.cloneNode(true);
+          sort.parentNode.replaceChild(newSort, sort);
+          newSort.addEventListener("change", function() {
+            currentPage = 1;
+            render();
+          });
+        }
       }
 
       // ===== LOGIN FUNCTIONS =====
@@ -5382,7 +5409,10 @@
 
       function showPreviewItem(index) {
         const items = window._previewItems || [];
-        if (!items.length) return;
+        if (!items.length) {
+          console.warn("No preview items found.");
+          return;
+        }
 
         // Clamp index
         if (index < 0) index = 0;
@@ -5416,6 +5446,7 @@
 
         // Hide both initially
         image.style.display = "none";
+        image.src = ""; // clear previous src
         iframe.style.display = "none";
         iframe.src = "";
 
@@ -5430,28 +5461,40 @@
           image.onerror = null;
           image.onload = null;
 
-          // Load image (with Drive fallback)
-          loadDriveImage(image, item.url, {
-            size: 2000,
-            onFail: () => {
-              image.style.display = "none";
-              image.alt = "Image could not be loaded from Drive";
-              // Also call applyImagePreviewTransform? No need.
-            },
-          });
+          // ----- LOAD IMAGE -----
+          function loadImage(url) {
+            // Set the src directly – loadDriveImage will handle fallbacks
+            loadDriveImage(image, url, {
+              size: 2000,
+              onFail: () => {
+                image.style.display = "none";
+                image.alt = "Image could not be loaded from Drive";
+                toast("Failed to load image from Google Drive.", "error");
+              },
+            });
+          }
 
-          // Add onload to apply transform after image loads
+          // Apply transform after image loads (or immediately if cached)
           image.onload = function() {
+            console.log("Image loaded successfully.");
             applyImagePreviewTransform();
           };
           image.onerror = function() {
+            console.warn("Image failed to load.");
             image.style.display = "none";
             image.alt = "Image could not be loaded from Drive";
+            toast("Failed to load image. Please try again.", "error");
           };
-          // If image is already loaded (cached), onload might not fire, so call transform after a short delay
+
+          // Start loading
+          loadImage(item.url);
+
+          // If image is already loaded (cached), onload may not fire
           if (image.complete && image.naturalWidth > 0) {
+            console.log("Image already loaded (cached).");
             setTimeout(applyImagePreviewTransform, 50);
           }
+
         } else {
           // Show PDF
           iframe.style.display = "block";
@@ -5465,7 +5508,6 @@
             el.classList.toggle('ring-2', i === index);
             el.classList.toggle('ring-brand-teal', i === index);
           });
-          // Scroll thumbnail into view
           const activeThumb = thumbs[index];
           if (activeThumb) {
             activeThumb.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
@@ -9265,17 +9307,12 @@
         if (idx >= 0 && idx < items.length) showPreviewItem(idx);
       });
 
-      // Keyboard support for arrow keys in image preview
+      // Keyboard support for arrow keys in image preview (NO ESCAPE HANDLING)
       document.addEventListener("keydown", function(e) {
         const modal = document.getElementById("imagePreviewModal");
         if (modal.classList.contains("hidden")) return;
 
-        // If it's a PDF, still allow Escape but not arrows
-        if (e.key === "Escape") {
-          closeImagePreviewModal();
-          return;
-        }
-
+        // Only handle arrow keys here – Escape is handled by the main handler
         const items = window._previewItems || [];
         if (items.length <= 1) return;
 
