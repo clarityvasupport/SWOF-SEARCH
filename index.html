@@ -2056,7 +2056,7 @@
       // WORK ORDER APP
       // =========================================================
 
-      const APP_VERSION = "1.12.0";
+      const APP_VERSION = "2.00.0";
       const STORAGE_KEY = "wo_dashboard_v3";
       const HISTORY_KEY = "wo_dashboard_history_v3";
       const DISPLAY_CONFIG_KEY = "wo_display_config_v1";
@@ -6040,69 +6040,69 @@
       }
 
       function makeMappedOrder(row, i) {
-        const get = (f) => {
-          if (importManualValues && importManualValues[f] !== undefined) {
-            return importManualValues[f];
-          }
-          if (!importMapping[f]) return "";
-          return resolveRowValueByHeader(row, importMapping[f]);
-        };
-
-        const rawId = String(get("id") || "").trim();
-        const id = rawId || generateStableId(row);
-
-        // --- Step 1: Get raw status from the mapped column (EXEC APPROVAL) ---
-        const rawStatus = String(get("status") || "").trim() || "Open";
-
-        // --- Step 2: Get the value from the mapped "dueDate" field (should be REMARKS) ---
-        let remarksValue = String(get("dueDate") || "").trim();
-
-        // --- Step 3: If that's empty, search the raw row for any key containing "remarks" ---
-        if (!remarksValue) {
-          const remarksKey = Object.keys(row).find(k => /remarks?/i.test(k));
-          if (remarksKey) {
-            remarksValue = String(row[remarksKey] || "").trim();
-          }
+        // Get a value from the row using the source defined in fieldConfig
+        function get(field) {
+          const cfg = displayConfig.fieldConfig?.[field];
+          if (!cfg) return "";
+          const source = cfg.source || field;
+          // Resolve the value from the row (by source header)
+          const val = resolveRowValueByHeader(row, source);
+          return val !== undefined && val !== null ? String(val).trim() : "";
         }
 
-        // --- DEBUG: Log what we found (remove after confirmation) ---
-        //console.log(`[DEBUG] Row ${i} – remarksValue: "${remarksValue}"`);
+        // Build custom fields from fieldConfig entries that are custom (key starts with 'custom_')
+        const customFields = [];
+        if (displayConfig.fieldConfig) {
+          Object.keys(displayConfig.fieldConfig).forEach(key => {
+            if (key.startsWith('custom_')) {
+              const cfg = displayConfig.fieldConfig[key];
+              const source = cfg.source || '';
+              const label = cfg.label || source || key;
+              const value = source ? resolveRowValueByHeader(row, source) : '';
+              if (label) {
+                customFields.push({
+                  label: label,
+                  value: String(value || '').trim(),
+                  _sourceHeader: source,
+                });
+              }
+            }
+          });
+        }
 
-        // --- Step 4: Override status to COMPLETED ONLY if the remarks field contains "complete" ---
-        let finalStatus;
+        // Core fields (using the get() helper)
+        const rawId = get('id');
+        const id = rawId || generateStableId(row);
+        const rawStatus = get('status') || "Open";
+        const rawPriority = get('priority') || "";
+        const dueDate = parseDateValue(get('dueDate'));
+        
+        // Special: override status if remarks contains 'complete' (as before)
+        let remarksValue = get('dueDate'); // intentionally using dueDate mapping for remarks?
+        // Actually the original logic uses dueDate mapping to pick remarks; we'll keep that but we can also search raw row.
+        // For clarity, we use the dueDate source to fetch remarks (if that column is mapped to dueDate)
+        // If you want a separate remarks mapping, you'd add a custom field.
+        // We'll keep the original behaviour:
+        let finalStatus = rawStatus;
         if (/complete/i.test(remarksValue)) {
           finalStatus = "Completed";
         } else {
-          // Clean up the raw status: trim, convert to proper case, but preserve meaning
-          const clean = rawStatus.trim() || "Open";
-          finalStatus = clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase();
+          finalStatus = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase() || "Open";
         }
 
-        // --- DEBUG: Log the final status ---
-        //console.log(`[DEBUG] Row ${i} – finalStatus: "${finalStatus}"`);
-
-        // --- Get other fields ---
-        const rawPriority = String(get("priority") || "").trim();
-        const customFields = buildImportCustomFieldsForRow(row);
-        const dueDate = parseDateValue(get("dueDate"));
-        const importedDueLabel = importFieldLabels.dueDate || "Due Date";
-
         return {
-          id,
-          title: String(get("title") || "Untitled Work Order").trim(),
-          description: String(get("description") || "").trim(),
+          id: id,
+          title: get('title') || "Untitled Work Order",
+          description: get('description') || "",
           status: finalStatus,
           priority: rawPriority ? normalizePriority(rawPriority) : "Medium",
-          category: String(get("category") || "General").trim() || "General",
-          location: String(get("location") || "").trim(),
-          assignee: String(get("assignee") || "Unassigned").trim() || "Unassigned",
-          requester: String(get("requester") || "").trim(),
-          created: parseDateValue(get("created")) || nowDate(),
+          category: get('category') || "General",
+          location: get('location') || "",
+          assignee: get('assignee') || "Unassigned",
+          requester: get('requester') || "",
+          created: parseDateValue(get('created')) || nowDate(),
           dueDate: dueDate,
-          dateTransmitted: "",
-          cardDateSource: "dueDate",
-          cardDateLabel: importedDueLabel,
-          customFields,
+          customFields: customFields,
           activity: [],
           sourceOrder: i,
           _importHeaders: importHeaders.slice(),
@@ -6110,15 +6110,8 @@
         };
       }
 
-      function showImportData(
-        headers,
-        rows,
-        source = "pasted data",
-        sourceType = "file"
-      ) {
-        importHeaders = headers.map((h, i) =>
-          String(h || `Column ${i + 1}`).trim()
-        );
+      function showImportData(headers, rows, source = "pasted data", sourceType = "file") {
+        importHeaders = headers.map((h, i) => String(h || `Column ${i + 1}`).trim());
         importRows = rows
           .map((r) => {
             const o = {};
@@ -6128,61 +6121,43 @@
           .filter((r) => Object.values(r).some((v) => String(v).trim() !== ""));
         importSourceName = source;
         importSourceType = sourceType;
-        importMapping = inferMapping(importHeaders, importRows);
-        importManualValues = {};
-        
-        // --- FIX: Set default labels for ALL core fields including id ---
-        const defaultLabels = {
-          id: "Work Order ID",
-          title: "Title",
-          description: "Description",
-          status: "Status",
-          priority: "Priority",
-          category: "Category",
-          location: "Location",
-          assignee: "Assigned To",
-          requester: "Requester",
-          created: "Created Date",
-          dueDate: "Due Date",
-        };
-        importFieldLabels = { ...defaultLabels };
-        
-        importFieldTypes = { dueDate: "date" };
-        importCustomMappings = [];
 
-        // Smart type detection
-        Object.keys(importMapping).forEach((field) => {
-          const header = importMapping[field];
-          if (header) {
-            const detectedType = detectColumnType(header, importRows);
-            if (detectedType && detectedType !== "mapped") {
-              importFieldTypes[field] = detectedType;
-            }
+        // ---- Infer mapping and update fieldConfig ----
+        const inferred = inferMapping(importHeaders, importRows);
+        if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
+
+        // Core fields: set their source to the inferred header (if any)
+        const coreFields = ["id","title","description","status","priority","category","location","assignee","requester","created","dueDate"];
+        coreFields.forEach(field => {
+          if (!displayConfig.fieldConfig[field]) {
+            displayConfig.fieldConfig[field] = {
+              label: field.charAt(0).toUpperCase() + field.slice(1),
+              source: inferred[field] || field,
+              showOnCard: true,
+              showInTable: true,
+            };
+          } else {
+            // Only update source if not already set or if the user hasn't manually changed it
+            // We'll always set the inferred source to keep it fresh
+            displayConfig.fieldConfig[field].source = inferred[field] || displayConfig.fieldConfig[field].source || field;
           }
         });
 
-        // Reset visibility
-        importFieldShowOnCard = {};
-        ["id","title","description","status","priority","category","location","assignee","requester","created","dueDate"].forEach(f => {
-          importFieldShowOnCard[f] = true;
-        });
+        // Custom fields: if any were inferred, we could add them, but we'll keep them empty initially.
+        // The user can add custom fields manually in the import mapping UI.
 
-        // Reset field order to only core fields
-        window._fieldOrder = ["id","title","description","status","priority","category","location","assignee","requester","created","dueDate"];
+        saveDisplayConfig(); // sync to cloud
 
-        importedHeaders = importHeaders.slice();
-        saveImportedHeaders();
-
+        // Update UI
         document.getElementById("importSourceBadge").textContent = source;
-        document.getElementById(
-          "importRowCount"
-        ).textContent = `${importRows.length} rows`;
-        document.getElementById(
-          "importMappingSummary"
-        ).textContent = `Detected ${importHeaders.length} source columns and ${importRows.length} data rows. Review the mapping and projected cards before confirming.`;
+        document.getElementById("importRowCount").textContent = `${importRows.length} rows`;
+        document.getElementById("importMappingSummary").textContent =
+          `Detected ${importHeaders.length} source columns and ${importRows.length} data rows. Review the mapping and projected cards before confirming.`;
         document.getElementById("importMappingArea").classList.remove("hidden");
         document.getElementById("importPreviewArea").classList.remove("hidden");
         document.getElementById("importEmptyPreview").classList.add("hidden");
+
+        // We'll render the mapping UI using fieldConfig
         renderImportMapping();
         renderImportPreview();
       }
@@ -6229,110 +6204,35 @@
       }
 
       function renderImportMapping() {
-        // --- ENSURE core fields are ALWAYS present ---
-        const coreFields = [
-          "id", "title", "description", "status", "priority",
-          "category", "location", "assignee", "requester",
-          "created", "dueDate"
-        ];
+        // Build a list of fields from fieldConfig (core + custom)
+        const allFields = displayConfig.fieldConfig || {};
+        const fieldKeys = Object.keys(allFields);
 
-        if (!window._fieldOrder || window._fieldOrder.length === 0) {
-          window._fieldOrder = [...coreFields];
-          importCustomMappings.forEach((_, i) => {
-            window._fieldOrder.push(`custom_${i}`);
-          });
-        } else {
-          let coreFieldsMissing = false;
-          coreFields.forEach(f => {
-            if (!window._fieldOrder.includes(f)) {
-              window._fieldOrder.push(f);
-              coreFieldsMissing = true;
-            }
-          });
-          if (coreFieldsMissing) {
-            const newOrder = [...coreFields];
-            window._fieldOrder.forEach(k => {
-              if (!coreFields.includes(k) && !newOrder.includes(k)) {
-                newOrder.push(k);
-              }
-            });
-            window._fieldOrder = newOrder;
-          }
-        }
-
-        const defaultLabels = {
-          id: "Work Order ID",
-          title: "Title",
-          description: "Description",
-          status: "Status",
-          priority: "Priority",
-          category: "Category",
-          location: "Location",
-          assignee: "Assigned To",
-          requester: "Requester",
-          created: "Created Date",
-          dueDate: "Due Date",
-        };
-
-        const fields = [];
-        window._fieldOrder.forEach(key => {
-          if (key.startsWith("custom_")) {
-            const idx = parseInt(key.split("_")[1]);
-            const custom = importCustomMappings[idx];
-            if (custom) {
-              fields.push({
-                key: key,
-                label: custom.label || custom.source || "",
-                source: custom.source || "",
-                type: custom.type || "mapped",
-                showOnCard: custom.showOnCard !== undefined ? custom.showOnCard : true,
-                isCore: false,
-                customIndex: idx,
-              });
-            }
-          } else {
-            const mapped = importMapping[key] || "";
-            const label = importFieldLabels[key] || defaultLabels[key] || key;
-            const type = importFieldTypes[key] || "mapped";
-            const showOnCard = importFieldShowOnCard[key] !== undefined ? importFieldShowOnCard[key] : true;
-            fields.push({
-              key,
-              label,
-              source: mapped,
-              type,
-              showOnCard,
-              isCore: true,
-            });
+        // Ensure core fields exist
+        const coreFields = ["id","title","description","status","priority","category","location","assignee","requester","created","dueDate"];
+        coreFields.forEach(f => {
+          if (!allFields[f]) {
+            allFields[f] = { label: f.charAt(0).toUpperCase() + f.slice(1), source: f, showOnCard: true, showInTable: true };
           }
         });
 
-        if (fields.length === 0) {
-          window._fieldOrder = [...coreFields];
-          importCustomMappings.forEach((_, i) => {
-            window._fieldOrder.push(`custom_${i}`);
-          });
-          return renderImportMapping();
-        }
+        // Order: core fields first, then custom
+        const orderedKeys = [...coreFields, ...Object.keys(allFields).filter(k => k.startsWith('custom_'))];
 
         const grid = document.getElementById("importMappingGrid");
         let html = "";
-        fields.forEach((f, idx) => {
-          const required = f.key === "title";
-          const mapped = f.source;
+        orderedKeys.forEach((key, idx) => {
+          const cfg = allFields[key];
+          const isCore = !key.startsWith('custom_');
+          const mapped = cfg.source || "";
+          const label = cfg.label || key;
           const statusText = mapped ? "MAPPED" : "UNMAPPED";
           const statusClass = mapped ? "text-brand-success" : "text-black/40";
+          const required = key === "title";
 
-          const typeOptions = `
-            <select data-import-field-type="${f.key}" class="w-full bg-white border border-black/10 rounded-lg px-2 py-1.5 text-[10px] font-semibold text-black/70">
-              <option value="mapped" ${f.type === "mapped" ? "selected" : ""}>Header</option>
-              <option value="date" ${f.type === "date" ? "selected" : ""}>Date</option>
-              <option value="value" ${f.type === "value" ? "selected" : ""}>Value</option>
-              <option value="dropdown" ${f.type === "dropdown" ? "selected" : ""}>Dropdown</option>
-            </select>
-          `;
-
+          // Build source dropdown from importHeaders
           let sourceSelect = `
-            <select data-import-map-field="${f.key}" class="w-full bg-white border border-black/10 rounded-lg px-2 py-2 text-xs font-semibold text-black/70">
+            <select data-import-map-field="${key}" class="w-full bg-white border border-black/10 rounded-lg px-2 py-2 text-xs font-semibold text-black/70">
               <option value="">— Not mapped —</option>
           `;
           if (importHeaders && importHeaders.length) {
@@ -6342,31 +6242,36 @@
           }
           sourceSelect += `</select>`;
 
+          // Label input
+          const labelInput = `<input data-import-label-field="${key}" class="w-full rounded-md border border-black/10 bg-white px-2 py-1.5 text-[10px] font-black uppercase tracking-wide text-black/70 placeholder:text-black/30 focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/20" value="${esc(label)}" placeholder="Label">`;
+
+          // Visibility toggle (showOnCard)
+          const showOnCard = cfg.showOnCard !== false;
           const visibilityToggle = `
             <label class="flex items-center gap-1.5 text-[10px] font-bold text-black/60 cursor-pointer">
-              <input type="checkbox" data-visibility="${f.key}" ${f.showOnCard ? "checked" : ""} class="rounded">
+              <input type="checkbox" data-visibility="${key}" ${showOnCard ? "checked" : ""} class="rounded">
               <span>Show on card</span>
             </label>
           `;
 
+          // Remove button for custom fields
+          const removeBtn = isCore ? "" : `<button data-remove-custom="${key}" class="text-red-500 hover:text-red-700 text-sm font-bold" title="Remove this field">✕</button>`;
+
+          // Reorder buttons
           let reorderBtns = "";
-          if (fields.length > 1) {
+          if (orderedKeys.length > 1) {
             reorderBtns = `
               <div class="flex items-center gap-1">
                 <button data-move-up="${idx}" class="p-1 rounded hover:bg-black/5 text-black/40 disabled:opacity-30" ${idx === 0 ? "disabled" : ""} title="Move up">↑</button>
-                <button data-move-down="${idx}" class="p-1 rounded hover:bg-black/5 text-black/40 disabled:opacity-30" ${idx === fields.length - 1 ? "disabled" : ""} title="Move down">↓</button>
+                <button data-move-down="${idx}" class="p-1 rounded hover:bg-black/5 text-black/40 disabled:opacity-30" ${idx === orderedKeys.length - 1 ? "disabled" : ""} title="Move down">↓</button>
               </div>
             `;
           }
 
-          const removeBtn = f.isCore ? "" : `<button data-remove-custom="${f.customIndex}" class="text-red-500 hover:text-red-700 text-sm font-bold" title="Remove this field">✕</button>`;
-
           html += `
-            <div class="bg-black/5 border border-black/10 rounded-xl p-3 relative" data-field-key="${f.key}">
+            <div class="bg-black/5 border border-black/10 rounded-xl p-3 relative" data-field-key="${key}">
               <div class="flex items-start justify-between gap-2">
-                <div class="flex-1">
-                  <input data-import-label-field="${f.key}" class="w-full rounded-md border border-black/10 bg-white px-2 py-1.5 text-[10px] font-black uppercase tracking-wide text-black/70 placeholder:text-black/30 focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/20" value="${esc(f.label)}" placeholder="Label">
-                </div>
+                <div class="flex-1">${labelInput}</div>
                 <div class="flex items-center gap-1 shrink-0">
                   ${reorderBtns}
                   ${removeBtn}
@@ -6378,187 +6283,102 @@
                 ${visibilityToggle}
               </div>
 
-              <div class="grid grid-cols-[76px_minmax(0,1fr)] items-center gap-2 mt-2">
-                <span class="text-[8px] font-black uppercase tracking-wide text-black/40">Type</span>
-                ${typeOptions}
-              </div>
-
               <div class="mt-2 grid grid-cols-[76px_minmax(0,1fr)] items-center gap-2">
                 <span class="text-[8px] font-black uppercase tracking-wide text-black/40">Source</span>
                 ${sourceSelect}
               </div>
-
-              ${mapped ? `<span class="block text-[10px] text-black/40 mt-1 truncate">Source: ${esc(mapped)}</span>` : ""}
             </div>
           `;
         });
 
         grid.innerHTML = html;
 
-        // ----- LABEL EVENT (now syncs to displayConfig and re‑renders) -----
+        // ---- Event binding ----
+        // Label changes
         grid.querySelectorAll("[data-import-label-field]").forEach(input => {
-          function updateLabel(e) {
-            const key = e.target.dataset.importLabelField;
-            let val = e.target.value.trim();
-            // Auto-format to Title Case
-            const formatted = toTitleCase(val);
-            if (formatted !== val) {
-              e.target.value = formatted;
-              val = formatted;
-            }
-
-            if (key.startsWith("custom_")) {
-              const idx = parseInt(key.split("_")[1]);
-              if (importCustomMappings[idx]) {
-                importCustomMappings[idx].label = val;
-                if (displayConfig.fieldConfig) {
-                  Object.keys(displayConfig.fieldConfig).forEach(cfgKey => {
-                    if (cfgKey.startsWith("custom_") &&
-                        displayConfig.fieldConfig[cfgKey].source === importCustomMappings[idx].source) {
-                      displayConfig.fieldConfig[cfgKey].label = val;
-                      saveDisplayConfig();
-                    }
-                  });
-                }
-              }
-            } else {
-              importFieldLabels[key] = val;
-              if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
-              if (!displayConfig.fieldConfig[key]) {
-                displayConfig.fieldConfig[key] = {
-                  label: val,
-                  source: key,
-                  showOnCard: true,
-                  showInTable: true,
-                };
-              } else {
-                displayConfig.fieldConfig[key].label = val;
-              }
+          input.addEventListener("change", function() {
+            const key = this.dataset.importLabelField;
+            const val = this.value.trim();
+            if (displayConfig.fieldConfig && displayConfig.fieldConfig[key]) {
+              displayConfig.fieldConfig[key].label = val;
               saveDisplayConfig();
+              renderImportPreview();
+              render();
             }
-
-            renderImportPreview();
-            render();
-          }
-
-          input.addEventListener("input", updateLabel);
-          input.addEventListener("change", updateLabel);
+          });
         });
 
-        // ----- Other event bindings (unchanged) -----
+        // Source changes
         grid.querySelectorAll("[data-import-map-field]").forEach(sel => {
-          sel.addEventListener("change", (e) => {
-            const key = e.target.dataset.importMapField;
-            const val = e.target.value || "";
-            if (key.startsWith("custom_")) {
-              const idx = parseInt(key.split("_")[1]);
-              if (importCustomMappings[idx]) {
-                importCustomMappings[idx].source = val;
-                if (!importCustomMappings[idx].label) importCustomMappings[idx].label = val;
-              }
-            } else {
-              importMapping[key] = val;
+          sel.addEventListener("change", function() {
+            const key = this.dataset.importMapField;
+            const val = this.value;
+            if (displayConfig.fieldConfig && displayConfig.fieldConfig[key]) {
+              displayConfig.fieldConfig[key].source = val;
+              saveDisplayConfig();
+              renderImportPreview();
+              render();
             }
-            renderImportMapping();
-            renderImportPreview();
           });
         });
 
-        grid.querySelectorAll("[data-import-field-type]").forEach(sel => {
-          sel.addEventListener("change", (e) => {
-            const key = e.target.dataset.importFieldType;
-            const val = e.target.value;
-            if (key.startsWith("custom_")) {
-              const idx = parseInt(key.split("_")[1]);
-              if (importCustomMappings[idx]) importCustomMappings[idx].type = val;
-            } else {
-              importFieldTypes[key] = val;
-            }
-            renderImportPreview();
-          });
-        });
-
+        // Visibility changes
         grid.querySelectorAll("[data-visibility]").forEach(cb => {
-          cb.addEventListener("change", (e) => {
-            const key = e.target.dataset.visibility;
-            const checked = e.target.checked;
-            if (key.startsWith("custom_")) {
-              const idx = parseInt(key.split("_")[1]);
-              if (importCustomMappings[idx]) importCustomMappings[idx].showOnCard = checked;
-            } else {
-              importFieldShowOnCard[key] = checked;
+          cb.addEventListener("change", function() {
+            const key = this.dataset.visibility;
+            const checked = this.checked;
+            if (displayConfig.fieldConfig && displayConfig.fieldConfig[key]) {
+              displayConfig.fieldConfig[key].showOnCard = checked;
+              saveDisplayConfig();
+              renderImportPreview();
+              render();
             }
-            renderImportPreview();
           });
         });
 
+        // Move up/down – we reorder the keys in displayConfig.fieldConfig order.
+        // Since we use an ordered list, we can reorder the keys array and rebuild.
+        // For simplicity, we'll just rebuild the mapping UI after reordering.
         grid.querySelectorAll("[data-move-up], [data-move-down]").forEach(btn => {
-          btn.addEventListener("click", (e) => {
-            const idx = parseInt(btn.dataset.moveUp ?? btn.dataset.moveDown);
-            const direction = btn.dataset.moveUp ? -1 : 1;
+          btn.addEventListener("click", function() {
+            const idx = parseInt(this.dataset.moveUp ?? this.dataset.moveDown);
+            const direction = this.dataset.moveUp ? -1 : 1;
             const newIdx = idx + direction;
-            if (newIdx < 0 || newIdx >= window._fieldOrder.length) return;
-            [window._fieldOrder[idx], window._fieldOrder[newIdx]] =
-              [window._fieldOrder[newIdx], window._fieldOrder[idx]];
+            if (newIdx < 0 || newIdx >= orderedKeys.length) return;
+            // Swap keys in the ordered list
+            const keys = Object.keys(displayConfig.fieldConfig);
+            // We need a stable order; we can keep a separate array or just rebuild from scratch.
+            // For simplicity, we'll just re‑render the whole mapping UI with the updated order.
+            // We'll maintain a separate order array in displayConfig.
+            if (!displayConfig.fieldOrder) displayConfig.fieldOrder = orderedKeys;
+            const order = displayConfig.fieldOrder;
+            // Swap positions
+            [order[idx], order[newIdx]] = [order[newIdx], order[idx]];
+            saveDisplayConfig();
             renderImportMapping();
             renderImportPreview();
           });
         });
 
+        // Remove custom field
         grid.querySelectorAll("[data-remove-custom]").forEach(btn => {
-          btn.addEventListener("click", (e) => {
-            const idx = parseInt(btn.dataset.removeCustom);
-            removeCustomField(idx);
+          btn.addEventListener("click", function() {
+            const key = this.dataset.removeCustom;
+            if (!key) return;
+            // Remove from fieldConfig
+            if (displayConfig.fieldConfig && displayConfig.fieldConfig[key]) {
+              delete displayConfig.fieldConfig[key];
+              saveDisplayConfig();
+              renderImportMapping();
+              renderImportPreview();
+              render();
+              toast(`Removed field ${key}`, "info");
+            }
           });
         });
 
-        // ----- Render custom rows -----
-        renderImportCustomRows();
-
-        // ----- Add Field button handler -----
-        const addBtn = document.getElementById("addImportCustomBtn");
-        if (addBtn) {
-          const newAddBtn = addBtn.cloneNode(true);
-          addBtn.parentNode.replaceChild(newAddBtn, addBtn);
-          newAddBtn.addEventListener("click", function() {
-            const newIndex = importCustomMappings.length;
-            importCustomMappings.push({
-              label: "",
-              source: "",
-              value: "",
-              type: "mapped",
-              showOnCard: true
-            });
-            if (!window._fieldOrder) {
-              window._fieldOrder = ["id","title","description","status","priority","category","location","assignee","requester","created","dueDate"];
-            }
-            window._fieldOrder.push(`custom_${newIndex}`);
-            renderImportMapping();
-            renderImportPreview();
-            toast("New custom field added. Set its label and source.", "info");
-          });
-        }
-
-        // ----- Helper to remove custom field -----
-        function removeCustomField(idx) {
-          if (importCustomMappings.length > idx) {
-            importCustomMappings.splice(idx, 1);
-            window._fieldOrder = window._fieldOrder.filter(k => k !== `custom_${idx}`);
-            const newOrder = [];
-            window._fieldOrder.forEach(k => {
-              if (k.startsWith("custom_")) {
-                const oldIdx = parseInt(k.split("_")[1]);
-                if (oldIdx > idx) newOrder.push(`custom_${oldIdx - 1}`);
-                else if (oldIdx < idx) newOrder.push(`custom_${oldIdx}`);
-              } else {
-                newOrder.push(k);
-              }
-            });
-            window._fieldOrder = newOrder;
-            renderImportMapping();
-            renderImportPreview();
-          }
-        }
+        // Also we need to handle adding custom fields – will be done via the "Add Field" button
+        // We'll bind that separately (see below).
       }
 
       function renderImportCustomRows() {
@@ -6831,23 +6651,29 @@
       }
 
       function renderImportPreview() {
-        const fields = ["id", "title", "status", "priority", "assignee", "location", "created", "dueDate"];
-        const labels = {
-          id: "WO ID",
-          title: "Title",
-          status: "Status",
-          priority: "Priority",
-          assignee: "Assigned To",
-          location: "Location",
-          created: "Created",
-          dueDate: importFieldLabels.dueDate || "Due",
-        };
+        const fields = Object.keys(displayConfig.fieldConfig || {});
+        // Ensure core fields exist
+        const coreFields = ["id","title","status","priority","assignee","location","created","dueDate"];
+        coreFields.forEach(f => {
+          if (!fields.includes(f)) {
+            if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
+            displayConfig.fieldConfig[f] = { label: f, source: f, showOnCard: true, showInTable: true };
+          }
+        });
 
-        const missing = ["title"].filter(f => !importMapping[f]);
+        const fieldKeys = Object.keys(displayConfig.fieldConfig);
+        // We'll show the fields that have a mapped source and are marked showOnCard (for card preview)
+        const cardFields = fieldKeys.filter(k => {
+          const cfg = displayConfig.fieldConfig[k];
+          return cfg.source && cfg.showOnCard !== false;
+        });
+
+        // Check if title is mapped
+        const titleMapped = displayConfig.fieldConfig.title && displayConfig.fieldConfig.title.source;
         const badge = document.getElementById("importReadyBadge");
         const confirm = document.getElementById("confirmImportBtn");
-        if (missing.length) {
-          badge.textContent = `NEEDS MAPPING: ${missing.map(f => labels[f]).join(", ")}`;
+        if (!titleMapped) {
+          badge.textContent = "NEEDS MAPPING: Title";
           badge.className = "inline-flex items-center px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black";
           confirm.disabled = true;
         } else {
@@ -6859,38 +6685,26 @@
         const previewLimit = 3;
         document.getElementById("importPreviewCount").textContent = `Showing first ${Math.min(previewLimit, importRows.length)} of ${importRows.length}`;
 
-        // --- Build preview orders from the first `previewLimit` rows ---
+        // Build preview orders
         let previewOrders = importRows.slice(0, previewLimit).map((r, i) => makeMappedOrder(r, i));
-
-        // --- Sort them exactly like the import will (sourceOrder descending, then created desc) ---
+        // Sort by created desc (like import does)
         const timeOf = (v) => {
           if (!v) return 0;
           const t = Date.parse(String(v).length <= 10 ? String(v) + "T00:00:00" : String(v));
           return Number.isNaN(t) ? 0 : t;
         };
-        previewOrders.sort(
-          (a, b) =>
-            timeOf(b.created) - timeOf(a.created) ||
-            Number(a.sourceOrder ?? 0) - Number(b.sourceOrder ?? 0)
-        );
+        previewOrders.sort((a, b) => timeOf(b.created) - timeOf(a.created) || (a.sourceOrder ?? 0) - (b.sourceOrder ?? 0));
 
-        // --- Render the preview table ---
-        const allFieldKeys = Object.keys(importMapping).filter(k => importMapping[k]);
-        const customKeys = importCustomMappings.map((f, i) => `custom_${i}`).filter(k => importMapping[k] !== undefined);
-        const displayFields = [...allFieldKeys, ...customKeys];
-        const visibleFields = displayFields.filter(k => importFieldShowOnCard[k] !== false);
+        // --- Preview table ---
+        const visibleFields = fieldKeys.filter(k => {
+          const cfg = displayConfig.fieldConfig[k];
+          return cfg.source && cfg.showInTable !== false;
+        });
 
         let headHTML = `<tr>`;
         visibleFields.forEach(k => {
-          let label = importFieldLabels[k] || k;
-          if (k.startsWith("custom_")) {
-            const idx = parseInt(k.split("_")[1]);
-            const custom = importCustomMappings[idx];
-            if (custom && custom.label) {
-              label = custom.label;
-            }
-          }
-          headHTML += `<th class="px-3 py-2 text-left font-bold text-black/50 whitespace-nowrap">${esc(label)}<div class="text-[9px] font-normal text-black/30">${importMapping[k] ? esc(importMapping[k]) : "—"}</div></th>`;
+          const cfg = displayConfig.fieldConfig[k];
+          headHTML += `<th class="px-3 py-2 text-left font-bold text-black/50 whitespace-nowrap">${esc(cfg.label || k)}<div class="text-[9px] font-normal text-black/30">${esc(cfg.source || "—")}</div></th>`;
         });
         headHTML += `</tr>`;
         document.getElementById("importPreviewHead").innerHTML = headHTML;
@@ -6899,16 +6713,9 @@
         previewOrders.forEach(o => {
           let rowHTML = `<tr class="border-t border-black/10 hover:bg-black/5">`;
           visibleFields.forEach(k => {
-            let val = displayValue(o, importMapping[k] || k);
-            if (importFieldTypes[k] === "dropdown" && importMapping[k]) {
-              const colValues = [...new Set(importRows.map(r => String(r[importMapping[k]] || "").trim()).filter(Boolean))];
-              const options = colValues.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
-              val = `<select class="border border-black/10 rounded px-1 text-[10px]">${options}</select>`;
-            } else if (importFieldTypes[k] === "date") {
-              val = formatDate(val);
-            } else {
-              val = esc(val || "—");
-            }
+            const cfg = displayConfig.fieldConfig[k];
+            let val = displayValue(o, cfg.source);
+            val = esc(val || "—");
             rowHTML += `<td class="px-3 py-2 max-w-[200px] truncate text-black/70">${val}</td>`;
           });
           rowHTML += `</tr>`;
@@ -6916,7 +6723,7 @@
         });
         document.getElementById("importPreviewBody").innerHTML = bodyHTML;
 
-        // --- Render the projected cards (using the same sorted orders) ---
+        // --- Projected cards ---
         document.getElementById("projectedCards").innerHTML = previewOrders.length
           ? previewOrders.map(o => projectedCardHTML(o)).join("")
           : '<p class="text-sm text-black/40">No rows to preview.</p>';
@@ -6934,6 +6741,7 @@
         importSourceType = "file";
         importFieldTypes = {};
         importFieldShowOnCard = {};
+
         document.getElementById("importSourceBadge").textContent =
           "No data loaded";
         document.getElementById("importFileName").textContent = "";
@@ -6978,116 +6786,65 @@
       }
 
       async function autoSyncFromStoredApi(retryCount = 0) {
-        // 1. Get the API URL
         let url = loadApiUrl();
         if (!url) {
           const input = document.getElementById("importApiUrl");
           if (input) url = input.value.trim();
         }
         if (!url) return;
-        
-        // Update the input field with the saved URL
-        const input = document.getElementById("importApiUrl");
-        if (input) input.value = url;
 
-        // 2. Attempt the sync
         try {
-          //console.log(`[AutoSync] Attempt ${retryCount + 1} to sync from ${url}`);
           const success = await fetchAndApplyWithSavedMapping(url);
-          
-          if (success) {
-            //console.log('[AutoSync] ✅ Sync successful.');
-            return true;
-          } else {
-            // 3. If it failed and we haven't retried too many times, retry
-            if (retryCount < 2) {
-              console.warn(`[AutoSync] ❌ Sync failed (attempt ${retryCount + 1}). Retrying in 3 seconds...`);
-              toast('⏳ Retrying external API sync...', 'info');
-              await new Promise(resolve => setTimeout(resolve, 3000));
-              return autoSyncFromStoredApi(retryCount + 1);
-            } else {
-              console.warn('[AutoSync] ❌ Sync failed after 3 attempts.');
-              toast('⚠️ Auto-sync failed. Click Refresh to try again.', 'error');
-              return false;
-            }
-          }
-        } catch (err) {
-          console.error('[AutoSync] ❌ Sync error:', err);
-          if (retryCount < 2) {
-            console.warn(`[AutoSync] Retrying in 3 seconds...`);
-            toast('⏳ Retrying external API sync...', 'info');
+          if (!success && retryCount < 2) {
+            console.warn(`AutoSync retry ${retryCount+1}...`);
             await new Promise(resolve => setTimeout(resolve, 3000));
             return autoSyncFromStoredApi(retryCount + 1);
-          } else {
-            toast('⚠️ Auto-sync failed. Click Refresh to try again.', 'error');
-            return false;
           }
+        } catch (err) {
+          console.error("AutoSync error:", err);
+          if (retryCount < 2) {
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            return autoSyncFromStoredApi(retryCount + 1);
+          }
+          toast("⚠️ Auto-sync failed. Click Refresh to try again.", "error");
         }
       }
 
       async function fetchAndApplyWithSavedMapping(apiUrl) {
-        if (!apiUrl) return;
+        if (!apiUrl) return false;
         try {
           const { headers, rows } = await fetchApiDataFromUrl(apiUrl);
-          const savedConfig = loadMappingConfig();
+          // Store headers/rows for preview (optional)
+          // We'll use them to update the import state but we won't rely on importMapping.
+          // Instead, we directly replace orders using makeMappedOrder (which uses fieldConfig).
+          importHeaders = headers;
+          importRows = rows;
+          importSourceName = apiUrl;
+          importSourceType = "api";
 
-          if (savedConfig && savedConfig.mapping && savedConfig.mapping.title) {
-            importHeaders = savedConfig.headers || headers;
-            importRows = rows;
-            importSourceName = savedConfig.sourceName || apiUrl;
-            importSourceType = "api";
-            importMapping = savedConfig.mapping || {};
-            importFieldLabels = savedConfig.fieldLabels || {};
-            importFieldTypes = savedConfig.fieldTypes || {};
-            importCustomMappings = savedConfig.customMappings || [];
-
-            document.getElementById("importSourceBadge").textContent = apiUrl;
-            document.getElementById(
-              "importRowCount"
-            ).textContent = `${rows.length} rows`;
-            document.getElementById(
-              "importMappingSummary"
-            ).textContent = `Restored saved mapping for ${headers.length} source columns and ${rows.length} data rows.`;
-            document
-              .getElementById("importMappingArea")
-              .classList.remove("hidden");
-            document
-              .getElementById("importPreviewArea")
-              .classList.remove("hidden");
-            document
-              .getElementById("importEmptyPreview")
-              .classList.add("hidden");
-
-            renderImportMapping();
-            renderImportPreview();
-
-            if (importMapping.title) {
-              applyImport(true, false, true);
-              return true;
-            } else {
-              toast(
-                "⚠️ Saved mapping missing 'Title' – please check import center.",
-                "warning"
-              );
-              return false;
+          // Ensure fieldConfig has entries for core fields (if not, create defaults)
+          const coreFields = ["id","title","description","status","priority","category","location","assignee","requester","created","dueDate"];
+          if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
+          coreFields.forEach(f => {
+            if (!displayConfig.fieldConfig[f]) {
+              displayConfig.fieldConfig[f] = { label: f.charAt(0).toUpperCase() + f.slice(1), source: f, showOnCard: true, showInTable: true };
             }
-          } else {
-            showImportData(headers, rows, apiUrl, "api");
-            if (importMapping.title) {
-              applyImport(true, false, true);
-              toast("🔄 Synced with inferred mapping.", "success");
-              return true;
-            } else {
-              toast(
-                "⚠️ External API loaded, but title mapping missing – please check import center.",
-                "warning"
-              );
-              return false;
-            }
-          }
+          });
+          // Save any changes to displayConfig
+          saveDisplayConfig();
+
+          // Now create orders with current fieldConfig
+          const newOrders = rows.map((r, i) => makeMappedOrder(r, i));
+          // Replace orders
+          orders = newOrders;
+          saveOrders(); // this triggers cloud sync
+          render();
+
+          toast(`✅ API sync complete: ${orders.length} orders loaded.`, "success");
+          return true;
         } catch (err) {
-          console.warn("Sync failed:", err);
-          toast("❌ Failed to sync with external API.", "error");
+          console.error("API sync failed:", err);
+          toast("❌ API sync failed: " + err.message, "error");
           return false;
         }
       }
@@ -7226,252 +6983,86 @@
           toast("Load a file or paste rows first.", "error");
           return;
         }
-        if (!importMapping.title) {
+
+        // Check title mapping
+        if (!displayConfig.fieldConfig?.title?.source) {
           toast("Please map the Title column before importing.", "error");
           return;
         }
 
-        // Use forceReplace OR the checkbox value
-        const replace = forceReplace || (ignoreCheckbox ? false : document.getElementById('replaceOrdersCheckbox').checked);
+        // Determine replace mode: if API source, always replace; else use checkbox
+        const isApiImport = importSourceType === "api";
+        const replace = forceReplace || (isApiImport ? true : (ignoreCheckbox ? false : document.getElementById('replaceOrdersCheckbox').checked));
 
+        // If replace, clear orders and history
         if (replace) {
           orders = [];
           history = [];
           toast("🗑️ Existing orders cleared. New import will replace all data.", "info");
         }
 
-        const incoming = importRows.map(makeMappedOrder);
-        const isApiImport = importSourceType === "api";
+        // Build incoming orders using makeMappedOrder (which uses fieldConfig)
+        const incoming = importRows.map((r, i) => makeMappedOrder(r, i));
 
+        // For file import (non-API), we do merging; for API we replace
         if (!isApiImport) {
           pushHistory(`import ${incoming.length} rows`);
         }
 
-        const existing = new Map(
-          orders.map((o) => [String(o.id).trim().toLowerCase(), o])
-        );
-        let added = 0, updated = 0;
-
-        incoming.forEach((n) => {
-          const key = String(n.id).trim().toLowerCase();
-          if (existing.has(key) && !replace) {
-            const old = existing.get(key);
-            const merged = { ...old };
-
-            for (let k in n) {
-              const newVal = n[k];
-              if (newVal !== undefined && newVal !== null && newVal !== "") {
-                if (Array.isArray(newVal) && k === "activity") {
-                  merged.activity = [...(old.activity || []), ...newVal];
-                } else if (Array.isArray(newVal) && k === "customFields") {
-                  // handled separately
-                } else if (
-                  typeof newVal === "object" &&
-                  !Array.isArray(newVal) &&
-                  k !== "customFields" &&
-                  k !== "activity"
-                ) {
-                  merged[k] = { ...newVal };
+        if (replace) {
+          // Replace orders entirely (this will be used for API or when checkbox checked)
+          orders = incoming;
+        } else {
+          // Merge: existing orders with same ID are updated; new ones added
+          const existing = new Map(orders.map((o) => [String(o.id).trim().toLowerCase(), o]));
+          let added = 0, updated = 0;
+          incoming.forEach((n) => {
+            const key = String(n.id).trim().toLowerCase();
+            if (existing.has(key)) {
+              const old = existing.get(key);
+              // Merge objects (deep merge for customFields, activity)
+              const merged = { ...old };
+              for (let k in n) {
+                if (k === 'customFields') {
+                  merged.customFields = mergeCustomFields(old.customFields, n.customFields);
+                } else if (k === 'activity') {
+                  merged.activity = [...(old.activity || []), ...(n.activity || [])];
+                } else if (k === '_rawData' || k === '_importHeaders') {
+                  merged[k] = n[k];
                 } else {
-                  merged[k] = newVal;
+                  merged[k] = n[k];
                 }
               }
-            }
-
-            merged.customFields = mergeCustomFields(old.customFields, n.customFields);
-            merged.activity = [...(old.activity || []), ...(n.activity || [])];
-            merged._importHeaders = n._importHeaders || old._importHeaders || [];
-            merged._rawData = n._rawData || old._rawData || {};
-
-            const idx = orders.findIndex(
-              (o) => String(o.id).trim().toLowerCase() === key
-            );
-            if (idx >= 0) orders[idx] = merged;
-            updated++;
-          } else {
-            orders.push(n);
-            added++;
-          }
-        });
-
-        // Apply labels from import to all orders
-        orders = orders.map((o, i) => {
-          const rawRow = o && o._rawData ? o._rawData : {};
-          const rowCustomFields = buildImportCustomFieldsForRow(rawRow);
-          const finalCustomFields = mergeCustomFields(
-            Array.isArray(o.customFields) ? o.customFields : [],
-            rowCustomFields
-          );
-
-          if (finalCustomFields.length) {
-            finalCustomFields.forEach(field => {
-              if (field._sourceHeader) {
-                Object.keys(importFieldLabels).forEach(key => {
-                  const mappedHeader = importMapping[key];
-                  if (mappedHeader === field._sourceHeader) {
-                    field.label = importFieldLabels[key];
-                  }
-                });
-              }
-            });
-          }
-
-          return {
-            ...o,
-            id: String(o.id ?? `WO-${i + 1}`).trim() || `WO-${i + 1}`,
-            title: String(o.title ?? "Untitled Work Order").trim() || "Untitled Work Order",
-            description: String(o.description ?? "").trim(),
-            status: o.status || "Open",
-            priority: normalizePriority(o.priority || "Medium"),
-            category: String(o.category ?? "General").trim() || "General",
-            location: String(o.location ?? "").trim(),
-            assignee: String(o.assignee ?? "Unassigned").trim() || "Unassigned",
-            requester: String(o.requester ?? "").trim(),
-            created: parseDateValue(o.created) || nowDate(),
-            dueDate: parseDateValue(o.dueDate),
-            activity: Array.isArray(o.activity) ? o.activity : [],
-            customFields: finalCustomFields,
-            _importHeaders: Array.isArray(o._importHeaders) ? o._importHeaders : [],
-            _rawData: rawRow,
-          };
-        });
-
-        // ----- Ensure custom fields from import are added to displayConfig -----
-        if (importCustomMappings && importCustomMappings.length) {
-          if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
-          const customKeys = Object.keys(displayConfig.fieldConfig).filter(k => k.startsWith('custom_'));
-          let customIndex = customKeys.length + 1;
-
-          importCustomMappings.forEach((custom, idx) => {
-            const label = custom.label || custom.source || `Custom Field ${customIndex}`;
-            const labelNorm = normalize(label);
-            const existing = Object.values(displayConfig.fieldConfig).find(
-              cfg => normalize(cfg.label || "") === labelNorm
-            );
-            if (!existing) {
-              const newKey = `custom_${Date.now()}_${idx}`;
-              displayConfig.fieldConfig[newKey] = {
-                label: label,
-                source: custom.source || '',
-                showOnCard: custom.showOnCard !== undefined ? custom.showOnCard : true,
-                showInTable: true,
-                type: custom.type || 'mapped'
-              };
-              customIndex++;
+              const idx = orders.findIndex(o => String(o.id).trim().toLowerCase() === key);
+              if (idx >= 0) orders[idx] = merged;
+              updated++;
             } else {
-              existing.showOnCard = custom.showOnCard !== undefined ? custom.showOnCard : existing.showOnCard;
-              if (custom.source) existing.source = custom.source;
-              if (custom.label) existing.label = custom.label;
-              if (custom.type) existing.type = custom.type;
+              orders.push(n);
+              added++;
             }
           });
-          saveDisplayConfig();
-
-          // Add imported custom fields to ALL existing orders
-          orders.forEach(o => {
-            if (!Array.isArray(o.customFields)) o.customFields = [];
-            importCustomMappings.forEach(custom => {
-              const label = custom.label || custom.source || '';
-              const labelNorm = normalize(label);
-              const alreadyHas = o.customFields.some(f => normalize(f.label || "") === labelNorm);
-              if (label && !alreadyHas) {
-                o.customFields.push({
-                  label: label,
-                  value: custom.value || '',
-                  _sourceHeader: custom.source || ''
-                });
-              }
-            });
-          });
-          saveOrders();
+          toast(`Merge complete: ${added} new, ${updated} updated.`, "success");
         }
 
-        // ----- Sync core fields to displayConfig -----
-        const defaultLabels = {
-          id: "Work Order ID",
-          title: "Title",
-          description: "Description",
-          status: "Status",
-          priority: "Priority",
-          category: "Category",
-          location: "Location",
-          assignee: "Assigned To",
-          requester: "Requester",
-          created: "Created Date",
-          dueDate: "Due Date",
-        };
+        // Save orders
+        saveOrders(); // triggers cloud sync
 
-        const coreFields = ["id","title","description","status","priority","category","location","assignee","requester","created","dueDate"];
-
-        coreFields.forEach((field) => {
-          const header = importMapping[field];
-          const importLabel = importFieldLabels[field];
-          const label = importLabel || defaultLabels[field] || field;
-          const type = importFieldTypes[field] || "mapped";
-
-          if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
-          if (!displayConfig.fieldConfig[field]) {
-            displayConfig.fieldConfig[field] = {
-              label: label,
-              source: header || field,
-              showOnCard: true,
-              showInTable: true,
-              type: type,
-            };
-          } else {
-            const existing = displayConfig.fieldConfig[field];
-            const shouldUpdateSource = !existing.source || existing.source === field;
-            displayConfig.fieldConfig[field] = {
-              ...existing,
-              label: label,
-              source: shouldUpdateSource ? (header || field) : existing.source,
-              type: type,
-            };
+        // Update assignees
+        const importedAssignees = new Set(orders.map(o => o.assignee).filter(a => a && a !== "Unassigned"));
+        importedAssignees.forEach(name => {
+          if (!users.some(u => u.name === name)) {
+            users.push({ id: `USR-${Date.now()}-${Math.random().toString(36).substr(2,5)}`, name, active: true });
           }
         });
-        saveDisplayConfig();
+        saveUsers();
 
-        // Sort orders (most recent created first, then sourceOrder)
-        const timeOf = (v) => {
-          const s = String(v || "");
-          const t = Date.parse(s.length <= 10 ? s + "T00:00:00" : s);
-          return Number.isNaN(t) ? 0 : t;
-        };
-        orders.sort(
-          (a, b) =>
-            timeOf(b.created) - timeOf(a.created) ||
-            Number(a.sourceOrder ?? 0) - Number(b.sourceOrder ?? 0)
-        );
+        // Ensure imported custom fields appear in fieldConfig (if any new ones were inferred)
+        // But we already updated fieldConfig in showImportData, so we can skip.
 
-        // ----- SAVE TO LOCAL STORAGE -----
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-          localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-          localStorage.setItem(USERS_KEY, JSON.stringify(users));
-          localStorage.setItem(IMPORTED_HEADERS_KEY, JSON.stringify(importedHeaders));
-          localStorage.setItem("wo_password", storedPassword);
-        } catch (e) {
-          console.error('[applyImport] ❌ Failed to save to localStorage:', e);
-          toast("Failed to save data locally.", "error");
-          return;
-        }
-
-        // ----- CLOUD SYNC -----
-        const ordersToSync = orders.slice();
-        try {
-          const originalOrders = orders;
-          orders = ordersToSync;
-          await syncSharedStorage();
-          orders = originalOrders;
-        } catch (e) {
-          console.error('[applyImport] ❌ Cloud sync failed:', e);
-          toast("⚠️ Data saved locally but cloud sync failed. Check your connection.", "error");
-        }
-
-        // ----- RELOAD FROM LOCAL STORAGE (to get authoritative data) -----
+        // Reload orders from storage (to get latest)
         orders = loadOrders();
 
-        // ----- UPDATE UI -----
+        // Update UI
         document.getElementById("searchInput").value = "";
         initializeDashboardFilters();
         document.getElementById("statusFilter").value = "all";
@@ -7480,44 +7071,16 @@
         currentPage = 1;
 
         hideSectionPage();
-
-        const apiUrl = document.getElementById("importApiUrl").value.trim();
-        if (apiUrl) {
-          saveApiUrl(apiUrl);
-          saveMappingConfig();
-        }
-
         closeImportModal();
         resetImportCenter(true);
         render();
 
-        // ----- Update assignees -----
-        const importedAssignees = new Set(
-          orders.map((o) => o.assignee).filter((a) => a && a !== "Unassigned")
-        );
-        importedAssignees.forEach((name) => {
-          if (!users.some((u) => u.name === name)) {
-            users.push({
-              id: `USR-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-              name,
-              active: true,
-            });
-          }
-        });
-        saveUsers();
-
         document.getElementById('replaceOrdersCheckbox').checked = false;
 
-        toast(
-          isApiImport
-            ? `✅ API import reflected: ${added} new, ${updated} updated. ${orders.length} work orders are now visible in the dashboard.`
-            : `✅ Import successful: ${added} new, ${updated} updated. ${orders.length} work orders now displayed.`,
-          "success"
-        );
-        setTimeout(() => {
-          const grid = document.getElementById("workOrderGrid");
-          if (grid) grid.scrollIntoView({ behavior: "smooth", block: "start" });
-        }, 100);
+        const msg = replace ?
+          `✅ ${incoming.length} orders imported (replaced all).` :
+          `✅ ${incoming.length} orders processed (${updated} updated, ${added} new).`;
+        toast(msg, "success");
       }
 
       // ===== FILE/API IMPORT =====
@@ -9442,6 +9005,34 @@
           if (inputs && inputs.length) inputs[inputs.length - 1].focus();
         }, 50);
       });
+      // ===== ADD CUSTOM FIELD BUTTON (Import Modal) =====
+      (function bindAddCustomFieldButton() {
+        const addCustomBtn = document.getElementById("addImportCustomBtn");
+        if (!addCustomBtn) {
+          console.warn("Element #addImportCustomBtn not found.");
+          return;
+        }
+        // Clone to remove any old listeners
+        const newBtn = addCustomBtn.cloneNode(true);
+        addCustomBtn.parentNode.replaceChild(newBtn, addCustomBtn);
+
+        newBtn.addEventListener("click", function() {
+          const label = prompt("Enter custom field label:", "");
+          if (!label) return;
+          const key = `custom_${Date.now()}`;
+          if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
+          displayConfig.fieldConfig[key] = {
+            label: label,
+            source: "", // user will map it via the dropdown
+            showOnCard: true,
+            showInTable: true,
+          };
+          saveDisplayConfig(); // saves to localStorage + syncs to cloud
+          renderImportMapping(); // re-render the mapping UI
+          renderImportPreview(); // update the preview
+          toast(`Custom field "${label}" added.`, "info");
+        });
+      })();
       document
         .getElementById("closeEditModalBtn")
         .addEventListener("click", closeEdit);
