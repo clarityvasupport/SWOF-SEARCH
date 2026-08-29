@@ -8798,18 +8798,31 @@
         btn.disabled = true;
         icon.classList.add("animate-spin");
 
+        // Show loading toast
         showLoadingToast("🔄 Refreshing dashboard...");
 
+        // Render immediately with current data (just in case)
+        render();
+
         try {
-          await loadSharedState();
-          await autoSyncFromStoredApi();
-          currentPage = 1;
+          // Fire both syncs in parallel
+          await Promise.all([
+            loadSharedState(),
+            autoSyncFromStoredApi()
+          ]);
+
+          // Reload from storage (updated by syncs)
+          orders = loadOrders();
+          users = loadUsers();
+          importedHeaders = loadImportedHeaders();
+          displayConfig = loadDisplayConfig();
           render();
           if (selectedId && orders.some((o) => o.id === selectedId))
             renderDrawer(selectedId);
           else if (selectedId) closeDrawer();
+
           hideLoadingToast();
-          toast("Dashboard refreshed successfully.", "success");
+          toast("✅ Dashboard refreshed successfully.", "success");
         } catch (err) {
           hideLoadingToast();
           toast("❌ Refresh failed: " + err.message, "error");
@@ -9488,126 +9501,127 @@
       // ========================= INIT =========================
       initializeDashboardFilters();
       (async function initApp() {
-        // Show loading toast immediately
-        showLoadingToast("🔄 Loading data...");
+        // ----- 1. Load cached data from localStorage immediately -----
+        orders = loadOrders();
+        users = loadUsers();
+        importedHeaders = loadImportedHeaders();
+        displayConfig = loadDisplayConfig();
 
-        try {
-          // 1. Sync with cloud (KV)
-          await loadSharedState();
+        // ----- 2. Render the dashboard RIGHT NOW (optimistic) -----
+        currentPage = 1;
+        render();
+        // Show a loading toast (will be replaced later)
+        showLoadingToast("🔄 Syncing data...");
 
-          // 2. Load from localStorage (fallback if cloud empty)
-          orders = Array.isArray(orders) && orders.length ? orders : loadOrders();
-          users = Array.isArray(users) && users.length ? users : loadUsers();
-          importedHeaders = Array.isArray(importedHeaders) ? importedHeaders : loadImportedHeaders();
-
-          // 3. Render the initial dashboard
-          currentPage = 1;
-          render();
-
-          // 4. Sync with external API (if URL configured)
-          await autoSyncFromStoredApi();
-
-          // 5. Re‑render after API sync
-          render();
-
-          // 6. Hide loading toast on success
-          hideLoadingToast();
-
-          // 7. Setup UI extras (sidebar, admin toggle, etc.)
-          const hamburger = document.getElementById("hamburgerBtn");
-          const sidebar = document.getElementById("sidebarNav");
-          let autoCloseEnabled = true;
-
-          function openSidebar() {
-            sidebar.classList.add("open");
-            document.body.classList.add("overflow-hidden");
-          }
-
-          function closeSidebar() {
-            sidebar.classList.remove("open");
-            document.body.classList.remove("overflow-hidden");
-          }
-
-          function toggleSidebar() {
-            if (sidebar.classList.contains("open")) {
-              closeSidebar();
-            } else {
-              openSidebar();
-            }
-          }
-
-          document.addEventListener("click", function (e) {
-            if (!autoCloseEnabled) return;
-            if (!sidebar.classList.contains("open")) return;
-            const isClickInsideSidebar = sidebar.contains(e.target);
-            const isClickOnHamburger = hamburger.contains(e.target);
-            if (!isClickInsideSidebar && !isClickOnHamburger) {
-              closeSidebar();
-            }
+        // ----- 3. Fire off background tasks (don't await) -----
+        //    These will update the UI when they complete.
+        Promise.all([
+          loadSharedState(),          // sync with cloud KV
+          autoSyncFromStoredApi()     // fetch external API
+        ])
+          .then(() => {
+            // Both syncs finished – re‑render with fresh data
+            orders = loadOrders(); // reload from storage (which was updated by syncs)
+            users = loadUsers();
+            importedHeaders = loadImportedHeaders();
+            displayConfig = loadDisplayConfig();
+            render();
+            if (selectedId && orders.some((o) => o.id === selectedId))
+              renderDrawer(selectedId);
+            else if (selectedId) closeDrawer();
+            hideLoadingToast();
+            toast("✅ Data synced successfully.", "success");
+          })
+          .catch((err) => {
+            hideLoadingToast();
+            console.error("Sync error:", err);
+            toast("⚠️ Some data could not be synced. Check console.", "error");
           });
 
-          const adminToggleBtn = document.getElementById("adminToggleBtn");
-          const adminNav = document.getElementById("adminNav");
-          const adminArrow = document.getElementById("adminArrow");
+        // ----- 4. Setup UI interactions (sidebar, etc.) – same as before -----
+        // (Copy the sidebar, admin toggle, hamburger code from your original initApp)
+        // I'll include it for completeness below.
 
-          if (adminToggleBtn && adminNav) {
-            adminToggleBtn.addEventListener("click", function () {
-              adminNav.classList.toggle("collapsed");
-              adminArrow.classList.toggle("rotated");
-              const isCollapsed = adminNav.classList.contains("collapsed");
-              localStorage.setItem(
-                "adminCollapsed",
-                isCollapsed ? "true" : "false"
-              );
-            });
-            const saved = localStorage.getItem("adminCollapsed");
-            if (saved === "true") {
-              adminNav.classList.add("collapsed");
-              adminArrow.classList.add("rotated");
+        const hamburger = document.getElementById("hamburgerBtn");
+        const sidebar = document.getElementById("sidebarNav");
+        let autoCloseEnabled = true;
+
+        function openSidebar() {
+          sidebar.classList.add("open");
+          document.body.classList.add("overflow-hidden");
+        }
+
+        function closeSidebar() {
+          sidebar.classList.remove("open");
+          document.body.classList.remove("overflow-hidden");
+        }
+
+        function toggleSidebar() {
+          if (sidebar.classList.contains("open")) {
+            closeSidebar();
+          } else {
+            openSidebar();
+          }
+        }
+
+        document.addEventListener("click", function (e) {
+          if (!autoCloseEnabled) return;
+          if (!sidebar.classList.contains("open")) return;
+          const isClickInsideSidebar = sidebar.contains(e.target);
+          const isClickOnHamburger = hamburger.contains(e.target);
+          if (!isClickInsideSidebar && !isClickOnHamburger) {
+            closeSidebar();
+          }
+        });
+
+        const adminToggleBtn = document.getElementById("adminToggleBtn");
+        const adminNav = document.getElementById("adminNav");
+        const adminArrow = document.getElementById("adminArrow");
+
+        if (adminToggleBtn && adminNav) {
+          adminToggleBtn.addEventListener("click", function () {
+            adminNav.classList.toggle("collapsed");
+            adminArrow.classList.toggle("rotated");
+            const isCollapsed = adminNav.classList.contains("collapsed");
+            localStorage.setItem("adminCollapsed", isCollapsed ? "true" : "false");
+          });
+          const saved = localStorage.getItem("adminCollapsed");
+          if (saved === "true") {
+            adminNav.classList.add("collapsed");
+            adminArrow.classList.add("rotated");
+          }
+        }
+
+        const toggleAutoCloseBtn = document.getElementById("toggleAutoCloseBtn");
+        const pinIcon = document.getElementById("pinIcon");
+        if (toggleAutoCloseBtn) {
+          toggleAutoCloseBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            autoCloseEnabled = !autoCloseEnabled;
+            if (autoCloseEnabled) {
+              pinIcon.classList.remove("text-black/30");
+              pinIcon.classList.add("text-black/80");
+              pinIcon.style.transform = "rotate(0deg)";
+            } else {
+              pinIcon.classList.remove("text-black/80");
+              pinIcon.classList.add("text-black/30");
+              pinIcon.style.transform = "rotate(90deg)";
             }
-          }
+            toast(
+              `Auto-close outside is now ${autoCloseEnabled ? "ON" : "OFF"}`,
+              "info"
+            );
+          });
+        }
 
-          const toggleAutoCloseBtn = document.getElementById("toggleAutoCloseBtn");
-          const pinIcon = document.getElementById("pinIcon");
-          if (toggleAutoCloseBtn) {
-            toggleAutoCloseBtn.addEventListener("click", function (e) {
-              e.stopPropagation();
-              autoCloseEnabled = !autoCloseEnabled;
-              if (autoCloseEnabled) {
-                pinIcon.classList.remove("text-black/30");
-                pinIcon.classList.add("text-black/80");
-                pinIcon.style.transform = "rotate(0deg)";
-              } else {
-                pinIcon.classList.remove("text-black/80");
-                pinIcon.classList.add("text-black/30");
-                pinIcon.style.transform = "rotate(90deg)";
-              }
-              toast(
-                `Auto-close outside is now ${autoCloseEnabled ? "ON" : "OFF"}`,
-                "info"
-              );
-            });
-          }
-
-          if (hamburger && sidebar) {
-            hamburger.addEventListener("click", toggleSidebar);
-            hamburger.addEventListener("keydown", (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                toggleSidebar();
-              }
-            });
-          }
-
-          // All done – loading toast is already hidden (we hid it earlier)
-          // but we also hide it on success just in case.
-          hideLoadingToast();
-
-        } catch (err) {
-          // Hide loading toast on error
-          hideLoadingToast();
-          console.error("Init error:", err);
-          toast("⚠️ Failed to load data. Check console for details.", "error");
+        if (hamburger && sidebar) {
+          hamburger.addEventListener("click", toggleSidebar);
+          hamburger.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              toggleSidebar();
+            }
+          });
         }
       })();
     </script>
