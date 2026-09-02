@@ -90,11 +90,11 @@ import {
   applyImport,
 } from './importHelpers.js';
 
-// ---------- Imports from pages (will be created next) ----------
+// ---------- Imports from pages ----------
 import { render as renderAllOrders } from './pages/allOrders.js';
 import { render as renderCalendar } from './pages/calendar.js';
 import { render as renderReports } from './pages/reports.js';
-import { render as renderAnalytics } from './pages/analytics.js';
+import { render as renderAnalytics } from './pages/analyticsPage.js';
 import { render as renderActivity } from './pages/activity.js';
 import { render as renderUsers } from './pages/users.js';
 import { render as renderSettings } from './pages/settings.js';
@@ -118,7 +118,7 @@ window.toast = toast;
 window.requireLogin = requireLogin;
 
 // ---------- Login functions ----------
-export function openLoginModal() {
+function openLoginModal() {
   document.getElementById('loginModal').classList.remove('hidden');
   document.body.classList.add('overflow-hidden');
   document.getElementById('loginError').classList.add('hidden');
@@ -127,12 +127,12 @@ export function openLoginModal() {
   setTimeout(() => document.getElementById('loginUsername').focus(), 100);
 }
 
-export function closeLoginModal() {
+function closeLoginModal() {
   document.getElementById('loginModal').classList.add('hidden');
   document.body.classList.remove('overflow-hidden');
 }
 
-export function login(username, password) {
+function login(username, password) {
   const validPassword = storedPassword || 'password';
   if (username === 'admin' && password === validPassword) {
     isLoggedIn = true;
@@ -145,7 +145,6 @@ export function login(username, password) {
     if (!sectionPage.classList.contains('hidden')) {
       const title = document.getElementById('sectionPageTitle');
       if (title && title.textContent === 'Settings') {
-        // We'll call renderSettings() which will re-render the checkboxes
         renderSettings();
       }
     }
@@ -157,7 +156,7 @@ export function login(username, password) {
   }
 }
 
-export function logout() {
+function logout() {
   openConfirmationModal({
     title: 'Confirm Logout',
     message: 'Are you sure you want to log out? Any unsaved changes will be lost.',
@@ -632,7 +631,6 @@ function attachEventListeners() {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       // Close modals in order of priority – we rely on the existing handler in index.html
-      // We'll keep the original handler from index.html – we can override if needed.
     }
   });
 
@@ -650,5 +648,5 @@ function attachEventListeners() {
 // ---------- Start the app ----------
 initApp();
 
-// Export key functions for use in other modules
+// ---------- Exports ----------
 export { isLoggedIn, storedPassword, openLoginModal, closeLoginModal, login, logout, requireLogin };
