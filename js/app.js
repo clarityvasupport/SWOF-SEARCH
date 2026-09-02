@@ -1,11 +1,10 @@
 // =========================================================
-// APP – entry point: initialises data, UI, and event listeners
+// APP – entry point
 // =========================================================
 
-// ---------- Imports from data ----------
 import {
   orders,
-  history,
+  undoHistory,
   users,
   displayConfig,
   importedHeaders,
@@ -16,7 +15,7 @@ import {
   loadSharedState,
   syncSharedStorage,
   saveOrders,
-  saveHistory,
+  saveUndoHistory,
   saveUsers,
   saveDisplayConfig,
   saveImportedHeaders,
@@ -27,7 +26,6 @@ import {
   clearMappingConfig,
 } from './data.js';
 
-// ---------- Imports from render ----------
 import {
   render,
   getFilteredOrders,
@@ -42,7 +40,6 @@ import {
   initializeDashboardFilters,
 } from './render.js';
 
-// ---------- Imports from components ----------
 import {
   openDrawer,
   closeDrawer,
@@ -56,6 +53,7 @@ import {
   editingId,
   deleteFromEdit,
   saveForm,
+  renderEditCustomFields,
 } from './components/EditModal.js';
 
 import {
@@ -70,7 +68,6 @@ import {
   confirmStatus,
 } from './components/StatusModal.js';
 
-// ---------- Imports from utils ----------
 import {
   toast,
   showLoadingToast,
@@ -81,6 +78,10 @@ import {
   setImagePreviewZoom,
   resetImagePreviewZoom,
   imagePreviewZoom,
+  imagePreviewTranslate,
+  openImagePreviewModal,
+  applyImagePreviewTransform,
+  showPreviewItem,
 } from './utils.js';
 
 import {
@@ -90,11 +91,10 @@ import {
   applyImport,
 } from './importHelpers.js';
 
-// ---------- Imports from pages (will be created next) ----------
 import { render as renderAllOrders } from './pages/allOrders.js';
 import { render as renderCalendar } from './pages/calendar.js';
 import { render as renderReports } from './pages/reports.js';
-import { render as renderAnalytics } from './pages/analytics.js';
+import { render as renderAnalytics } from './pages/analyticsPage.js';
 import { render as renderActivity } from './pages/activity.js';
 import { render as renderUsers } from './pages/users.js';
 import { render as renderSettings } from './pages/settings.js';
@@ -107,7 +107,6 @@ import {
   clearAllAndStopSync,
 } from './pages/import.js';
 
-// ---------- Router ----------
 import { initRouter, navigateTo } from './router.js';
 
 // ---------- Global state ----------
@@ -118,7 +117,7 @@ window.toast = toast;
 window.requireLogin = requireLogin;
 
 // ---------- Login functions ----------
-export function openLoginModal() {
+function openLoginModal() {
   document.getElementById('loginModal').classList.remove('hidden');
   document.body.classList.add('overflow-hidden');
   document.getElementById('loginError').classList.add('hidden');
@@ -127,12 +126,12 @@ export function openLoginModal() {
   setTimeout(() => document.getElementById('loginUsername').focus(), 100);
 }
 
-export function closeLoginModal() {
+function closeLoginModal() {
   document.getElementById('loginModal').classList.add('hidden');
   document.body.classList.remove('overflow-hidden');
 }
 
-export function login(username, password) {
+function login(username, password) {
   const validPassword = storedPassword || 'password';
   if (username === 'admin' && password === validPassword) {
     isLoggedIn = true;
@@ -140,14 +139,10 @@ export function login(username, password) {
     closeLoginModal();
     updateLoginUI();
     render();
-    // Refresh settings if open
     const sectionPage = document.getElementById('sectionPage');
     if (!sectionPage.classList.contains('hidden')) {
       const title = document.getElementById('sectionPageTitle');
-      if (title && title.textContent === 'Settings') {
-        // We'll call renderSettings() which will re-render the checkboxes
-        renderSettings();
-      }
+      if (title && title.textContent === 'Settings') renderSettings();
     }
     toast('✅ Logged in as Admin', 'success');
     return true;
@@ -157,7 +152,7 @@ export function login(username, password) {
   }
 }
 
-export function logout() {
+function logout() {
   openConfirmationModal({
     title: 'Confirm Logout',
     message: 'Are you sure you want to log out? Any unsaved changes will be lost.',
@@ -171,9 +166,7 @@ export function logout() {
       const sectionPage = document.getElementById('sectionPage');
       if (!sectionPage.classList.contains('hidden')) {
         const title = document.getElementById('sectionPageTitle');
-        if (title && title.textContent === 'Settings') {
-          renderSettings();
-        }
+        if (title && title.textContent === 'Settings') renderSettings();
       }
       closeConfirmationModal();
       toast('🔒 Logged out', 'info');
@@ -227,17 +220,15 @@ window.changeStatusDirect = function(id, newStatus) {
   if (requireLogin()) originalChangeStatusDirect(id, newStatus);
 };
 
-// Patch drawer status dropdown
 document.getElementById('drawerStatusSelect').addEventListener('change', function(e) {
   if (!requireLogin()) {
     const o = orders.find(x => x.id === selectedId);
     if (o) e.target.value = o.status;
     return;
   }
-  // The actual status change is handled by the component via openConfirmationModal
 });
 
-// ---------- Auto-sync from API ----------
+// ---------- Auto-sync ----------
 async function autoSyncFromStoredApi(retryCount = 0) {
   const url = loadApiUrl();
   if (!url) return;
@@ -260,7 +251,10 @@ async function autoSyncFromStoredApi(retryCount = 0) {
 async function fetchAndApplyWithSavedMapping(apiUrl) {
   if (!apiUrl) return false;
   try {
-    const response = await fetch(apiUrl, { method: 'GET', headers: { Accept: 'application/json, text/csv, text/plain, */*' } });
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: { Accept: 'application/json, text/csv, text/plain, */*' },
+    });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const contentType = (response.headers.get('content-type') || '').toLowerCase();
     const text = await response.text();
@@ -290,7 +284,8 @@ async function fetchAndApplyWithSavedMapping(apiUrl) {
       rows = parsed.rows;
     }
     const newOrders = rows.map((r, i) => makeMappedOrder(r, i));
-    orders = newOrders;
+    orders.length = 0;
+    orders.push(...newOrders);
     saveOrders();
     render();
     toast(`✅ API sync complete: ${orders.length} orders loaded.`, 'success');
@@ -302,39 +297,39 @@ async function fetchAndApplyWithSavedMapping(apiUrl) {
   }
 }
 
-// ---------- Init function ----------
+// ---------- Init ----------
 async function initApp() {
-  // 1. Load cached data
-  orders = loadOrders();
-  users = loadUsers();
-  importedHeaders = loadImportedHeaders();
-  displayConfig = loadDisplayConfig();
+  const loadedOrders = loadOrders();
+  orders.length = 0;
+  orders.push(...loadedOrders);
 
-  // 2. Render immediately
+  const loadedUsers = loadUsers();
+  users.length = 0;
+  users.push(...loadedUsers);
+
+  const loadedHeaders = loadImportedHeaders();
+  importedHeaders.length = 0;
+  importedHeaders.push(...loadedHeaders);
+
+  const loadedConfig = loadDisplayConfig();
+  Object.assign(displayConfig, loadedConfig);
+
   render();
 
-  // 3. Load from cloud (KV)
   try {
     await loadSharedState();
     storedPassword = getStoredPassword();
-    orders = loadOrders();
-    users = loadUsers();
-    importedHeaders = loadImportedHeaders();
-    displayConfig = loadDisplayConfig();
     render();
     if (isLoggedIn) updateLoginUI();
-  } catch (e) { console.warn('Cloud load failed, using local cache.', e); }
+  } catch (e) {
+    console.warn('Cloud load failed, using local cache.', e);
+  }
 
-  // 4. Auto-sync from external API
   autoSyncFromStoredApi();
 
-  // 5. Set up router
   initRouter();
-
-  // 6. Attach global event listeners
   attachEventListeners();
 
-  // 7. Make functions globally available (for inline onclick)
   window.render = render;
   window.undoLast = undoLast;
   window.newOrder = newOrder;
@@ -353,11 +348,15 @@ async function initApp() {
   window.applyImport = applyImport;
   window.toast = toast;
   window.requireLogin = requireLogin;
+  window.renderEditCustomFields = renderEditCustomFields;
+  window.openImagePreviewModal = openImagePreviewModal;
+  window.setImagePreviewZoom = setImagePreviewZoom;
+  window.resetImagePreviewZoom = resetImagePreviewZoom;
 }
 
-// ---------- Attach all event listeners ----------
+// ---------- Event listeners ----------
 function attachEventListeners() {
-  // --- Hamburger ---
+  // Hamburger
   const hamburger = document.getElementById('hamburgerBtn');
   const sidebar = document.getElementById('sidebarNav');
   if (hamburger && sidebar) {
@@ -370,7 +369,7 @@ function attachEventListeners() {
     });
   }
 
-  // --- Admin toggle ---
+  // Admin toggle
   const adminToggleBtn = document.getElementById('adminToggleBtn');
   const adminNav = document.getElementById('adminNav');
   const adminArrow = document.getElementById('adminArrow');
@@ -387,37 +386,40 @@ function attachEventListeners() {
     }
   }
 
-  // --- Navigation buttons (data-nav) ---
+  // Navigation
   document.querySelectorAll('[data-nav]').forEach(btn => {
     btn.addEventListener('click', function(e) {
       e.preventDefault();
       const page = this.dataset.nav;
       if (page === 'import') {
         openImportModal();
+        setActiveNav('import'); // highlight import
         return;
       }
       navigateTo(page);
+      // Always set active link, even if hash didn't change
+      setActiveNav(page);
     });
   });
 
-  // --- Undo buttons ---
+  // Undo
   document.getElementById('dashboardUndoBtn')?.addEventListener('click', undoLast);
   document.getElementById('mobileUndoBtn')?.addEventListener('click', undoLast);
   document.getElementById('drawerUndoBtn')?.addEventListener('click', undoLast);
   document.getElementById('modalUndoBtn')?.addEventListener('click', undoLast);
 
-  // --- New order ---
+  // New order
   document.getElementById('newOrderBtn')?.addEventListener('click', () => {
     navigateTo('dashboard');
     newOrder();
   });
 
-  // --- Import buttons ---
+  // Import
   document.getElementById('importTopBtn')?.addEventListener('click', openImportModal);
   document.getElementById('openImportModalBtn')?.addEventListener('click', openImportModal);
   document.getElementById('importSideBtn')?.addEventListener('click', openImportModal);
 
-  // --- Login/Logout ---
+  // Login
   document.getElementById('loginBtn')?.addEventListener('click', () => {
     if (isLoggedIn) logout();
     else openLoginModal();
@@ -431,9 +433,7 @@ function attachEventListeners() {
     login(username, password);
   });
 
-  // --- Change Password (handled in settings page) ---
-
-  // --- Refresh button ---
+  // Refresh
   document.getElementById('refreshBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('refreshBtn');
     const icon = document.getElementById('refreshIcon');
@@ -442,10 +442,17 @@ function attachEventListeners() {
     showLoadingToast('🔄 Refreshing dashboard...');
     try {
       await Promise.all([loadSharedState(), autoSyncFromStoredApi()]);
-      orders = loadOrders();
-      users = loadUsers();
-      importedHeaders = loadImportedHeaders();
-      displayConfig = loadDisplayConfig();
+      const freshOrders = loadOrders();
+      orders.length = 0;
+      orders.push(...freshOrders);
+      const freshUsers = loadUsers();
+      users.length = 0;
+      users.push(...freshUsers);
+      const freshHeaders = loadImportedHeaders();
+      importedHeaders.length = 0;
+      importedHeaders.push(...freshHeaders);
+      const freshConfig = loadDisplayConfig();
+      Object.assign(displayConfig, freshConfig);
       render();
       if (selectedId && orders.some(o => o.id === selectedId)) renderDrawer(selectedId);
       else if (selectedId) closeDrawer();
@@ -460,32 +467,34 @@ function attachEventListeners() {
     }
   });
 
-  // --- Section page back ---
+  // Section back
   document.getElementById('sectionBackBtn')?.addEventListener('click', () => {
     document.getElementById('sectionPage').classList.add('hidden');
     document.body.classList.remove('overflow-hidden');
     window.location.hash = '#dashboard';
   });
 
-  // --- Section refresh ---
+  // Section refresh
   document.getElementById('sectionRefreshBtn')?.addEventListener('click', () => {
-    orders = loadOrders();
+    const freshOrders = loadOrders();
+    orders.length = 0;
+    orders.push(...freshOrders);
     render();
     const p = document.getElementById('sectionPageTitle').textContent;
     const map = {
       'All Work Orders': 'all-orders',
-      'Calendar': 'calendar',
-      'Reports': 'reports',
-      'Analytics': 'analytics',
+      Calendar: 'calendar',
+      Reports: 'reports',
+      Analytics: 'analytics',
       'Activity Log': 'activity',
-      'Users': 'users',
-      'Settings': 'settings',
+      Users: 'users',
+      Settings: 'settings',
     };
     if (map[p]) navigateTo(map[p]);
     toast('Section refreshed.', 'success');
   });
 
-  // --- Drawer buttons ---
+  // Drawer
   document.getElementById('closeDrawerBtn')?.addEventListener('click', closeDrawer);
   document.getElementById('drawerCloseBottomBtn')?.addEventListener('click', closeDrawer);
   document.getElementById('drawerBackdrop')?.addEventListener('click', closeDrawer);
@@ -495,7 +504,7 @@ function attachEventListeners() {
   document.getElementById('drawerDuplicateBtn')?.addEventListener('click', duplicateSelected);
   document.getElementById('drawerDeleteBtn')?.addEventListener('click', deleteSelected);
 
-  // --- Edit modal ---
+  // Edit modal
   document.getElementById('editForm')?.addEventListener('submit', saveForm);
   document.getElementById('deleteFromEditBtn')?.addEventListener('click', deleteFromEdit);
   document.getElementById('addEditCustomFieldBtn')?.addEventListener('click', () => {
@@ -534,13 +543,13 @@ function attachEventListeners() {
   document.getElementById('cancelEditBtn')?.addEventListener('click', closeEdit);
   document.getElementById('editModalBackdrop')?.addEventListener('click', closeEdit);
 
-  // --- Status modal ---
+  // Status modal
   document.getElementById('closeStatusModalBtn')?.addEventListener('click', closeStatusModal);
   document.getElementById('cancelStatusBtn')?.addEventListener('click', closeStatusModal);
   document.getElementById('statusModalBackdrop')?.addEventListener('click', closeStatusModal);
   document.getElementById('confirmStatusBtn')?.addEventListener('click', confirmStatus);
 
-  // --- Confirmation modal ---
+  // Confirmation modal
   document.getElementById('closeConfirmModalBtn')?.addEventListener('click', closeConfirmationModal);
   document.getElementById('cancelConfirmBtn')?.addEventListener('click', closeConfirmationModal);
   document.getElementById('confirmModalBackdrop')?.addEventListener('click', closeConfirmationModal);
@@ -552,14 +561,116 @@ function attachEventListeners() {
     }
   });
 
-  // --- Image preview ---
+  // Image preview buttons
   document.getElementById('closeImagePreviewModalBtn')?.addEventListener('click', closeImagePreviewModal);
   document.getElementById('imagePreviewModalBackdrop')?.addEventListener('click', closeImagePreviewModal);
-  document.getElementById('zoomInImagePreviewBtn')?.addEventListener('click', () => setImagePreviewZoom(imagePreviewZoom + 0.2));
-  document.getElementById('zoomOutImagePreviewBtn')?.addEventListener('click', () => setImagePreviewZoom(imagePreviewZoom - 0.2));
+
+  // ---- Image preview modal navigation ----
+  document.getElementById('imagePreviewPrevBtn')?.addEventListener('click', () => {
+    const current = window._previewCurrentIndex || 0;
+    const prev = current - 1;
+    if (prev >= 0) showPreviewItem(prev);
+  });
+
+  document.getElementById('imagePreviewNextBtn')?.addEventListener('click', () => {
+    const current = window._previewCurrentIndex || 0;
+    const next = current + 1;
+    const items = window._previewItems || [];
+    if (next < items.length) showPreviewItem(next);
+  });
+
+  // ---- Zoom buttons (using exported utils state) ----
+  document.getElementById('zoomInImagePreviewBtn')?.addEventListener('click', () => {
+    setImagePreviewZoom(imagePreviewZoom + 0.2);
+  });
+
+  document.getElementById('zoomOutImagePreviewBtn')?.addEventListener('click', () => {
+    setImagePreviewZoom(imagePreviewZoom - 0.2);
+  });
+
   document.getElementById('resetImagePreviewZoomBtn')?.addEventListener('click', resetImagePreviewZoom);
 
-  // --- Import modal buttons ---
+  // ---- Pointer events for panning (using exported utils state) ----
+  const imagePreviewViewport = document.getElementById('imagePreviewModalViewport');
+  let dragStart = null;
+
+  if (imagePreviewViewport) {
+    imagePreviewViewport.addEventListener('pointerdown', (event) => {
+      if (imagePreviewZoom <= 1) return;
+      event.preventDefault();
+      dragStart = {
+        startX: event.clientX,
+        startY: event.clientY,
+        originX: imagePreviewTranslate.x,
+        originY: imagePreviewTranslate.y,
+      };
+      imagePreviewViewport.setPointerCapture(event.pointerId);
+    });
+
+    imagePreviewViewport.addEventListener('pointermove', (event) => {
+      if (!dragStart || imagePreviewZoom <= 1) return;
+      event.preventDefault();
+      const deltaX = event.clientX - dragStart.startX;
+      const deltaY = event.clientY - dragStart.startY;
+      imagePreviewTranslate.x = dragStart.originX + deltaX;
+      imagePreviewTranslate.y = dragStart.originY + deltaY;
+      applyImagePreviewTransform();
+    });
+
+    imagePreviewViewport.addEventListener('pointerup', () => {
+      dragStart = null;
+    });
+
+    imagePreviewViewport.addEventListener('pointerleave', () => {
+      dragStart = null;
+    });
+  }
+
+  // ---- Auto-refresh drawer when file detection completes ----
+  document.addEventListener('drive-detection-complete', (e) => {
+    const { orderId } = e.detail;
+    if (selectedId === orderId) {
+      renderDrawer(selectedId);
+    }
+  });
+
+  // ---- Image / PDF preview click handlers ----
+  document.addEventListener('click', (event) => {
+    let trigger = event.target.closest('[data-image-preview]');
+    if (trigger) {
+      event.preventDefault();
+      const url = trigger.dataset.imagePreview;
+      const alt = trigger.dataset.imageAlt || 'Attachment preview';
+      openImagePreviewModal(url, alt);
+      return;
+    }
+    trigger = event.target.closest('[data-image-gallery]');
+    if (trigger) {
+      event.preventDefault();
+      const gallery = trigger.dataset.imageGallery;
+      const alt = trigger.dataset.imageAlt || 'Attachment preview';
+      openImagePreviewModal(gallery, alt);
+      return;
+    }
+    trigger = event.target.closest('[data-pdf-preview]');
+    if (trigger) {
+      event.preventDefault();
+      const url = trigger.dataset.pdfPreview;
+      const alt = trigger.dataset.imageAlt || 'PDF Preview';
+      openImagePreviewModal(url, alt, true);
+      return;
+    }
+    trigger = event.target.closest('[data-pdf-gallery]');
+    if (trigger) {
+      event.preventDefault();
+      const gallery = trigger.dataset.pdfGallery;
+      const alt = trigger.dataset.imageAlt || 'PDF Preview';
+      openImagePreviewModal(gallery, alt, true);
+      return;
+    }
+  });
+
+  // Import modal
   document.getElementById('closeImportModalBtn')?.addEventListener('click', closeImportModal);
   document.getElementById('closeImportBottomBtn')?.addEventListener('click', closeImportModal);
   document.getElementById('importModalBackdrop')?.addEventListener('click', closeImportModal);
@@ -585,21 +696,25 @@ function attachEventListeners() {
     toast('Pasted data loaded successfully. Review the mapping and confirm import.', 'success');
   });
 
-  // --- Drag and drop for import dropzone ---
+  // Dropzone
   const dz = document.getElementById('importDropzone');
   if (dz) {
-    ['dragenter','dragover'].forEach(evt => dz.addEventListener(evt, (e) => {
-      e.preventDefault();
-      dz.classList.add('drag');
-    }));
-    ['dragleave','drop'].forEach(evt => dz.addEventListener(evt, (e) => {
-      e.preventDefault();
-      dz.classList.remove('drag');
-    }));
+    ['dragenter', 'dragover'].forEach(evt =>
+      dz.addEventListener(evt, (e) => {
+        e.preventDefault();
+        dz.classList.add('drag');
+      })
+    );
+    ['dragleave', 'drop'].forEach(evt =>
+      dz.addEventListener(evt, (e) => {
+        e.preventDefault();
+        dz.classList.remove('drag');
+      })
+    );
     dz.addEventListener('drop', (e) => handleImportFile(e.dataTransfer.files[0]));
   }
 
-  // --- Search and filters ---
+  // Search & filters
   ['searchInput', 'statusFilter', 'priorityFilter', 'sortSelect'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
@@ -619,24 +734,24 @@ function attachEventListeners() {
     render();
   });
 
-  // --- Pagination ---
+  // Pagination
   document.getElementById('prevPageBtn')?.addEventListener('click', () => {
-    if (currentPage > 1) { currentPage--; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    if (currentPage > 1) {
+      currentPage--;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   });
   document.getElementById('nextPageBtn')?.addEventListener('click', () => {
     const totalPages = Math.max(1, Math.ceil(getFilteredOrders().length / 200));
-    if (currentPage < totalPages) { currentPage++; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-  });
-
-  // --- Keyboard shortcuts ---
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      // Close modals in order of priority – we rely on the existing handler in index.html
-      // We'll keep the original handler from index.html – we can override if needed.
+    if (currentPage < totalPages) {
+      currentPage++;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   });
 
-  // --- Login modal enter key ---
+  // Login enter
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !document.getElementById('loginModal').classList.contains('hidden')) {
       const username = document.getElementById('loginUsername').value.trim();
@@ -645,10 +760,136 @@ function attachEventListeners() {
       login(username, password);
     }
   });
+
+  // ---- Keyboard shortcuts for modals ----
+document.addEventListener('keydown', (e) => {
+  const key = e.key;
+  
+  // ---- 1. Escape key: close topmost modal ----
+  if (key === 'Escape') {
+    // Priority order (highest z-index first)
+    
+    // Change Password modal (z-95)
+    const changePasswordModal = document.getElementById('changePasswordModal');
+    if (!changePasswordModal.classList.contains('hidden')) {
+      e.preventDefault();
+      if (typeof window.closeChangePasswordModal === 'function') window.closeChangePasswordModal();
+      return;
+    }
+    
+    // Login modal (z-90)
+    const loginModal = document.getElementById('loginModal');
+    if (!loginModal.classList.contains('hidden')) {
+      e.preventDefault();
+      closeLoginModal();
+      return;
+    }
+    
+    // Image Preview modal (z-80)
+    const imageModal = document.getElementById('imagePreviewModal');
+    if (!imageModal.classList.contains('hidden')) {
+      e.preventDefault();
+      closeImagePreviewModal();
+      return;
+    }
+    
+    // Confirmation modal (z-75)
+    const confirmModal = document.getElementById('confirmModal');
+    if (!confirmModal.classList.contains('hidden')) {
+      e.preventDefault();
+      closeConfirmationModal();
+      return;
+    }
+    
+    // Import modal (z-70)
+    const importModal = document.getElementById('importModal');
+    if (!importModal.classList.contains('hidden')) {
+      e.preventDefault();
+      closeImportModal();
+      return;
+    }
+    
+    // Status modal (z-65)
+    const statusModal = document.getElementById('statusModal');
+    if (!statusModal.classList.contains('hidden')) {
+      e.preventDefault();
+      closeStatusModal();
+      return;
+    }
+    
+    // Edit modal (z-60)
+    const editModal = document.getElementById('editModal');
+    if (!editModal.classList.contains('hidden')) {
+      e.preventDefault();
+      closeEdit();
+      return;
+    }
+    
+    // Drawer (z-50)
+    if (selectedId) {
+      e.preventDefault();
+      closeDrawer();
+      return;
+    }
+    
+    // Section page (z-35)
+    const sectionPage = document.getElementById('sectionPage');
+    if (!sectionPage.classList.contains('hidden')) {
+      e.preventDefault();
+      hideSectionPage();
+      return;
+    }
+  }
+  
+  // ---- 2. Arrow keys: navigate image preview ----
+  if (key === 'ArrowLeft' || key === 'ArrowRight') {
+    const imageModal = document.getElementById('imagePreviewModal');
+    if (imageModal.classList.contains('hidden')) return;
+    e.preventDefault();
+    
+    const items = window._previewItems || [];
+    const currentIndex = window._previewCurrentIndex || 0;
+    
+    if (key === 'ArrowLeft') {
+      const prev = currentIndex - 1;
+      if (prev >= 0 && prev < items.length) {
+        showPreviewItem(prev);
+      }
+    } else if (key === 'ArrowRight') {
+      const next = currentIndex + 1;
+      if (next < items.length) {
+        showPreviewItem(next);
+      }
+    }
+  }
+});
 }
 
-// ---------- Start the app ----------
+// ---- Set active nav link ----
+function setActiveNav(page) {
+  document.querySelectorAll('.nav-link').forEach(el => {
+    el.classList.remove('bg-black/10', 'text-black', 'font-semibold', 'active');
+    el.classList.add('text-black/80');
+  });
+
+  const target = document.querySelector(`.nav-link[data-nav="${page}"]`) ||
+                 document.querySelector(`.nav-link[data-nav-page="${page}"]`);
+  if (target) {
+    target.classList.add('bg-black/10', 'text-black', 'font-semibold', 'active');
+    target.classList.remove('text-black/80');
+  }
+}
+
+// ---------- Start ----------
 initApp();
 
-// Export key functions for use in other modules
-export { isLoggedIn, storedPassword, openLoginModal, closeLoginModal, login, logout, requireLogin };
+export {
+  isLoggedIn,
+  storedPassword,
+  openLoginModal,
+  closeLoginModal,
+  login,
+  logout,
+  requireLogin,
+  setActiveNav,
+};

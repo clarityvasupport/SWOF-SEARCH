@@ -58,7 +58,6 @@ export function formatDate(v) {
 
 export function parseDateValue(v) {
   if (v === null || v === undefined || v === '') return '';
-  // Excel numeric date
   if (typeof v === 'number' && window.XLSX && XLSX.SSF) {
     try {
       const d = XLSX.SSF.parse_date_code(v);
@@ -69,19 +68,15 @@ export function parseDateValue(v) {
   }
   const s = String(v).trim();
   if (!s) return '';
-  // Strip time
   let datePart = s;
   const timeSeparator = s.search(/[ T]/);
   if (timeSeparator !== -1) datePart = s.slice(0, timeSeparator).trim();
-  // Try MM/DD/YYYY
   const mdyMatch = datePart.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (mdyMatch) {
     let month = parseInt(mdyMatch[1], 10);
     let day = parseInt(mdyMatch[2], 10);
     let year = parseInt(mdyMatch[3], 10);
-    if (month > 12 && day <= 12) {
-      [month, day] = [day, month];
-    }
+    if (month > 12 && day <= 12) { [month, day] = [day, month]; }
     if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
       return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     }
@@ -89,34 +84,30 @@ export function parseDateValue(v) {
   }
   const d = new Date(s);
   if (!isNaN(d)) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
   return '';
 }
 
 // ---------- Status / priority / assignee helpers ----------
 export function statusClass(s) {
-  return (
-    {
-      Open: 'bg-blue-50 text-blue-700 border-blue-100',
-      'In Progress': 'bg-amber-50 text-amber-700 border-amber-100',
-      'On Hold': 'bg-violet-50 text-violet-700 border-violet-100',
-      Completed: 'bg-brand-success/20 text-brand-success border-brand-success/30',
-      Overdue: 'bg-red-50 text-red-700 border-red-100',
-      Cancelled: 'bg-black/5 text-black/50 border-black/10',
-    }[s] || 'bg-black/5 text-black/60 border-black/10'
-  );
+  return ({
+    Open: 'bg-blue-50 text-blue-700 border-blue-100',
+    'In Progress': 'bg-amber-50 text-amber-700 border-amber-100',
+    'On Hold': 'bg-violet-50 text-violet-700 border-violet-100',
+    Completed: 'bg-brand-success/20 text-brand-success border-brand-success/30',
+    Overdue: 'bg-red-50 text-red-700 border-red-100',
+    Cancelled: 'bg-black/5 text-black/50 border-black/10',
+  }[s] || 'bg-black/5 text-black/60 border-black/10');
 }
 
 export function priorityClass(p) {
-  return (
-    {
-      Critical: 'bg-red-50 text-red-700',
-      High: 'bg-orange-50 text-orange-700',
-      Medium: 'bg-amber-50 text-amber-700',
-      Low: 'bg-brand-success/20 text-brand-success',
-    }[p] || 'bg-black/5 text-black/60'
-  );
+  return ({
+    Critical: 'bg-red-50 text-red-700',
+    High: 'bg-orange-50 text-orange-700',
+    Medium: 'bg-amber-50 text-amber-700',
+    Low: 'bg-brand-success/20 text-brand-success',
+  }[p] || 'bg-black/5 text-black/60');
 }
 
 export function priorityRank(p) {
@@ -240,7 +231,6 @@ export function contentScore(field, header, rows) {
   const ratio = (re) => vals.filter((v) => re.test(v)).length / vals.length;
   const avg = vals.reduce((s, v) => s + v.length, 0) / vals.length;
   const numericRatio = vals.filter((v) => /^-?\d+(?:\.\d+)?$/.test(v)).length / vals.length;
-
   if (field === 'status') {
     const statusWords = [
       /^(open|new|created|submitted|raised)$/i,
@@ -308,9 +298,7 @@ export function inferMapping(headers, rows) {
   });
   Object.keys(FIELD_DEFS).forEach((field) => {
     if (mapping[field]) return;
-    const candidates2 = headers
-      .map((h, i) => ({ h, i, score: contentScore(field, h, rows) }))
-      .sort((a, b) => b.score - a.score);
+    const candidates2 = headers.map((h, i) => ({ h, i, score: contentScore(field, h, rows) })).sort((a, b) => b.score - a.score);
     const pick = candidates2.find((c) => c.score >= (field === 'title' ? 38 : 45) && !used.has(c.i));
     if (pick) {
       mapping[field] = pick.h;
@@ -318,47 +306,42 @@ export function inferMapping(headers, rows) {
     }
   });
   if (!mapping.title) {
-    const candidates3 = headers
-      .map((h, i) => {
-        const vals = rows.slice(0, 80).map((r) => String(r[h] ?? '').trim()).filter(Boolean);
-        const avg = vals.length ? vals.reduce((s, v) => s + v.length, 0) / vals.length : 0;
-        const textRatio = vals.length ? vals.filter((v) => /[A-Za-z]/.test(v)).length / vals.length : 0;
-        const uniqueRatio = vals.length ? new Set(vals).size / vals.length : 0;
-        return { h, i, score: Math.min(avg, 60) * 0.7 + textRatio * 25 + uniqueRatio * 10 };
-      })
-      .sort((a, b) => b.score - a.score);
+    const candidates3 = headers.map((h, i) => {
+      const vals = rows.slice(0, 80).map((r) => String(r[h] ?? '').trim()).filter(Boolean);
+      const avg = vals.length ? vals.reduce((s, v) => s + v.length, 0) / vals.length : 0;
+      const textRatio = vals.length ? vals.filter((v) => /[A-Za-z]/.test(v)).length / vals.length : 0;
+      const uniqueRatio = vals.length ? new Set(vals).size / vals.length : 0;
+      return { h, i, score: Math.min(avg, 60) * 0.7 + textRatio * 25 + uniqueRatio * 10 };
+    }).sort((a, b) => b.score - a.score);
     const pick = candidates3.find((c) => !used.has(c.i));
     if (pick) {
       mapping.title = pick.h;
       used.add(pick.i);
     }
   }
-  // status fallback
   if (!mapping.status) {
-    const statusCandidates = headers
-      .map((h, i) => {
-        const vals = rows.slice(0, 80).map((r) => String(r[h] ?? '').trim()).filter(Boolean);
-        if (!vals.length) return { h, i, score: 0 };
-        let score = 0;
-        const statusKeywords = [
-          /completed|approved|accepted|finished|done|closed|resolved/,
-          /cancelled|canceled|void|terminated|disapproved|rejected/,
-          /overdue|late|past due/,
-          /in progress|progress|ongoing|working|started|active/,
-          /on hold|hold|pending|waiting|paused|suspended/,
-          /open|new|created|submitted|raised/,
-        ];
-        vals.forEach(v => {
-          const lower = v.toLowerCase();
-          statusKeywords.forEach(pattern => { if (pattern.test(lower)) score += 15; });
-        });
-        const hLower = h.toLowerCase();
-        if (/status|state|stage|phase|progress/.test(hLower)) score += 30;
-        const uniqueVals = new Set(vals);
-        if (uniqueVals.size >= 2 && uniqueVals.size <= 10) score += 20;
-        return { h, i, score };
-      })
-      .sort((a, b) => b.score - a.score);
+    const statusCandidates = headers.map((h, i) => {
+      const vals = rows.slice(0, 80).map((r) => String(r[h] ?? '').trim()).filter(Boolean);
+      if (!vals.length) return { h, i, score: 0 };
+      let score = 0;
+      const statusKeywords = [
+        /completed|approved|accepted|finished|done|closed|resolved/,
+        /cancelled|canceled|void|terminated|disapproved|rejected/,
+        /overdue|late|past due/,
+        /in progress|progress|ongoing|working|started|active/,
+        /on hold|hold|pending|waiting|paused|suspended/,
+        /open|new|created|submitted|raised/,
+      ];
+      vals.forEach(v => {
+        const lower = v.toLowerCase();
+        statusKeywords.forEach(pattern => { if (pattern.test(lower)) score += 15; });
+      });
+      const hLower = h.toLowerCase();
+      if (/status|state|stage|phase|progress/.test(hLower)) score += 30;
+      const uniqueVals = new Set(vals);
+      if (uniqueVals.size >= 2 && uniqueVals.size <= 10) score += 20;
+      return { h, i, score };
+    }).sort((a, b) => b.score - a.score);
     const pick = statusCandidates.find((c) => c.score >= 40 && !used.has(c.i));
     if (pick) {
       mapping.status = pick.h;
@@ -461,7 +444,6 @@ export function mergeCustomFields(existing = [], incoming = []) {
   return [...map.values()].filter((f) => f.label && (f.value || f._sourceHeader));
 }
 
-// ---------- Build custom fields for a row ----------
 export function buildImportCustomFieldsForRow(row, customMappings) {
   const fields = customMappings
     .map((f) => {
@@ -478,7 +460,6 @@ export function buildImportCustomFieldsForRow(row, customMappings) {
   return fields;
 }
 
-// ---------- Generate stable ID ----------
 export function generateStableId(row) {
   const fields = ['title', 'location', 'assignee', 'requester', 'category', 'created', 'description'];
   const combined = fields.map((f) => String(row[f] || '').trim()).join('|');
@@ -492,7 +473,6 @@ export function generateStableId(row) {
   return `STABLE-${stableId}`;
 }
 
-// ---------- Normalize API rows ----------
 export function normalizeApiRows(payload) {
   if (Array.isArray(payload)) return payload;
   if (!payload || typeof payload !== 'object') return [];
@@ -503,11 +483,9 @@ export function normalizeApiRows(payload) {
   return [];
 }
 
-// ---------- CSV / delimited parsing ----------
 export function parseCSVLine(line, delimiter) {
   const out = [];
-  let cur = '',
-    quote = false;
+  let cur = '', quote = false;
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
     if (c === '"') {
@@ -533,7 +511,6 @@ export function parseDelimited(text) {
   else if (first.includes('|')) delimiter = '|';
   else if (first.includes(',')) delimiter = ',';
   else delimiter = /\s{2,}/;
-
   const splitLine = (line) => {
     if (delimiter instanceof RegExp) return line.split(delimiter).map((x) => x.trim());
     return parseCSVLine(line, delimiter);
@@ -610,11 +587,7 @@ export function isImageUrl(value) {
 export function parseMultipleUrls(text) {
   if (!text) return [];
   const raw = String(text).trim();
-  return raw
-    .split(/[,;\n\r]+|(?:\s{2,})/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .filter((url) => /^https?:\/\//i.test(url));
+  return raw.split(/[,;\n\r]+|(?:\s{2,})/).map(s => s.trim()).filter(Boolean).filter(url => /^https?:\/\//i.test(url));
 }
 
 export function normalizeThumbnailMediaUrl(value) {
@@ -629,7 +602,10 @@ export function normalizeFullMediaUrl(value) {
   const text = String(value ?? '').trim();
   if (!/^https?:\/\//i.test(text)) return text;
   const id = extractDriveFileId(text);
-  if (id) return driveViewUrl(id);
+  if (id) {
+    // Use 4096px for high resolution – change to 2048 if needed
+    return driveFallbackUrl(id, 2048);
+  }
   return text;
 }
 
@@ -637,7 +613,6 @@ export function normalizeFullMediaUrl(value) {
 // FORMAT FIELD VALUE (with detection caches)
 // =========================================================
 
-// Detection caches (used by formatFieldValue)
 export const detectionCache = new Map();
 export const pdfToastShown = new Set();
 export const detectionPromises = new Map();
@@ -670,20 +645,19 @@ export function detectFileTypeFromDrive(url, callback) {
 }
 
 export function getDriveFileTypeAsync(fileId, url, orderId) {
-  // Check if already resolved
   if (detectionCache.has(fileId) && detectionCache.get(fileId) !== 'pending') {
     return Promise.resolve(detectionCache.get(fileId));
   }
-  // Check if already in progress
   if (detectionPromises.has(fileId)) {
     return detectionPromises.get(fileId);
   }
-  // Start detection
   const promise = new Promise((resolve) => {
     detectFileTypeFromDrive(url, (type) => {
       detectionCache.set(fileId, type);
       detectionPromises.delete(fileId);
-      // We don't have access to toast/renderDrawer here, so we just resolve
+      if (orderId) {
+        document.dispatchEvent(new CustomEvent('drive-detection-complete', { detail: { orderId } }));
+      }
       resolve(type);
     });
   });
@@ -696,19 +670,19 @@ export function formatFieldValue(value, orderId) {
   const text = String(value ?? '').trim();
   if (!text) return '—';
 
-  // ---------- Date detection ----------
+  // Date detection
   const dateObj = new Date(text);
   if (!isNaN(dateObj) && 
       (/^\d{4}-\d{2}-\d{2}/.test(text) || text.includes('T') || /^\d{4}\/\d{2}\/\d{2}/.test(text))) {
     return formatDate(text);
   }
 
-  // ---------- URL detection ----------
+  // URL detection
   if (/^https?:\/\//i.test(text)) {
     const urls = parseMultipleUrls(text);
     if (urls.length === 0) return esc(text);
 
-    // --- SINGLE URL ---
+    // SINGLE URL
     if (urls.length === 1) {
       const fileId = extractDriveFileId(urls[0]);
       if (fileId) {
@@ -729,7 +703,6 @@ export function formatFieldValue(value, orderId) {
             Detecting file type…
           </div>`;
         } else {
-          // Not detected yet – start detection and show pending
           getDriveFileTypeAsync(fileId, urls[0], orderId);
           return `<div class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 border border-gray-200 text-gray-500">
             <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
@@ -737,11 +710,10 @@ export function formatFieldValue(value, orderId) {
           </div>`;
         }
       }
-      // Not a Drive link – plain link
       return `<a href="${esc(text)}" target="_blank" rel="noopener noreferrer" class="text-brand-teal font-bold underline underline-offset-2 break-all hover:text-brand-teal/80">${esc(text)}</a>`;
     }
 
-    // --- MULTIPLE URLS (Compact Gallery with badge) ---
+    // MULTIPLE URLS
     let allKnown = true;
     const types = urls.map((u) => {
       const fid = extractDriveFileId(u);
@@ -796,7 +768,6 @@ export function formatFieldValue(value, orderId) {
     }
   }
 
-  // ---------- Fallback ----------
   return esc(text);
 }
 
@@ -805,6 +776,7 @@ export function formatFieldValue(value, orderId) {
 // =========================================================
 
 export let imagePreviewZoom = 1;
+export let imagePreviewTranslate = { x: 0, y: 0 };
 
 export function toast(message, type = 'info') {
   const colors = {
@@ -812,7 +784,6 @@ export function toast(message, type = 'info') {
     error: 'border-red-500 bg-red-500 text-black',
     info: 'border-slate-300 bg-slate-300 text-black',
   };
-
   const el = document.createElement('div');
   el.className = `toast border rounded-xl shadow-soft px-4 py-3 text-sm font-semibold flex items-center justify-between ${colors[type] || colors.info}`;
   const textSpan = document.createElement('span');
@@ -887,20 +858,28 @@ export function hideLoadingToast() {
   }
 }
 
-// Image preview modal functions
-export function closeImagePreviewModal() {
-  const modal = document.getElementById('imagePreviewModal');
-  if (!modal) return;
-  modal.classList.add('hidden');
+// ---- Image preview state ----
+let imagePreviewDrag = null;
+let imageLoadingCount = 0;
+
+function applyImagePreviewTransform() {
   const image = document.getElementById('imagePreviewModalImg');
-  if (image) image.src = '';
-  const iframe = document.getElementById('pdfPreviewIframe');
-  if (iframe) { iframe.src = ''; iframe.style.display = 'none'; }
-  window._previewItems = [];
-  window._previewCurrentIndex = 0;
-  window._previewAlt = '';
-  document.body.classList.remove('overflow-hidden');
+  if (!image) return;
+  imagePreviewZoom = Math.min(Math.max(imagePreviewZoom, 1), 4);
+  const viewport = document.getElementById('imagePreviewModalViewport');
+  if (image.complete && image.naturalWidth > 0 && viewport) {
+    const viewRect = viewport.getBoundingClientRect();
+    const displayWidth = image.offsetWidth * imagePreviewZoom;
+    const displayHeight = image.offsetHeight * imagePreviewZoom;
+    const maxX = Math.max(0, (displayWidth - viewRect.width) / 2);
+    const maxY = Math.max(0, (displayHeight - viewRect.height) / 2);
+    imagePreviewTranslate.x = Math.min(Math.max(imagePreviewTranslate.x, -maxX), maxX);
+    imagePreviewTranslate.y = Math.min(Math.max(imagePreviewTranslate.y, -maxY), maxY);
+  }
+  image.style.transform = `translate(${imagePreviewTranslate.x}px, ${imagePreviewTranslate.y}px) scale(${imagePreviewZoom})`;
+  image.style.transformOrigin = 'center center';
 }
+export { applyImagePreviewTransform };
 
 export function setImagePreviewZoom(level) {
   const image = document.getElementById('imagePreviewModalImg');
@@ -912,17 +891,334 @@ export function setImagePreviewZoom(level) {
 }
 
 export function resetImagePreviewZoom() {
+  imagePreviewTranslate.x = 0;
+  imagePreviewTranslate.y = 0;
   imagePreviewZoom = 1;
-  window.imagePreviewTranslate = { x: 0, y: 0 };
   applyImagePreviewTransform();
   const zoomValue = document.getElementById('imagePreviewZoomValue');
   if (zoomValue) zoomValue.textContent = '100%';
 }
 
-function applyImagePreviewTransform() {
+export function closeImagePreviewModal() {
+  const modal = document.getElementById('imagePreviewModal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+
+  const iframe = document.getElementById('pdfPreviewIframe');
+  if (iframe) {
+    if (iframe._spinnerTimeout) {
+      clearTimeout(iframe._spinnerTimeout);
+      delete iframe._spinnerTimeout;
+    }
+    iframe.src = '';
+    iframe.style.display = 'none';
+  }
+
   const image = document.getElementById('imagePreviewModalImg');
-  if (!image) return;
-  const t = window.imagePreviewTranslate || { x: 0, y: 0 };
-  image.style.transform = `translate(${t.x}px, ${t.y}px) scale(${imagePreviewZoom})`;
-  image.style.transformOrigin = 'center center';
+  if (image) {
+    image.onerror = null;
+    image.src = '';
+  }
+
+  // Reset counter and hide spinner
+  imageLoadingCount = 0;
+  const spinner = document.getElementById('imagePreviewSpinner');
+  if (spinner) spinner.classList.add('hidden');
+
+  window._previewItems = [];
+  window._previewCurrentIndex = 0;
+  window._previewAlt = '';
+  imagePreviewTranslate.x = 0;
+  imagePreviewTranslate.y = 0;
+  imagePreviewZoom = 1;
+  document.body.classList.remove('overflow-hidden');
+}
+
+// ---- Spinner management ----
+function getSpinnerElement() {
+  let spinner = document.getElementById('imagePreviewSpinner');
+  if (!spinner) {
+    const viewport = document.getElementById('imagePreviewModalViewport');
+    if (!viewport) return null;
+    spinner = document.createElement('div');
+    spinner.id = 'imagePreviewSpinner';
+    spinner.className = 'absolute inset-0 flex items-center justify-center bg-black/30 z-10 hidden';
+    spinner.innerHTML = `
+      <div class="bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-2xl flex items-center gap-4">
+        <svg class="animate-spin h-8 w-8 text-brand-teal" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+        <span class="text-sm font-bold text-black">Loading…</span>
+      </div>
+    `;
+    viewport.appendChild(spinner);
+  }
+  return spinner;
+}
+
+function showImageSpinner() {
+  imageLoadingCount++;
+  const spinner = getSpinnerElement();
+  if (spinner) spinner.classList.remove('hidden');
+}
+
+function hideImageSpinner() {
+  imageLoadingCount--;
+  if (imageLoadingCount <= 0) {
+    imageLoadingCount = 0;
+    const spinner = document.getElementById('imagePreviewSpinner');
+    if (spinner) spinner.classList.add('hidden');
+  }
+}
+
+// ---- Open image preview modal ----
+export function openImagePreviewModal(srcOrGallery, alt = 'Attachment preview', isPdf = false) {
+  const modal = document.getElementById('imagePreviewModal');
+  const image = document.getElementById('imagePreviewModalImg');
+  const iframe = document.getElementById('pdfPreviewIframe');
+  const viewport = document.getElementById('imagePreviewModalViewport');
+  const counter = document.getElementById('imagePreviewCounter');
+  const prevBtn = document.getElementById('imagePreviewPrevBtn');
+  const nextBtn = document.getElementById('imagePreviewNextBtn');
+  const thumbnails = document.getElementById('imagePreviewThumbnails');
+  const zoomControls = document.getElementById('imagePreviewZoomControls');
+
+  if (!modal || !viewport) return;
+
+  let items = [];
+  if (typeof srcOrGallery === 'string' && srcOrGallery.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(srcOrGallery);
+      items = parsed.map(url => ({ url, type: isPdfUrl(url) ? 'pdf' : 'image' }));
+    } catch {
+      items = [{ url: srcOrGallery, type: isPdf ? 'pdf' : 'image' }];
+    }
+  } else if (Array.isArray(srcOrGallery)) {
+    items = srcOrGallery.map(url => ({ url, type: isPdfUrl(url) ? 'pdf' : 'image' }));
+  } else {
+    items = [{ url: String(srcOrGallery), type: isPdf ? 'pdf' : 'image' }];
+  }
+  items = items.filter(item => item.url && item.url.trim());
+
+  if (!items.length) {
+    toast('No items to preview.', 'error');
+    return;
+  }
+
+  window._previewItems = items;
+  window._previewCurrentIndex = 0;
+  window._previewAlt = alt || 'Attachment preview';
+
+  // Show first item
+  showPreviewItem(0);
+
+  if (counter) {
+    counter.textContent = items.length > 1 ? `1 / ${items.length}` : '';
+  }
+  if (prevBtn) prevBtn.style.display = items.length > 1 ? 'flex' : 'none';
+  if (nextBtn) nextBtn.style.display = items.length > 1 ? 'flex' : 'none';
+
+  renderThumbnails(items);
+  updateZoomControlsVisibility(items[0].type === 'image');
+
+  modal.classList.remove('hidden');
+  document.body.classList.add('overflow-hidden');
+}
+
+export function showPreviewItem(index) {
+  const items = window._previewItems || [];
+  if (!items.length) return;
+  if (index < 0) index = 0;
+  if (index >= items.length) index = items.length - 1;
+  window._previewCurrentIndex = index;
+
+  const item = items[index];
+  const image = document.getElementById('imagePreviewModalImg');
+  const iframe = document.getElementById('pdfPreviewIframe');
+  const counter = document.getElementById('imagePreviewCounter');
+  const prevBtn = document.getElementById('imagePreviewPrevBtn');
+  const nextBtn = document.getElementById('imagePreviewNextBtn');
+  const zoomControls = document.getElementById('imagePreviewZoomControls');
+  const thumbnails = document.getElementById('imagePreviewThumbnails');
+
+  if (counter) counter.textContent = items.length > 1 ? `${index + 1} / ${items.length}` : '';
+  if (prevBtn) prevBtn.style.display = items.length > 1 && index > 0 ? 'flex' : 'none';
+  if (nextBtn) nextBtn.style.display = items.length > 1 && index < items.length - 1 ? 'flex' : 'none';
+
+  // Reset zoom/pan
+  imagePreviewTranslate.x = 0;
+  imagePreviewTranslate.y = 0;
+  imagePreviewZoom = 1;
+  image.style.transform = 'translate(0px, 0px) scale(1)';
+  const zoomValue = document.getElementById('imagePreviewZoomValue');
+  if (zoomValue) zoomValue.textContent = '100%';
+
+  // Hide both, but do NOT clear image.src
+  image.style.display = 'none';
+  iframe.style.display = 'none';
+  iframe.src = '';
+
+  const isImage = item.type === 'image';
+  updateZoomControlsVisibility(isImage);
+
+  // Set spinner text
+  const spinner = document.getElementById('imagePreviewSpinner');
+  if (spinner) {
+    const textSpan = spinner.querySelector('span');
+    if (textSpan) textSpan.textContent = isImage ? 'Loading image…' : 'Loading PDF…';
+  }
+
+  // Clear any pending PDF timeout
+  if (iframe._spinnerTimeout) {
+    clearTimeout(iframe._spinnerTimeout);
+    delete iframe._spinnerTimeout;
+  }
+
+  // Show spinner (increments counter)
+  showImageSpinner();
+
+  if (isImage) {
+    image.style.display = 'block';
+    image.alt = window._previewAlt || `Attachment ${index + 1}`;
+
+    // Remove old handlers to avoid race conditions
+    image.onload = null;
+    image.onerror = null;
+
+    // High-res URL
+    const fullUrl = normalizeFullMediaUrl(item.url);
+    image.src = fullUrl;
+
+    image.onload = function() {
+      hideImageSpinner();
+      applyImagePreviewTransform();
+    };
+
+    image.onerror = function() {
+      // Fallback to direct Google Drive view
+      const fileId = extractDriveFileId(item.url);
+      if (fileId) {
+        const altUrl = driveViewUrl(fileId);
+        if (altUrl !== fullUrl) {
+          image.src = altUrl;
+          image.onerror = function() {
+            hideImageSpinner();
+            image.style.display = 'none';
+            image.alt = 'Image could not be loaded';
+            toast('Failed to load image.', 'error');
+          };
+          image.onload = function() {
+            hideImageSpinner();
+            applyImagePreviewTransform();
+          };
+          return;
+        }
+      }
+      hideImageSpinner();
+      image.style.display = 'none';
+      image.alt = 'Image could not be loaded';
+      toast('Failed to load image.', 'error');
+    };
+
+    // If already loaded (cached), hide spinner after a microtask
+    if (image.complete && image.naturalWidth > 0) {
+      // The onload might not fire, so we need to hide manually,
+      // but we also need to ensure the spinner counter is decremented.
+      // The showImageSpinner incremented it, so we call hideImageSpinner.
+      // We also want to apply transform.
+      hideImageSpinner();
+      setTimeout(applyImagePreviewTransform, 50);
+    }
+  } else {
+    // PDF
+    iframe.style.display = 'block';
+    iframe.src = getPdfViewerUrl(item.url);
+
+    iframe.onload = function() {
+      hideImageSpinner();
+    };
+
+    // Fallback timeout (5 seconds)
+    iframe._spinnerTimeout = setTimeout(() => {
+      hideImageSpinner();
+    }, 5000);
+  }
+
+  // Update thumbnails highlight
+  if (thumbnails) {
+    const thumbs = thumbnails.querySelectorAll('.thumbnail-item');
+    thumbs.forEach((el, i) => {
+      el.classList.toggle('ring-2', i === index);
+      el.classList.toggle('ring-brand-teal', i === index);
+    });
+    const activeThumb = thumbs[index];
+    if (activeThumb) {
+      activeThumb.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    }
+  }
+}
+
+function renderThumbnails(items) {
+  const container = document.getElementById('imagePreviewThumbnails');
+  if (!container) return;
+  if (items.length <= 1) {
+    container.innerHTML = '';
+    return;
+  }
+  let html = '';
+  items.forEach((item, index) => {
+    const isImage = item.type === 'image';
+    const thumbUrl = isImage ? normalizeThumbnailMediaUrl(item.url) : '';
+    const icon = isImage ? '' : `<svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" stroke-linecap="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /><path stroke-width="1.5" stroke-linecap="round" d="M15 3v5a1 1 0 001 1h5" /></svg>`;
+    html += `
+      <button type="button" data-thumb-index="${index}" class="thumbnail-item flex-shrink-0 w-16 h-16 rounded-lg border-2 border-transparent hover:border-brand-teal/50 overflow-hidden bg-white/80 flex items-center justify-center transition-all duration-150 ${index === 0 ? 'ring-2 ring-brand-teal' : ''}">
+        ${isImage ? `<img src="${esc(thumbUrl)}" alt="Thumbnail" class="w-full h-full object-cover" />` : icon}
+      </button>
+    `;
+  });
+  container.innerHTML = html;
+  container.querySelectorAll('.thumbnail-item').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const idx = parseInt(this.dataset.thumbIndex);
+      if (!isNaN(idx) && idx >= 0 && idx < items.length) {
+        showPreviewItem(idx);
+      }
+    });
+  });
+}
+
+function updateZoomControlsVisibility(show) {
+  const controls = document.getElementById('imagePreviewZoomControls');
+  if (controls) {
+    controls.style.display = show ? 'flex' : 'none';
+  }
+}
+
+// ---- Helper: loadDriveImage (used by formatFieldValue) ----
+export function loadDriveImage(imgEl, sourceUrl, { size = 2048, onFail } = {}) {
+  const fileId = extractDriveFileId(sourceUrl);
+  if (!fileId) {
+    imgEl.src = sourceUrl || '';
+    imgEl.onerror = () => onFail?.(imgEl);
+    return;
+  }
+  const candidates = [
+    driveFallbackUrl(fileId, size),
+    driveViewUrl(fileId),
+    driveThumbUrl(fileId, Math.min(size, 400)),
+  ];
+  let idx = 0;
+  const tryNext = () => {
+    if (idx >= candidates.length) {
+      imgEl.onerror = null;
+      onFail?.(imgEl);
+      return;
+    }
+    imgEl.src = candidates[idx];
+    idx += 1;
+  };
+  imgEl.onerror = () => { tryNext(); };
+  imgEl.onload = () => { imgEl.style.display = 'block'; };
+  tryNext();
 }

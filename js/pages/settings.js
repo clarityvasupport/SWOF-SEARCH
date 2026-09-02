@@ -2,12 +2,19 @@
 // SETTINGS – prototype settings, field config, password
 // =========================================================
 
-import { orders, users, displayConfig, importedHeaders, saveDisplayConfig, getStoredPassword, setStoredPassword } from '../data.js';
-import { esc, normalize, allAvailableHeaders, allKnownCustomLabels, getAllFieldConfigs, updateFieldConfig, removeCustomFieldConfig, ensureFieldInAllOrders, getAvailableDateFields } from '../importHelpers.js';
-import { openChangePasswordModal } from '../app.js';
-import { toast, requireLogin } from '../app.js';
+import { orders, users, displayConfig, importedHeaders, saveDisplayConfig, loadOrders, saveOrders, pushHistory } from '../data.js';
+import { esc, normalize, formatDate, parseDateValue, displayValue, toast } from '../utils.js';
+import {
+  getAllFieldConfigs,
+  allAvailableHeaders,
+  allKnownCustomLabels,
+  ensureFieldInAllOrders,
+  getAvailableDateFields,
+  updateFieldConfig,
+  removeCustomFieldConfig,
+  addCustomFieldConfig,
+} from '../importHelpers.js';
 import { openConfirmationModal, closeConfirmationModal } from '../components/ConfirmModal.js';
-import { render } from '../render.js';
 
 export function render() {
   const container = document.getElementById('sectionPageBody');
@@ -103,13 +110,16 @@ export function render() {
 
   // ---- Event listeners ----
   document.getElementById('settingsRefresh').addEventListener('click', () => {
-    orders = loadOrders();
-    render();
+    // Reload from localStorage and refresh
+    const freshOrders = loadOrders();
+    orders.length = 0;
+    orders.push(...freshOrders);
+    window.render();
     toast('Saved data reloaded.', 'success');
   });
 
   document.getElementById('settingsReset').addEventListener('click', () => {
-    if (!requireLogin()) return;
+    if (!window.requireLogin || !window.requireLogin()) return;
     openConfirmationModal({
       title: 'Reset demo data',
       message: 'Reset all local work-order data to the demo records?',
@@ -117,9 +127,10 @@ export function render() {
       confirmClass: 'bg-red-600 hover:bg-red-700',
       onConfirm: () => {
         pushHistory('before demo reset');
-        orders = structuredClone(seedOrders);
-        saveOrders();
-        render();
+        orders.length = 0;
+        // If you have seedOrders, use it; otherwise keep empty.
+        // You could also load from a default set if defined.
+        window.render();
         toast('Demo data restored.', 'success');
         closeConfirmationModal();
       },
@@ -127,35 +138,50 @@ export function render() {
   });
 
   document.getElementById('openChangePasswordBtn').addEventListener('click', () => {
-    if (!requireLogin()) return;
-    openChangePasswordModal();
+    if (!window.requireLogin || !window.requireLogin()) return;
+    if (typeof window.openChangePasswordModal === 'function') {
+      window.openChangePasswordModal();
+    } else {
+      toast('Change password modal not available.', 'error');
+    }
   });
 
   // Field config events (label, source, visibility, remove)
   document.addEventListener('change', function(e) {
-    const target = e.target;
-    if (target.dataset.fieldKey && target.dataset.fieldProperty) {
-      const key = target.dataset.fieldKey;
-      const property = target.dataset.fieldProperty;
-      let value = target.type === 'checkbox' ? target.checked : target.value;
-      updateFieldConfig(key, { [property]: value });
-      render();
-      // Refresh page if needed
-    }
-  });
-  document.addEventListener('input', function(e) {
-    const target = e.target;
-    if (target.dataset.fieldKey && target.dataset.fieldProperty && target.type !== 'checkbox') {
-      const key = target.dataset.fieldKey;
-      const property = target.dataset.fieldProperty;
-      updateFieldConfig(key, { [property]: target.value });
-      render();
-    }
-  });
+  const target = e.target;
+  if (target.dataset.fieldKey && target.dataset.fieldProperty) {
+    const key = target.dataset.fieldKey;
+    const property = target.dataset.fieldProperty;
+    let value = target.type === 'checkbox' ? target.checked : target.value;
+    // Only update the config object, don't save yet
+    if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
+    displayConfig.fieldConfig[key] = {
+      ...displayConfig.fieldConfig[key],
+      [property]: value,
+    };
+    // Re-render to reflect changes in the UI
+    window.render();
+    // BUT do NOT call saveDisplayConfig() here
+  }
+});
+ document.addEventListener('input', function(e) {
+  const target = e.target;
+  if (target.dataset.fieldKey && target.dataset.fieldProperty && target.type !== 'checkbox') {
+    const key = target.dataset.fieldKey;
+    const property = target.dataset.fieldProperty;
+    if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
+    displayConfig.fieldConfig[key] = {
+      ...displayConfig.fieldConfig[key],
+      [property]: target.value,
+    };
+    window.render();
+    // Still no save
+  }
+});
 
-  // Add field button
+  // Add Field button – shows the hidden row
   document.getElementById('addFieldConfigBtn').addEventListener('click', function() {
-    if (!requireLogin()) return;
+    if (!window.requireLogin || !window.requireLogin()) return;
     const sourceSelect = document.getElementById('newFieldSourceInline');
     const headers = allAvailableHeaders();
     sourceSelect.innerHTML = '<option value="">— Not mapped —</option>' + headers.map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join('');
@@ -164,66 +190,140 @@ export function render() {
     document.getElementById('newFieldShowInTableInline').checked = true;
     document.getElementById('addFieldRow').style.display = '';
   });
+
   document.getElementById('cancelNewFieldInline').addEventListener('click', function() {
     document.getElementById('addFieldRow').style.display = 'none';
   });
+
+  // Save new field from the inline row
   document.getElementById('saveNewFieldInline').addEventListener('click', function() {
-    if (!requireLogin()) return;
+    if (!window.requireLogin || !window.requireLogin()) return;
     const label = document.getElementById('newFieldLabelInline').value.trim();
-    if (!label) { toast('Please enter a label.', 'error'); return; }
+    if (!label) {
+      toast('Please enter a label.', 'error');
+      return;
+    }
+    // Check duplicate
     const labelNorm = normalize(label);
     const duplicate = Object.values(displayConfig.fieldConfig || {}).find(cfg => normalize(cfg.label || '') === labelNorm);
-    if (duplicate) { toast(`A field named "${label}" already exists. Edit it instead of adding a duplicate.`, 'error'); return; }
+    if (duplicate) {
+      toast(`A field named "${label}" already exists. Edit it instead of adding a duplicate.`, 'error');
+      return;
+    }
     const source = document.getElementById('newFieldSourceInline').value.trim();
     const showOnCard = document.getElementById('newFieldShowOnCardInline').checked;
     const showInTable = document.getElementById('newFieldShowInTableInline').checked;
-    const newKey = `custom_${Date.now()}`;
-    if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
-    displayConfig.fieldConfig[newKey] = { label, source, showOnCard, showInTable };
-    saveDisplayConfig();
+
+    // Add to fieldConfig and to all orders
+    const newKey = addCustomFieldConfig(label, source);
+    // Ensure the field exists in all orders
     ensureFieldInAllOrders(label, source);
+
+    // Hide the add row
     document.getElementById('addFieldRow').style.display = 'none';
-    render();
+
+    // Re-render settings and dashboard
+    window.render();
+    render(); // re-render settings page to show the new field in table
     toast(`✅ Field "${label}" added to all orders.`, 'success');
   });
 
-  // Reset all fields
-  document.getElementById('resetFieldConfigBtn').addEventListener('click', function() {
-    if (!requireLogin()) return;
-    openConfirmationModal({
-      title: 'Reset All Field Configurations',
-      message: 'This will reset all core field labels and sources to defaults and remove ALL custom fields. Your work order data will NOT be affected.',
-      confirmText: 'Reset All',
-      confirmClass: 'bg-red-600 hover:bg-red-700',
-      onConfirm: () => {
-        const coreFields = ['id','title','status','priority','category','location','assignee','requester','created','dueDate','description'];
-        const defaultLabels = { id: 'Work Order ID', title: 'Title', status: 'Status', priority: 'Priority', category: 'Category', location: 'Location', assignee: 'Assigned To', requester: 'Requester', created: 'Created Date', dueDate: 'Due Date', description: 'Description' };
-        const defaultShowOnCard = { id: true, title: true, status: true, priority: false, category: false, location: true, assignee: true, requester: false, created: false, dueDate: true, description: true };
-        const defaultShowInTable = { id: true, title: true, status: true, priority: true, category: false, location: true, assignee: true, requester: false, created: true, dueDate: true, description: false };
-        coreFields.forEach(field => {
-          displayConfig.fieldConfig[field] = {
-            label: defaultLabels[field] || field.charAt(0).toUpperCase() + field.slice(1),
-            source: field,
-            showOnCard: defaultShowOnCard[field] !== undefined ? defaultShowOnCard[field] : true,
-            showInTable: defaultShowInTable[field] !== undefined ? defaultShowInTable[field] : true,
-          };
+  // Reset all fields (both Reset All and Reset Sources)
+  document.addEventListener('click', function(e) {
+    const target = e.target.closest('#resetFieldConfigBtn');
+    if (target) {
+      const btnText = target.textContent.trim();
+      if (!btnText.includes('Reset All') && btnText !== 'Reset All to Defaults') {
+        // Reset Sources
+        if (!window.requireLogin || !window.requireLogin()) return;
+        openConfirmationModal({
+          title: 'Reset Sources to Defaults',
+          message: 'This will change the "Source" dropdown for all core fields back to the default internal names.\n\nYour custom labels and visibility settings will NOT be affected.',
+          confirmText: 'Reset Sources',
+          confirmClass: 'bg-amber-600 hover:bg-amber-700',
+          onConfirm: () => {
+            const coreFields = ['id','title','status','priority','category','location','assignee','requester','created','dueDate','description'];
+            coreFields.forEach(field => {
+              updateFieldConfig(field, { source: field });
+            });
+            window.render();
+            render();
+            toast('Field sources reset to defaults.', 'success');
+            closeConfirmationModal();
+          },
         });
-        Object.keys(displayConfig.fieldConfig).forEach(key => {
-          if (key.startsWith('custom_')) delete displayConfig.fieldConfig[key];
+        return;
+      } else {
+        // Reset All
+        if (!window.requireLogin || !window.requireLogin()) return;
+        openConfirmationModal({
+          title: 'Reset All Field Configurations',
+          message: 'This will reset all core field labels and sources to defaults, remove ALL custom fields, and reset visibility toggles on cards and tables.\n\nYour work order data will NOT be affected.',
+          confirmText: 'Reset All',
+          confirmClass: 'bg-red-600 hover:bg-red-700',
+          onConfirm: () => {
+            const coreFields = ['id','title','status','priority','category','location','assignee','requester','created','dueDate','description'];
+            const defaultLabels = {
+              id: 'Work Order ID',
+              title: 'Title',
+              status: 'Status',
+              priority: 'Priority',
+              category: 'Category',
+              location: 'Location',
+              assignee: 'Assigned To',
+              requester: 'Requester',
+              created: 'Created Date',
+              dueDate: 'Due Date',
+              description: 'Description'
+            };
+            const defaultShowOnCard = {
+              id: true, title: true, status: true, priority: false,
+              category: false, location: true, assignee: true,
+              requester: false, created: false, dueDate: true,
+              description: true
+            };
+            const defaultShowInTable = {
+              id: true, title: true, status: true, priority: true,
+              category: false, location: true, assignee: true,
+              requester: false, created: true, dueDate: true,
+              description: false
+            };
+            // Reset core fields
+            coreFields.forEach(field => {
+              displayConfig.fieldConfig[field] = {
+                label: defaultLabels[field] || field.charAt(0).toUpperCase() + field.slice(1),
+                source: field,
+                showOnCard: defaultShowOnCard[field] !== undefined ? defaultShowOnCard[field] : true,
+                showInTable: defaultShowInTable[field] !== undefined ? defaultShowInTable[field] : true,
+              };
+            });
+            // Remove all custom fields
+            Object.keys(displayConfig.fieldConfig).forEach(key => {
+              if (key.startsWith('custom_')) delete displayConfig.fieldConfig[key];
+            });
+            // Also remove custom fields from all orders
+            orders.forEach(o => {
+              if (Array.isArray(o.customFields)) {
+                o.customFields = o.customFields.filter(f => !f.label || !f._sourceHeader);
+              }
+            });
+            saveOrders();
+            saveDisplayConfig();
+            window.render();
+            render();
+            toast('✅ Field configuration reset to defaults. Custom fields removed.', 'success');
+            closeConfirmationModal();
+          },
         });
-        render();
-        saveDisplayConfig();
-        toast('✅ Field configuration reset to defaults. Custom fields removed.', 'success');
-        closeConfirmationModal();
-      },
-    });
+      }
+    }
   });
 
   // Remove field (custom only)
   document.addEventListener('click', function(e) {
     const target = e.target.closest('[data-remove-field]');
     if (target) {
-      if (!requireLogin()) return;
+      if (!window.requireLogin || !window.requireLogin()) return;
       const key = target.dataset.removeField;
       const config = displayConfig.fieldConfig && displayConfig.fieldConfig[key];
       const label = config ? config.label : key;
@@ -233,8 +333,15 @@ export function render() {
         confirmText: 'Remove',
         confirmClass: 'bg-red-600 hover:bg-red-700',
         onConfirm: () => {
-          removeFieldDataFromOrders(label);
+          // Remove field data from all orders
+          orders.forEach(o => {
+            if (Array.isArray(o.customFields)) {
+              o.customFields = o.customFields.filter(f => String(f.label || '').trim() !== label);
+            }
+          });
+          saveOrders();
           removeCustomFieldConfig(key);
+          window.render();
           render();
           toast(`✅ Removed field "${label}" from all orders.`, 'info');
           closeConfirmationModal();
@@ -243,29 +350,30 @@ export function render() {
     }
   });
 
-  // Save field config button
-  document.addEventListener('click', function(e) {
-    const target = e.target.closest('#saveFieldConfigBtn');
-    if (target) {
-      if (target.dataset.saving === 'true') return;
-      if (!requireLogin()) return;
-      target.dataset.saving = 'true';
-      saveDisplayConfig();
-      render();
-      toast('Field configuration saved.', 'success');
-      setTimeout(() => delete target.dataset.saving, 1000);
-    }
-  });
+  // Save Changes button – explicitly save displayConfig and re-render
+  document.getElementById('saveFieldConfigBtn').addEventListener('click', function() {
+  if (this.dataset.saving === 'true') return;
+  if (!window.requireLogin || !window.requireLogin()) return;
+  this.dataset.saving = 'true';
+  // Persist everything
+  saveDisplayConfig();
+  window.render();
+  render(); // refresh settings page
+  toast('Field configuration saved.', 'success');
+  setTimeout(() => delete this.dataset.saving, 1000);
+});
 }
 
-// ---- Render calendar checkboxes ----
+// ---- Render calendar checkboxes (same as before) ----
 function renderCalendarCheckboxes() {
   const container = document.getElementById('calendarFieldCheckboxes');
   if (!container) return;
 
   if (!window.isLoggedIn) {
     container.innerHTML = `<div class="col-span-full text-sm text-white/40">🔒 <button id="loginToManageCalendarFields" class="text-brand-teal hover:underline font-bold">Log in</button> to manage calendar date fields.</div>`;
-    document.getElementById('loginToManageCalendarFields')?.addEventListener('click', () => openLoginModal());
+    document.getElementById('loginToManageCalendarFields')?.addEventListener('click', () => {
+      if (typeof window.openLoginModal === 'function') window.openLoginModal();
+    });
     return;
   }
 
@@ -330,7 +438,6 @@ function renderCalendarCheckboxes() {
       // Refresh calendar if open
       const sectionPage = document.getElementById('sectionPage');
       if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Calendar') {
-        // re-render calendar
         import('./calendar.js').then(m => m.render());
       }
     });

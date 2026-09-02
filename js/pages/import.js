@@ -3,6 +3,20 @@
 // =========================================================
 
 import {
+  orders,
+  undoHistory,
+  users,
+  importedHeaders,
+  saveOrders,
+  saveUndoHistory,
+  saveUsers,
+  saveImportedHeaders,
+  clearMappingConfig,
+  displayConfig,
+  pushHistory,
+} from '../data.js';
+
+import {
   showImportData,
   resetImportCenter,
   applyImport,
@@ -11,8 +25,18 @@ import {
   detectColumnType,
   makeMappedOrder,
 } from '../importHelpers.js';
-import { clearMappingConfig, saveApiUrl, loadApiUrl, toast } from '../data.js';
-import { parseDelimited, normalizeApiRows, inferMapping } from '../utils.js';
+
+import {
+  toast,
+  parseDelimited,
+  normalizeApiRows,
+  inferMapping,
+} from '../utils.js';
+
+import {
+  openConfirmationModal,
+  closeConfirmationModal,
+} from '../components/ConfirmModal.js';
 
 // ---------- Modal open/close ----------
 export function openImportModal() {
@@ -98,7 +122,8 @@ async function fetchApiDataFromUrl(url) {
   if (contentType.includes("text/html") || /<\s*(html|body|doctype)/i.test(text.slice(0, 500))) {
     throw new Error("Endpoint returned HTML instead of data. Please use a backend JSON/CSV endpoint.");
   }
-  let rows = [], headers = [];
+  let rows = [],
+    headers = [];
   if (contentType.includes("application/json") || text.trim().startsWith("[") || text.trim().startsWith("{")) {
     const data = JSON.parse(text);
     rows = normalizeApiRows(data);
@@ -110,7 +135,7 @@ async function fetchApiDataFromUrl(url) {
     if (rows.every(row => row && typeof row === "object" && !Array.isArray(row))) {
       headers = Object.keys(rows[0]);
     } else if (rows.every(Array.isArray)) {
-      headers = rows[0].map((_, idx) => `Column ${idx+1}`);
+      headers = rows[0].map((_, idx) => `Column ${idx + 1}`);
       rows = rows.map(row => {
         const obj = {};
         headers.forEach((h, idx) => { obj[h] = row[idx] ?? ""; });
@@ -146,17 +171,23 @@ export function clearAllOrders() {
     confirmText: "Clear Orders",
     confirmClass: "bg-red-600 hover:bg-red-700",
     onConfirm: () => {
-      orders = [];
-      history = [];
-      users = [];
-      importedHeaders = [];
-      clearFieldConfig();
+      orders.length = 0;
+      undoHistory.length = 0;
+      users.length = 0;
+      importedHeaders.length = 0;
+      if (displayConfig.fieldConfig) {
+        const coreFields = ['id', 'title', 'status', 'priority', 'category', 'location', 'assignee', 'requester', 'created', 'dueDate', 'description'];
+        const newFieldConfig = {};
+        coreFields.forEach(f => {
+          newFieldConfig[f] = { label: f.charAt(0).toUpperCase() + f.slice(1), source: f };
+        });
+        displayConfig.fieldConfig = newFieldConfig;
+      }
       saveOrders();
-      saveHistory();
+      saveUndoHistory();
       saveUsers();
       saveImportedHeaders();
-      updateUndoButtons();
-      render();
+      if (typeof window.render === 'function') window.render();
       closeConfirmationModal();
       closeImportModal();
       resetImportCenter();
@@ -172,21 +203,27 @@ export function clearAllAndStopSync() {
     confirmText: "Clear Everything",
     confirmClass: "bg-red-600 hover:bg-red-700",
     onConfirm: () => {
-      orders = [];
-      history = [];
-      users = [];
-      importedHeaders = [];
+      orders.length = 0;
+      undoHistory.length = 0;
+      users.length = 0;
+      importedHeaders.length = 0;
+      if (displayConfig.fieldConfig) {
+        const coreFields = ['id', 'title', 'status', 'priority', 'category', 'location', 'assignee', 'requester', 'created', 'dueDate', 'description'];
+        const newFieldConfig = {};
+        coreFields.forEach(f => {
+          newFieldConfig[f] = { label: f.charAt(0).toUpperCase() + f.slice(1), source: f };
+        });
+        displayConfig.fieldConfig = newFieldConfig;
+      }
       clearMappingConfig();
       localStorage.removeItem("import_api_url");
-      clearFieldConfig();
       document.getElementById("importApiUrl").value = "";
       saveOrders();
-      saveHistory();
+      saveUndoHistory();
       saveUsers();
       saveImportedHeaders();
       resetImportCenter(false);
-      updateUndoButtons();
-      render();
+      if (typeof window.render === 'function') window.render();
       closeConfirmationModal();
       closeImportModal();
       toast("✅ All data cleared. Auto-sync disabled. Refresh will NOT restore from API.", "error");
@@ -194,18 +231,22 @@ export function clearAllAndStopSync() {
   });
 }
 
-// ---------- Dropzone drag/drop ----------
+// ---------- Dropzone setup ----------
 export function setupDropzone() {
   const dz = document.getElementById('importDropzone');
   if (!dz) return;
-  ['dragenter','dragover'].forEach(evt => dz.addEventListener(evt, (e) => {
-    e.preventDefault();
-    dz.classList.add('drag');
-  }));
-  ['dragleave','drop'].forEach(evt => dz.addEventListener(evt, (e) => {
-    e.preventDefault();
-    dz.classList.remove('drag');
-  }));
+  ['dragenter', 'dragover'].forEach(evt =>
+    dz.addEventListener(evt, (e) => {
+      e.preventDefault();
+      dz.classList.add('drag');
+    })
+  );
+  ['dragleave', 'drop'].forEach(evt =>
+    dz.addEventListener(evt, (e) => {
+      e.preventDefault();
+      dz.classList.remove('drag');
+    })
+  );
   dz.addEventListener('drop', (e) => handleImportFile(e.dataTransfer.files[0]));
   dz.addEventListener('click', () => document.getElementById('importFileInput').click());
 }

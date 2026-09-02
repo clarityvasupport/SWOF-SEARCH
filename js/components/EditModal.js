@@ -14,11 +14,16 @@ import {
   mergeCustomFields,
 } from '../utils.js';
 import { openConfirmationModal, closeConfirmationModal } from './ConfirmModal.js';
-import { render, renderDrawer, selectedId, deleteSelected } from '../render.js';
+import { selectedId, renderDrawer } from './Drawer.js';
+import { openDrawer, closeDrawer } from './Drawer.js';
 
-export let editingId = null;
+// We don't import 'render' from render.js – we'll use window.render().
 
-export function openEdit(id) {
+// ---------- State ----------
+let editingId = null;
+
+// ---------- Open edit ----------
+function openEdit(id) {
   const o = orders.find(x => x.id === id);
   if (!o) return;
   editingId = id;
@@ -90,13 +95,15 @@ export function openEdit(id) {
   updateUndoButtons();
 }
 
-export function closeEdit() {
+// ---------- Close edit ----------
+function closeEdit() {
   editingId = null;
   document.getElementById('editModal').classList.add('hidden');
   if (!selectedId) document.body.classList.remove('overflow-hidden');
 }
 
-export function deleteFromEdit() {
+// ---------- Delete from edit ----------
+function deleteFromEdit() {
   if (!editingId) return;
   const o = orders.find(x => x.id === editingId);
   if (!o) return;
@@ -109,7 +116,7 @@ export function deleteFromEdit() {
       pushHistory('delete ' + o.id);
       orders = orders.filter(x => x.id !== editingId);
       saveOrders();
-      render();
+      window.render(); // use global render
       const deletedId = editingId;
       editingId = null;
       document.getElementById('editModal').classList.add('hidden');
@@ -121,7 +128,8 @@ export function deleteFromEdit() {
   });
 }
 
-export function saveForm(e) {
+// ---------- Save form ----------
+function saveForm(e) {
   e.preventDefault();
   const id = editingId;
   const o = orders.find(x => x.id === id);
@@ -204,14 +212,14 @@ export function saveForm(e) {
   o.activity = o.activity || [];
   o.activity.push({ date: nowStamp(), text: 'Work order details edited' });
   saveOrders();
-  render();
+  window.render(); // refresh the main view
   closeEdit();
   if (selectedId === id) renderDrawer(id);
   toast('✅ Work order saved successfully.', 'success');
 }
 
-// ---- Helper: renderEditCustomFields (exported) ----
-export function renderEditCustomFields(o) {
+// ---------- Render custom fields in edit modal ----------
+function renderEditCustomFields(o) {
   const wrap = document.getElementById('editCustomFields');
   if (!wrap) return;
   const allHeaders = allAvailableHeaders(o);
@@ -369,13 +377,13 @@ export function renderEditCustomFields(o) {
   });
 }
 
-// ---- Helper: getEditCustomFields ----
+// ---------- Helper: get edit custom fields ----------
 function getEditCustomFields() {
   const wrap = document.getElementById('editCustomFields');
   try { return JSON.parse(wrap.dataset.fields || '[]'); } catch { return []; }
 }
 
-// ---- Helper: syncEditCustomFieldsToOrder ----
+// ---------- Helper: sync edit custom fields ----------
 function syncEditCustomFieldsToOrder(o2) {
   const wrap = document.getElementById('editCustomFields');
   if (!wrap || !o2) return;
@@ -389,7 +397,7 @@ function syncEditCustomFieldsToOrder(o2) {
   }
 }
 
-// ---- Helper: renderCardExtraChoices ----
+// ---------- Helper: render card extra choices ----------
 function renderCardExtraChoices(o) {
   const wrap = document.getElementById('cardExtraFieldChoices');
   if (!wrap) return;
@@ -415,7 +423,7 @@ function renderCardExtraChoices(o) {
   );
 }
 
-// ---- Internal helpers ----
+// ---------- Internal helpers ----------
 function normalizeCustomFields(list) {
   if (!Array.isArray(list)) return [];
   return list
@@ -465,16 +473,20 @@ function getAllFieldConfigs() {
   return configs;
 }
 
-// ---- Temporary placeholders ----
+// ---------- Temporary placeholders ----------
 function toast(message, type = 'info') {
   if (typeof window.toast === 'function') window.toast(message, type);
 }
 function updateUndoButtons() {
   if (typeof window.updateUndoButtons === 'function') window.updateUndoButtons();
 }
-function closeDrawer() {
-  if (typeof window.closeDrawer === 'function') window.closeDrawer();
-}
 
-// ---- Exports ----
-export { saveForm, renderEditCustomFields };
+// ---------- Exports ----------
+export {
+  editingId,
+  openEdit,
+  closeEdit,
+  deleteFromEdit,
+  saveForm,
+  renderEditCustomFields,
+};

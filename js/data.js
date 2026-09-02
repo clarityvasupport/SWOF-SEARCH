@@ -2,7 +2,7 @@
 // DATA LAYER – state, persistence, and sync with KV backend
 // =========================================================
 
-import { isHistoryValid, normalize } from './utils.js';  // Added normalize import
+import { isHistoryValid, normalize } from './utils.js';
 
 // ---------- Storage keys ----------
 const STORAGE_KEY = 'wo_dashboard_v3';
@@ -11,9 +11,9 @@ const DISPLAY_CONFIG_KEY = 'wo_display_config_v1';
 const USERS_KEY = 'wo_users_v1';
 const IMPORTED_HEADERS_KEY = 'wo_imported_headers_v1';
 
-// ---------- State variables ----------
+// ---------- State variables (mutable) ----------
 export let orders = [];
-export let history = [];
+export let undoHistory = [];  // ✅ renamed from 'history'
 export let users = [];
 export let displayConfig = {};
 export let importedHeaders = [];
@@ -31,14 +31,13 @@ let importHeaders = [];
 let importSourceName = '';
 
 // =========================================================
-// LOAD / SAVE FUNCTIONS (same as before)
+// LOAD / SAVE FUNCTIONS
 // =========================================================
 
 export function loadOrders() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     let result = raw ? JSON.parse(raw) : [];
-    // migration: move dateTransmitted to customFields
     result = result.map(o => {
       if (o.dateTransmitted && o.dateTransmitted.trim()) {
         if (!Array.isArray(o.customFields)) o.customFields = [];
@@ -62,12 +61,12 @@ export function saveOrders() {
   syncSharedStorage();
 }
 
-export function loadHistory() {
+export function loadUndoHistory() {  // ✅ renamed
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
 }
 
-export function saveHistory() {
-  const compact = history.slice(-10).map(entry => ({
+export function saveUndoHistory() {  // ✅ renamed
+  const compact = undoHistory.slice(-10).map(entry => ({
     ...entry,
     timestamp: entry.timestamp || Date.now(),
     data: Array.isArray(entry.data) ? entry.data.map(o => {
@@ -80,8 +79,8 @@ export function saveHistory() {
     }) : [],
   }));
   const payload = JSON.stringify(compact);
-  if (payload.length > 180000) history = history.slice(-3);
-  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-10))); } catch {}
+  if (payload.length > 180000) undoHistory = undoHistory.slice(-3);
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(undoHistory.slice(-10))); } catch {}
   syncSharedStorage();
 }
 
@@ -130,13 +129,9 @@ export function saveDisplayConfig() {
 }
 
 // =========================================================
-// SNAPSHOT & HISTORY PUSH (NEW)
+// SNAPSHOT & HISTORY PUSH
 // =========================================================
 
-/**
- * Creates a clean snapshot of the current orders (for undo history).
- * Removes large raw data and limits arrays.
- */
 function snapshot() {
   return orders.map(o => {
     const copy = { ...o };
@@ -148,10 +143,6 @@ function snapshot() {
   });
 }
 
-/**
- * Push a new history entry with a label and optional data override.
- * The data is saved as a snapshot and trimmed to 10 entries.
- */
 export function pushHistory(label, dataOverride = null) {
   const next = {
     label,
@@ -159,16 +150,15 @@ export function pushHistory(label, dataOverride = null) {
     at: new Date().toISOString(),
     timestamp: Date.now(),
   };
-  history.push(next);
-  if (history.length > 10) history.shift();
+  undoHistory.push(next);
+  if (undoHistory.length > 10) undoHistory.shift();
   try {
-    saveHistory();
+    saveUndoHistory();
   } catch (error) {
     console.warn('History storage quota exceeded; trimming.', error);
-    history = history.slice(-3);
-    try { saveHistory(); } catch { history = []; }
+    undoHistory = undoHistory.slice(-3);
+    try { saveUndoHistory(); } catch { undoHistory = []; }
   }
-  // We'll let the caller handle UI updates (undo buttons, etc.)
 }
 
 // =========================================================
@@ -178,7 +168,7 @@ export function pushHistory(label, dataOverride = null) {
 export async function syncSharedStorage() {
   const payload = {
     orders: Array.isArray(orders) ? orders : [],
-    history: Array.isArray(history) ? history : [],
+    history: Array.isArray(undoHistory) ? undoHistory : [],
     displayConfig: displayConfig && typeof displayConfig === 'object' ? displayConfig : {},
     users: Array.isArray(users) ? users : [],
     importedHeaders: Array.isArray(importedHeaders) ? importedHeaders : [],
@@ -201,7 +191,7 @@ export async function syncSharedStorage() {
     console.warn('Sync failed – using localStorage fallback.');
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(undoHistory));
       localStorage.setItem(DISPLAY_CONFIG_KEY, JSON.stringify(displayConfig));
       localStorage.setItem(USERS_KEY, JSON.stringify(users));
       localStorage.setItem(IMPORTED_HEADERS_KEY, JSON.stringify(importedHeaders));
@@ -222,12 +212,26 @@ export async function loadSharedState() {
     const cloudIsNewer = cloudTimestamp > localTimestamp;
     const localIsEmpty = !orders || orders.length === 0;
     if (cloudIsNewer || localIsEmpty) {
-      if (data && data.orders) orders = Array.isArray(data.orders) ? data.orders : orders;
-      if (data && data.displayConfig && typeof data.displayConfig === 'object') displayConfig = data.displayConfig;
-      if (data && data.users) users = Array.isArray(data.users) ? data.users : users;
-      if (data && data.importedHeaders) importedHeaders = Array.isArray(data.importedHeaders) ? data.importedHeaders : importedHeaders;
+      if (data && data.orders) {
+        orders.length = 0;
+        orders.push(...data.orders);
+      }
+      if (data && data.displayConfig && typeof data.displayConfig === 'object') {
+        Object.assign(displayConfig, data.displayConfig);
+      }
+      if (data && data.users) {
+        users.length = 0;
+        users.push(...data.users);
+      }
+      if (data && data.importedHeaders) {
+        importedHeaders.length = 0;
+        importedHeaders.push(...data.importedHeaders);
+      }
       if (data && data.password) storedPassword = data.password;
-      if (data && data.history) history = Array.isArray(data.history) ? data.history : history;
+      if (data && data.history) {
+        undoHistory.length = 0;
+        undoHistory.push(...data.history);
+      }
       if (data && data.importApiUrl) {
         const input = document.getElementById('importApiUrl');
         if (input) input.value = data.importApiUrl;
@@ -249,11 +253,20 @@ export async function loadSharedState() {
     updateStorageBadge();
   } catch {
     console.warn('Fallback to localStorage');
-    orders = loadOrders();
-    history = loadHistory();
-    displayConfig = loadDisplayConfig();
-    users = loadUsers();
-    importedHeaders = loadImportedHeaders();
+    const loadedOrders = loadOrders();
+    orders.length = 0;
+    orders.push(...loadedOrders);
+    const loadedHistory = loadUndoHistory();
+    undoHistory.length = 0;
+    undoHistory.push(...loadedHistory);
+    const loadedConfig = loadDisplayConfig();
+    Object.assign(displayConfig, loadedConfig);
+    const loadedUsers = loadUsers();
+    users.length = 0;
+    users.push(...loadedUsers);
+    const loadedHeaders = loadImportedHeaders();
+    importedHeaders.length = 0;
+    importedHeaders.push(...loadedHeaders);
     isOnline = false;
     updateStorageBadge();
   }

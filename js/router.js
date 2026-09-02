@@ -9,8 +9,9 @@ import { render as renderAnalytics } from './pages/analyticsPage.js';
 import { render as renderActivity } from './pages/activity.js';
 import { render as renderUsers } from './pages/users.js';
 import { render as renderSettings } from './pages/settings.js';
-import { closeDrawer } from './components/Drawer.js';
+import { closeDrawer, selectedId, openDrawer } from './components/Drawer.js';
 import { openImportModal } from './pages/import.js';
+import { setActiveNav } from './app.js';
 
 let currentPage = 'dashboard';
 
@@ -32,9 +33,6 @@ function handleRoute() {
   const title = document.getElementById('sectionPageTitle');
   const sub = document.getElementById('sectionPageSub');
 
-  // Close any open drawer
-  closeDrawer();
-
   // Special case: import page (opens modal)
   if (page === 'import') {
     openImportModal();
@@ -42,6 +40,20 @@ function handleRoute() {
     document.body.classList.remove('overflow-hidden');
     return;
   }
+
+  // Handle order detail – prevent loops
+  if (page === 'order' && id) {
+    // If drawer is already open for this order, do nothing
+    if (selectedId === id) return;
+    // Otherwise close current drawer and open new one
+    closeDrawer();
+    openDrawer(id);
+    // The drawer will set hash again, but we exit early here to avoid loop.
+    return;
+  }
+
+  // Close drawer if navigating away from order
+  if (selectedId) closeDrawer();
 
   if (page === 'dashboard') {
     sectionPage.classList.add('hidden');
@@ -93,11 +105,9 @@ function handleRoute() {
       renderSettings();
       break;
     default:
-      // If it's a work order detail (e.g., #order/123)
-      if (page === 'order' && id) {
-        import('./components/Drawer.js').then(({ openDrawer }) => openDrawer(id));
-      } else {
-        navigateTo('dashboard');
-      }
+      // Fallback to dashboard
+      navigateTo('dashboard');
   }
+   // Set active nav for the rendered page
+  setActiveNav(page);
 }

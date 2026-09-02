@@ -1,5 +1,5 @@
 // =========================================================
-// DRAWER – detail sidebar for a single work order
+// DRAWER – detail sidebar
 // =========================================================
 
 import { orders, saveOrders, displayConfig } from '../data.js';
@@ -15,6 +15,8 @@ import {
   formatFieldValue,
   normalize,
   customFieldValue,
+  detectionCache,
+  detectionPromises,
 } from '../utils.js';
 import { openConfirmationModal, closeConfirmationModal } from './ConfirmModal.js';
 import { openEdit } from './EditModal.js';
@@ -22,6 +24,10 @@ import { openEdit } from './EditModal.js';
 export let selectedId = null;
 
 export function openDrawer(id) {
+  if (selectedId === id) {
+    renderDrawer(id);
+    return;
+  }
   if (!orders.some(o => o.id === id)) return;
   selectedId = id;
   renderDrawer(id);
@@ -29,13 +35,14 @@ export function openDrawer(id) {
   const b = document.getElementById('drawerBackdrop');
   b.classList.remove('opacity-0', 'pointer-events-none');
   document.body.classList.add('overflow-hidden');
-  // Update URL hash
-  if (window.location.hash !== `#order/${id}`) {
-    window.location.hash = `#order/${id}`;
+  const newHash = `#order/${id}`;
+  if (window.location.hash !== newHash) {
+    window.location.hash = newHash;
   }
 }
 
 export function closeDrawer() {
+  if (selectedId === null) return;
   selectedId = null;
   document.getElementById('detailDrawer').classList.add('translate-x-full');
   document.getElementById('drawerBackdrop').classList.add('opacity-0', 'pointer-events-none');
@@ -86,7 +93,7 @@ export function renderDrawer(id) {
   ];
   const detailsHTML = detailFields.map(f => detailBox(f.label, getValue(f.key), o.id)).join('');
 
-  // Custom fields
+  // ---- CUSTOM FIELDS ----
   const globalCustomKeys = Object.keys(fieldConfigs).filter(k => k.startsWith('custom_'));
   const globalCustomFields = globalCustomKeys
     .filter(k => fieldConfigs[k].showOnCard !== false)
@@ -96,12 +103,31 @@ export function renderDrawer(id) {
       const source = cfg.source || '';
       const value = source ? displayValue(o, source) : '';
       return { label, value };
-    });
+    })
+    .filter(f => f.label && f.value);
+
   const perOrderFields = (o.customFields || [])
-    .filter(f => f.label && (f.value || f._sourceHeader))
+    .filter(f => {
+      const hasLabel = f.label && f.label.trim() !== '';
+      const hasValue = (f.value && f.value.trim() !== '') || (f._sourceHeader && f._sourceHeader.trim() !== '');
+      return hasLabel && hasValue;
+    })
     .filter(f => !globalCustomFields.some(g => g.label === f.label))
-    .map(f => ({ label: f.label, value: customFieldValue(o, f.label) || f.value || '' }));
-  const allCustomFields = [...globalCustomFields, ...perOrderFields];
+    .map(f => ({
+      label: f.label,
+      value: customFieldValue(o, f.label) || f.value || ''
+    }))
+    .filter(f => f.label && f.value);
+
+  const allCustomFields = [];
+  const seenLabels = new Set();
+  [...globalCustomFields, ...perOrderFields].forEach(f => {
+    if (!seenLabels.has(f.label)) {
+      seenLabels.add(f.label);
+      allCustomFields.push(f);
+    }
+  });
+
   const customFieldsHTML = allCustomFields.length
     ? allCustomFields.map(f => detailBox(f.label, f.value, o.id)).join('')
     : '<p class="text-xs text-black/40 col-span-2">No custom fields yet. Click "Add Field" to add one.</p>';
@@ -170,43 +196,69 @@ export function renderDrawer(id) {
 
   // Bind "Add Field" button
   document.getElementById('drawerAddFieldBtn')?.addEventListener('click', function() {
-    if (!requireLogin()) return;
+    if (!window.requireLogin || !window.requireLogin()) return;
     const o2 = orders.find(x => x.id === id);
     if (o2) addDrawerCustomField(o2.id);
   });
 
-  // If there are empty custom fields, render the editor
+  // ---- Show editor if there are empty fields ----
   const oCurrent = orders.find(x => x.id === id);
   if (oCurrent) {
-    const hasEmpty = (oCurrent.customFields || []).some(f => !f.label || !f.value);
-    if (hasEmpty) {
-      renderDrawerCustomFieldsEditor(oCurrent);
+    const emptyFields = (oCurrent.customFields || []).filter(f => {
+      const hasLabel = f.label && f.label.trim() !== '';
+      const hasValue = f.value && f.value.trim() !== '';
+      const hasSource = f._sourceHeader && f._sourceHeader.trim() !== '';
+      return !hasLabel && !hasValue && !hasSource;
+    });
+    if (emptyFields.length) {
+      renderDrawerCustomFieldsEditor(oCurrent, emptyFields);
+    } else {
+      const editor = document.getElementById('drawerCustomFieldsEditor');
+      if (editor) editor.innerHTML = '';
     }
   }
 
-  updateUndoButtons();
+  // ---- Auto‑refresh detection after a short delay ----
+  // If any field is still pending after 2 seconds, re‑render the drawer
+  // This catches pending detections that finish later.
+  setTimeout(() => {
+    if (selectedId === id) {
+      // Check if there are still pending detections for this order
+      let hasPending = false;
+      // We can check if any value is a pending HTML string, but simpler: just re‑render once.
+      // However, we don't want to loop endlessly. We'll check if there's any pending detection in cache.
+      const allValues = [...Object.values(o._rawData || {}), ...(o.customFields || []).map(f => f.value)];
+      for (const val of allValues) {
+        if (typeof val === 'string' && val.includes('animate-spin') && val.includes('Detecting file type')) {
+          hasPending = true;
+          break;
+        }
+      }
+      if (hasPending) {
+        renderDrawer(id);
+      }
+    }
+  }, 2500);
+
+  if (typeof window.updateUndoButtons === 'function') window.updateUndoButtons();
 }
 
-// ---- Helper: detailBox ----
+// ---- Helper functions (same as before) ----
 function detailBox(label, value, orderId) {
   return `<div class="bg-black/5 rounded-lg p-3"><p class="text-[10px] text-black/40 font-semibold">${esc(label)}</p><div class="mt-1 text-sm font-bold text-black/80 break-words">${formatFieldValue(value, orderId)}</div></div>`;
 }
 
-// ---- Helper: getAllFieldConfigs ----
 function getAllFieldConfigs() {
-  const coreFields = [
-    'id', 'title', 'status', 'priority', 'category', 'location',
-    'assignee', 'requester', 'created', 'dueDate', 'description'
-  ];
+  const coreFields = ['id','title','status','priority','category','location','assignee','requester','created','dueDate','description'];
   const configs = {};
-  coreFields.forEach((f) => {
+  coreFields.forEach(f => {
     const fromConfig = displayConfig.fieldConfig?.[f];
     configs[f] = fromConfig
       ? { ...fromConfig, source: fromConfig.source || f }
       : { label: f.charAt(0).toUpperCase() + f.slice(1), source: f, showOnCard: true, showInTable: true };
   });
   if (displayConfig.fieldConfig) {
-    Object.keys(displayConfig.fieldConfig).forEach((key) => {
+    Object.keys(displayConfig.fieldConfig).forEach(key => {
       if (key.startsWith('custom_')) {
         const cfg = displayConfig.fieldConfig[key];
         configs[key] = {
@@ -221,13 +273,17 @@ function getAllFieldConfigs() {
   return configs;
 }
 
-// ---- Custom field editor functions ----
+// ---- Add/Edit/Remove custom fields (same as before) ----
 export function addDrawerCustomField(orderId) {
   const o = orders.find(x => x.id === orderId);
   if (!o) return;
   if (!Array.isArray(o.customFields)) o.customFields = [];
-  // Check for existing empty field
-  const emptyField = o.customFields.find(f => !f.label && !f.value && !f._sourceHeader);
+  const emptyField = o.customFields.find(f => {
+    const hasLabel = f.label && f.label.trim() !== '';
+    const hasValue = f.value && f.value.trim() !== '';
+    const hasSource = f._sourceHeader && f._sourceHeader.trim() !== '';
+    return !hasLabel && !hasValue && !hasSource;
+  });
   if (emptyField) {
     toast('There is already an empty field. Fill it or remove it first.', 'info');
     setTimeout(() => {
@@ -245,69 +301,74 @@ export function addDrawerCustomField(orderId) {
     return;
   }
   o.customFields.push({ label: '', value: '', _sourceHeader: '' });
-  renderDrawerCustomFieldsEditor(o);
-  updateDrawerCustomFieldsDisplay(o);
+  saveOrders();
   renderDrawer(orderId);
+  toast('New field added. Fill in the label and value.', 'info');
   setTimeout(() => {
     const editor = document.getElementById('drawerCustomFieldsEditor');
-    if (editor) {
-      const inputs = editor.querySelectorAll('input.drawer-field-label');
-      if (inputs.length) inputs[inputs.length - 1].focus();
+    const inputs = editor?.querySelectorAll('.drawer-field-label');
+    if (inputs && inputs.length) {
+      inputs[inputs.length - 1].focus();
     }
   }, 50);
-  saveOrders();
-  toast('New field added. Fill in the label and value.', 'info');
 }
 
-export function renderDrawerCustomFieldsEditor(o) {
+export function renderDrawerCustomFieldsEditor(o, emptyFields) {
   const editor = document.getElementById('drawerCustomFieldsEditor');
   if (!editor) return;
-  const allHeaders = allAvailableHeaders(o);
-  const headerOpts = allHeaders
-    .map((h) => `<option value="${esc(h)}">${esc(h)}</option>`)
-    .join('');
-
-  const fields = o.customFields || [];
-  if (!fields.length) {
-    editor.innerHTML = `<p class="text-xs text-black/40 italic">No custom fields. Click "Add Field" above.</p>`;
+  if (!emptyFields) {
+    emptyFields = (o.customFields || []).filter(f => {
+      const hasLabel = f.label && f.label.trim() !== '';
+      const hasValue = f.value && f.value.trim() !== '';
+      const hasSource = f._sourceHeader && f._sourceHeader.trim() !== '';
+      return !hasLabel && !hasValue && !hasSource;
+    });
+  }
+  if (!emptyFields.length) {
+    editor.innerHTML = '';
     return;
   }
+  const allHeaders = allAvailableHeaders(o);
+  const headerOpts = allHeaders.map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join('');
 
   let html = '';
-  fields.forEach((f, idx) => {
+  emptyFields.forEach((f) => {
+    const originalIndex = o.customFields.indexOf(f);
     html += `
-      <div class="drawer-custom-field-row" data-field-index="${idx}">
+      <div class="drawer-custom-field-row" data-field-index="${originalIndex}">
         <div>
           <span class="field-label-sm text-black/40">Label</span>
-          <input class="field-input-sm drawer-field-label" data-idx="${idx}" value="${esc(f.label || '')}" placeholder="e.g. Date Transmitted">
+          <input class="field-input-sm drawer-field-label" data-idx="${originalIndex}" value="${esc(f.label || '')}" placeholder="e.g. Date Transmitted">
         </div>
         <div>
           <span class="field-label-sm text-black/40">Value</span>
-          <select class="field-input-sm drawer-field-value-select" data-idx="${idx}">
+          <select class="field-input-sm drawer-field-value-select" data-idx="${originalIndex}">
             <option value="">— Type custom —</option>
             ${headerOpts}
           </select>
-          <input class="field-input-sm drawer-field-value-text mt-1 ${f._sourceHeader ? 'hidden' : ''}" data-idx="${idx}" placeholder="Custom value..." value="${esc(f.value || '')}">
+          <input class="field-input-sm drawer-field-value-text mt-1 ${f._sourceHeader ? 'hidden' : ''}" data-idx="${originalIndex}" placeholder="Custom value..." value="${esc(f.value || '')}">
         </div>
-        <button type="button" class="field-remove-btn drawer-field-remove" data-idx="${idx}" title="Remove field">✕</button>
+        <button type="button" class="field-remove-btn drawer-field-remove" data-idx="${originalIndex}" title="Remove field">✕</button>
       </div>
     `;
   });
 
   editor.innerHTML = html;
 
-  // Bind events
-  editor.querySelectorAll('.drawer-field-label').forEach((el) => {
-    el.addEventListener('input', function () {
+  // Bind events (same as before)
+  editor.querySelectorAll('.drawer-field-label').forEach(el => {
+    el.addEventListener('input', function() {
       const idx = parseInt(this.dataset.idx);
-      if (o.customFields[idx]) o.customFields[idx].label = this.value;
-      saveOrders();
-      updateDrawerCustomFieldsDisplay(o);
+      if (o.customFields[idx]) {
+        o.customFields[idx].label = this.value;
+        saveOrders();
+        updateDrawerCustomFieldsDisplay(o);
+      }
     });
   });
 
-  editor.querySelectorAll('.drawer-field-value-select').forEach((el) => {
-    el.addEventListener('change', function () {
+  editor.querySelectorAll('.drawer-field-value-select').forEach(el => {
+    el.addEventListener('change', function() {
       const idx = parseInt(this.dataset.idx);
       const textInput = this.parentElement.querySelector('.drawer-field-value-text');
       if (this.value) {
@@ -320,7 +381,7 @@ export function renderDrawerCustomFieldsEditor(o) {
         textInput.value = val || '';
         updateDrawerCustomFieldsDisplay(o);
         saveOrders();
-        renderDrawerCustomFieldsEditor(o);
+        renderDrawer(o.id);
       } else {
         textInput.classList.remove('hidden');
         textInput.focus();
@@ -329,8 +390,8 @@ export function renderDrawerCustomFieldsEditor(o) {
     });
   });
 
-  editor.querySelectorAll('.drawer-field-value-text').forEach((el) => {
-    el.addEventListener('input', function () {
+  editor.querySelectorAll('.drawer-field-value-text').forEach(el => {
+    el.addEventListener('input', function() {
       const idx = parseInt(this.dataset.idx);
       if (o.customFields[idx]) {
         o.customFields[idx].value = this.value;
@@ -347,8 +408,8 @@ export function renderDrawerCustomFieldsEditor(o) {
     }
   });
 
-  editor.querySelectorAll('.drawer-field-remove').forEach((el) => {
-    el.addEventListener('click', function () {
+  editor.querySelectorAll('.drawer-field-remove').forEach(el => {
+    el.addEventListener('click', function() {
       const idx = parseInt(this.dataset.idx);
       if (o.customFields && o.customFields.length > idx) {
         const label = o.customFields[idx].label || 'this field';
@@ -360,8 +421,7 @@ export function renderDrawerCustomFieldsEditor(o) {
           onConfirm: () => {
             o.customFields.splice(idx, 1);
             saveOrders();
-            renderDrawerCustomFieldsEditor(o);
-            updateDrawerCustomFieldsDisplay(o);
+            renderDrawer(o.id);
             toast('Field removed.', 'info');
             closeConfirmationModal();
           },
@@ -370,7 +430,7 @@ export function renderDrawerCustomFieldsEditor(o) {
     });
   });
 
-  editor.querySelectorAll('.drawer-field-value-select').forEach((sel) => {
+  editor.querySelectorAll('.drawer-field-value-select').forEach(sel => {
     if (sel.value) {
       const txt = sel.parentElement.querySelector('.drawer-field-value-text');
       if (txt) txt.classList.add('hidden');
@@ -381,20 +441,51 @@ export function renderDrawerCustomFieldsEditor(o) {
 export function updateDrawerCustomFieldsDisplay(o) {
   const list = document.getElementById('drawerCustomFieldsList');
   if (!list) return;
-  const fields = (o.customFields || []).filter((f) => f.label && (f.value || f._sourceHeader));
-  if (!fields.length) {
+  const fieldConfigs = getAllFieldConfigs();
+  const globalCustomKeys = Object.keys(fieldConfigs).filter(k => k.startsWith('custom_'));
+  const globalCustomFields = globalCustomKeys
+    .filter(k => fieldConfigs[k].showOnCard !== false)
+    .map(k => {
+      const cfg = fieldConfigs[k];
+      const label = cfg.label || k;
+      const source = cfg.source || '';
+      const value = source ? displayValue(o, source) : '';
+      return { label, value };
+    })
+    .filter(f => f.label && f.value);
+  const perOrderFields = (o.customFields || [])
+    .filter(f => {
+      const hasLabel = f.label && f.label.trim() !== '';
+      const hasValue = (f.value && f.value.trim() !== '') || (f._sourceHeader && f._sourceHeader.trim() !== '');
+      return hasLabel && hasValue;
+    })
+    .filter(f => !globalCustomFields.some(g => g.label === f.label))
+    .map(f => ({
+      label: f.label,
+      value: customFieldValue(o, f.label) || f.value || ''
+    }))
+    .filter(f => f.label && f.value);
+  const allCustomFields = [];
+  const seenLabels = new Set();
+  [...globalCustomFields, ...perOrderFields].forEach(f => {
+    if (!seenLabels.has(f.label)) {
+      seenLabels.add(f.label);
+      allCustomFields.push(f);
+    }
+  });
+
+  if (!allCustomFields.length) {
     list.innerHTML = '<p class="text-xs text-black/40">No custom fields yet. Click "Add Field" to add one.</p>';
     return;
   }
-  list.innerHTML = fields
-    .map((f) => {
+  list.innerHTML = allCustomFields
+    .map(f => {
       const actualValue = customFieldValue(o, f.label) || f.value || '';
       return `<div class="custom-field-item bg-black/5 rounded-lg p-2 border border-black/10"><strong class="text-black/60">${esc(f.label)}</strong> <span class="text-black/80">${formatFieldValue(actualValue)}</span></div>`;
     })
     .join('');
 }
 
-// ---- Helper: allAvailableHeaders ----
 function allAvailableHeaders(o) {
   const headers = new Set();
   if (o && o._importHeaders) o._importHeaders.forEach(h => headers.add(h));
@@ -402,16 +493,6 @@ function allAvailableHeaders(o) {
   return [...headers].filter(Boolean);
 }
 
-// ---- Temporary placeholders (will be replaced by app.js) ----
-function updateUndoButtons() {
-  if (typeof window.updateUndoButtons === 'function') window.updateUndoButtons();
-}
-
 function toast(message, type = 'info') {
   if (typeof window.toast === 'function') window.toast(message, type);
-}
-
-function requireLogin() {
-  if (typeof window.requireLogin === 'function') return window.requireLogin();
-  return true;
 }

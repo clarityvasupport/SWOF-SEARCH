@@ -2,7 +2,19 @@
 // IMPORT HELPERS – functions that depend on data state
 // =========================================================
 
-import { orders, displayConfig, importedHeaders, saveOrders, saveDisplayConfig } from './data.js';
+import {
+  orders,
+  undoHistory,
+  users,
+  displayConfig,
+  importedHeaders,
+  saveOrders,
+  saveUndoHistory,
+  saveUsers,
+  saveDisplayConfig,
+  pushHistory,
+} from './data.js';
+
 import {
   esc,
   normalize,
@@ -21,6 +33,10 @@ import {
   buildImportCustomFieldsForRow,
   inferMapping,
   toast,
+  parseDelimited,
+  initials,
+  formatFieldValue,
+  getStatusAccentClass,
 } from './utils.js';
 
 // ---------- Field configuration ----------
@@ -201,7 +217,7 @@ export function makeMappedOrder(row, i) {
   const rawStatus = get('status') || 'Open';
   const rawPriority = get('priority') || '';
   const dueDate = parseDateValue(get('dueDate'));
-  let remarksValue = get('dueDate'); // intentionally using dueDate mapping for remarks? original logic used dueDate for remarks.
+  let remarksValue = get('dueDate');
   let finalStatus = rawStatus;
   if (/complete/i.test(remarksValue)) finalStatus = 'Completed';
   else finalStatus = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase() || 'Open';
@@ -225,7 +241,7 @@ export function makeMappedOrder(row, i) {
   };
 }
 
-// Global import state (used by import modal)
+// Global import state
 let importHeaders = [];
 let importRows = [];
 let importSourceName = '';
@@ -246,19 +262,35 @@ export function resetImportCenter(keepUrl = false) {
   importFieldTypes = {};
   importCustomMappings = [];
   importFieldShowOnCard = {};
-  document.getElementById('importSourceBadge').textContent = 'No data loaded';
-  document.getElementById('importFileName').textContent = '';
-  document.getElementById('importRowCount').textContent = '';
-  document.getElementById('importMappingSummary').textContent = 'Load a file to begin.';
-  document.getElementById('importMappingArea').classList.add('hidden');
-  document.getElementById('importPreviewArea').classList.add('hidden');
-  document.getElementById('importEmptyPreview').classList.remove('hidden');
-  document.getElementById('importReadyBadge').textContent = 'WAITING';
-  document.getElementById('importReadyBadge').className = 'inline-flex items-center px-2 py-1 rounded-full bg-black/10 text-black/50 text-[10px] font-black';
-  document.getElementById('confirmImportBtn').disabled = true;
-  document.getElementById('importPasteData').value = '';
-  document.getElementById('importFileInput').value = '';
-  if (!keepUrl) document.getElementById('importApiUrl').value = '';
+  const badge = document.getElementById('importSourceBadge');
+  if (badge) badge.textContent = 'No data loaded';
+  const fileName = document.getElementById('importFileName');
+  if (fileName) fileName.textContent = '';
+  const rowCount = document.getElementById('importRowCount');
+  if (rowCount) rowCount.textContent = '';
+  const summary = document.getElementById('importMappingSummary');
+  if (summary) summary.textContent = 'Load a file to begin.';
+  const mappingArea = document.getElementById('importMappingArea');
+  if (mappingArea) mappingArea.classList.add('hidden');
+  const previewArea = document.getElementById('importPreviewArea');
+  if (previewArea) previewArea.classList.add('hidden');
+  const emptyPreview = document.getElementById('importEmptyPreview');
+  if (emptyPreview) emptyPreview.classList.remove('hidden');
+  const readyBadge = document.getElementById('importReadyBadge');
+  if (readyBadge) {
+    readyBadge.textContent = 'WAITING';
+    readyBadge.className = 'inline-flex items-center px-2 py-1 rounded-full bg-black/10 text-black/50 text-[10px] font-black';
+  }
+  const confirmBtn = document.getElementById('confirmImportBtn');
+  if (confirmBtn) confirmBtn.disabled = true;
+  const pasteData = document.getElementById('importPasteData');
+  if (pasteData) pasteData.value = '';
+  const fileInput = document.getElementById('importFileInput');
+  if (fileInput) fileInput.value = '';
+  if (!keepUrl) {
+    const apiUrl = document.getElementById('importApiUrl');
+    if (apiUrl) apiUrl.value = '';
+  }
 }
 
 export function showImportData(headers, rows, source = 'pasted data', sourceType = 'file') {
@@ -283,12 +315,18 @@ export function showImportData(headers, rows, source = 'pasted data', sourceType
   });
   saveDisplayConfig();
 
-  document.getElementById('importSourceBadge').textContent = source;
-  document.getElementById('importRowCount').textContent = `${importRows.length} rows`;
-  document.getElementById('importMappingSummary').textContent = `Detected ${importHeaders.length} source columns and ${importRows.length} data rows. Review the mapping and projected cards before confirming.`;
-  document.getElementById('importMappingArea').classList.remove('hidden');
-  document.getElementById('importPreviewArea').classList.remove('hidden');
-  document.getElementById('importEmptyPreview').classList.add('hidden');
+  const badge = document.getElementById('importSourceBadge');
+  if (badge) badge.textContent = source;
+  const rowCount = document.getElementById('importRowCount');
+  if (rowCount) rowCount.textContent = `${importRows.length} rows`;
+  const summary = document.getElementById('importMappingSummary');
+  if (summary) summary.textContent = `Detected ${importHeaders.length} source columns and ${importRows.length} data rows. Review the mapping and projected cards before confirming.`;
+  const mappingArea = document.getElementById('importMappingArea');
+  if (mappingArea) mappingArea.classList.remove('hidden');
+  const previewArea = document.getElementById('importPreviewArea');
+  if (previewArea) previewArea.classList.remove('hidden');
+  const emptyPreview = document.getElementById('importEmptyPreview');
+  if (emptyPreview) emptyPreview.classList.add('hidden');
 
   renderImportMapping();
   renderImportPreview();
@@ -325,6 +363,76 @@ export function detectColumnType(columnName, rows) {
   return 'mapped';
 }
 
+// ---------- Render custom rows (inline) ----------
+function renderImportCustomRows() {
+  const wrap = document.getElementById('importCustomRows');
+  if (!wrap) return;
+
+  let html = '';
+  importCustomMappings.forEach((f, i) => {
+    html += `
+      <div class="import-custom-row grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center" data-custom-index="${i}">
+        <input data-custom-label="${i}" class="field-input-sm border-black/10" placeholder="Name" value="${esc(f.label || '')}">
+        <select data-custom-source="${i}" class="field-input-sm border-black/10">
+          <option value="">Header from import</option>
+          ${importHeaders.map(h => `<option value="${esc(h)}" ${f.source === h ? 'selected' : ''}>${esc(h)}</option>`).join('')}
+        </select>
+        <input data-custom-value="${i}" class="field-input-sm border-black/10" placeholder="Value (optional)" value="${esc(f.value || '')}">
+        <button type="button" data-custom-remove="${i}" class="w-9 h-9 rounded-lg text-red-500 hover:bg-red-50 flex items-center justify-center">✕</button>
+      </div>
+    `;
+  });
+
+  wrap.innerHTML = html || '<p class="text-xs text-black/40 italic">No custom fields added yet.</p>';
+
+  wrap.querySelectorAll('[data-custom-label]').forEach(el => {
+    el.addEventListener('input', (e) => {
+      const idx = parseInt(e.target.dataset.customLabel);
+      if (importCustomMappings[idx]) {
+        importCustomMappings[idx].label = e.target.value.trim();
+        renderImportMapping();
+        renderImportPreview();
+      }
+    });
+  });
+
+  wrap.querySelectorAll('[data-custom-source]').forEach(el => {
+    el.addEventListener('change', (e) => {
+      const idx = parseInt(e.target.dataset.customSource);
+      if (importCustomMappings[idx]) {
+        importCustomMappings[idx].source = e.target.value;
+        if (!importCustomMappings[idx].label && e.target.value) {
+          importCustomMappings[idx].label = e.target.value;
+        }
+        renderImportMapping();
+        renderImportPreview();
+      }
+    });
+  });
+
+  wrap.querySelectorAll('[data-custom-value]').forEach(el => {
+    el.addEventListener('input', (e) => {
+      const idx = parseInt(e.target.dataset.customValue);
+      if (importCustomMappings[idx]) {
+        importCustomMappings[idx].value = e.target.value.trim();
+        renderImportPreview();
+      }
+    });
+  });
+
+  wrap.querySelectorAll('[data-custom-remove]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      const idx = parseInt(e.target.dataset.customRemove);
+      if (importCustomMappings.length > idx) {
+        importCustomMappings.splice(idx, 1);
+        renderImportMapping();
+        renderImportPreview();
+      }
+    });
+  });
+}
+
+// ---------- Render import mapping ----------
 export function renderImportMapping() {
   const allFields = displayConfig.fieldConfig || {};
   const coreFields = ['id','title','description','status','priority','category','location','assignee','requester','created','dueDate'];
@@ -333,6 +441,7 @@ export function renderImportMapping() {
   });
   const orderedKeys = [...coreFields, ...Object.keys(allFields).filter(k => k.startsWith('custom_'))];
   const grid = document.getElementById('importMappingGrid');
+  if (!grid) return;
   let html = '';
   orderedKeys.forEach((key, idx) => {
     const cfg = allFields[key];
@@ -372,7 +481,6 @@ export function renderImportMapping() {
   });
   grid.innerHTML = html;
 
-  // Bind events (simplified – you can copy the full bindings from your original code)
   grid.querySelectorAll('[data-import-label-field]').forEach(input => {
     input.addEventListener('change', function() {
       const key = this.dataset.importLabelField;
@@ -381,7 +489,7 @@ export function renderImportMapping() {
         displayConfig.fieldConfig[key].label = val;
         saveDisplayConfig();
         renderImportPreview();
-        render();
+        if (typeof window.render === 'function') window.render();
       }
     });
   });
@@ -393,7 +501,7 @@ export function renderImportMapping() {
         displayConfig.fieldConfig[key].source = val;
         saveDisplayConfig();
         renderImportPreview();
-        render();
+        if (typeof window.render === 'function') window.render();
       }
     });
   });
@@ -405,18 +513,230 @@ export function renderImportMapping() {
         displayConfig.fieldConfig[key].showOnCard = checked;
         saveDisplayConfig();
         renderImportPreview();
-        render();
+        if (typeof window.render === 'function') window.render();
       }
     });
   });
+
+  // Add custom field button – inline row (no prompt)
+  const addCustomBtn = document.getElementById('addImportCustomBtn');
+  if (addCustomBtn) {
+    const newBtn = addCustomBtn.cloneNode(true);
+    addCustomBtn.parentNode.replaceChild(newBtn, addCustomBtn);
+    newBtn.addEventListener('click', function() {
+      importCustomMappings.push({ label: '', source: '', value: '' });
+      renderImportCustomRows();
+      renderImportMapping();
+      renderImportPreview();
+    });
+  }
+
+  grid.querySelectorAll('[data-remove-custom]').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const key = this.dataset.removeCustom;
+      if (!key) return;
+      const config = displayConfig.fieldConfig && displayConfig.fieldConfig[key];
+      const label = config ? config.label : key;
+      if (displayConfig.fieldConfig && displayConfig.fieldConfig[key]) {
+        delete displayConfig.fieldConfig[key];
+        saveDisplayConfig();
+        orders.forEach(o => {
+          if (Array.isArray(o.customFields)) {
+            o.customFields = o.customFields.filter(f => String(f.label || '').trim() !== label);
+          }
+        });
+        saveOrders();
+        renderImportMapping();
+        renderImportPreview();
+        if (typeof window.render === 'function') window.render();
+        toast(`Removed field "${label}"`, 'info');
+      }
+    });
+  });
+
+  renderImportCustomRows();
 }
 
+// ---------- Preview card (matches main cardHTML) ----------
+function previewCardHTML(o) {
+  const fieldConfigs = getAllFieldConfigs();
+  const createdConfig = fieldConfigs.created || { label: "Created Date", source: "created", showOnCard: true };
+
+  const idConfig = fieldConfigs.id || { label: "ID", source: "id", showOnCard: true };
+  const titleConfig = fieldConfigs.title || { label: "Title", source: "title", showOnCard: true };
+  const statusConfig = fieldConfigs.status || { label: "Status", source: "status", showOnCard: true };
+  const categoryConfig = fieldConfigs.category || { label: "Category", source: "category", showOnCard: true };
+  const locationConfig = fieldConfigs.location || { label: "Location", source: "location", showOnCard: true };
+  const dueDateConfig = fieldConfigs.dueDate || { label: "Due Date", source: "dueDate", showOnCard: true };
+  const assigneeConfig = fieldConfigs.assignee || { label: "Assigned To", source: "assignee", showOnCard: true };
+  const priorityConfig = fieldConfigs.priority || { label: "Priority", source: "priority", showOnCard: true };
+  const requesterConfig = fieldConfigs.requester || { label: "Requester", source: "requester", showOnCard: false };
+  const descriptionConfig = fieldConfigs.description || { label: "Description", source: "description", showOnCard: true };
+
+  const idVal = displayValue(o, idConfig.source) || o.id || "—";
+  const titleVal = displayValue(o, titleConfig.source) || o.title || "Untitled Work Order";
+  const statusVal = o.status || "Open";
+  const categoryVal = displayValue(o, categoryConfig.source) || o.category || "General";
+  const locationVal = displayValue(o, locationConfig.source) || o.location || "—";
+  const dueDateVal = displayValue(o, dueDateConfig.source);
+  const assigneeVal = displayValue(o, assigneeConfig.source) || o.assignee || "Unassigned";
+  const priorityVal = displayValue(o, priorityConfig.source) || o.priority || "Medium";
+  const requesterVal = displayValue(o, requesterConfig.source) || o.requester || "";
+  const descriptionVal = displayValue(o, descriptionConfig.source) || o.description || "";
+
+  const due = dueDateVal ? formatDate(dueDateVal) : "—";
+  const dueLabel = dueDateConfig.label || "Due Date";
+  const locationLabel = locationConfig.label || "Location";
+  const createdVal = displayValue(o, createdConfig.source);
+  const created = formatDate(createdVal || o.created);
+  const overdue = o.dueDate && o.status !== "Completed" && o.status !== "Cancelled" && o.dueDate < nowDate();
+
+  const showId = idConfig.showOnCard !== false;
+  const showCategory = categoryConfig.showOnCard !== false;
+  const showStatus = statusConfig.showOnCard !== false;
+  const showTitle = titleConfig.showOnCard !== false;
+  const showLocation = locationConfig.showOnCard !== false;
+  const showDueDate = dueDateConfig.showOnCard !== false;
+  const showAssignee = assigneeConfig.showOnCard !== false;
+  const showPriority = priorityConfig.showOnCard !== false;
+
+  // Header
+  let headerTopHTML = "";
+  if (showId || showCategory) {
+    headerTopHTML = `<div class="flex items-center gap-2 mb-2">`;
+    if (showId) headerTopHTML += `<span class="text-[11px] font-bold text-black/40">${esc(idVal)}</span>`;
+    if (showId && showCategory) headerTopHTML += `<span class="w-1 h-1 rounded-full bg-black/20"></span>`;
+    if (showCategory) headerTopHTML += `<span class="text-[11px] text-black/40">${esc(categoryVal)}</span>`;
+    headerTopHTML += `</div>`;
+  }
+
+  // Title
+  let titleHTML = "";
+  if (showTitle) {
+    titleHTML = `<h3 class="font-black text-black group-hover:text-brand-teal transition truncate">${esc(titleVal)}</h3>`;
+  }
+
+  // Status
+  let statusHTML = "";
+  if (showStatus) {
+    statusHTML = `<span class="shrink-0 px-2.5 py-1 rounded-full border text-[11px] font-bold ${statusClass(statusVal)}">${esc(statusVal)}</span>`;
+  }
+
+  // Description
+  let descriptionHTML = "";
+  if (descriptionConfig.showOnCard !== false && descriptionVal) {
+    descriptionHTML = `<p class="mt-3 text-sm leading-5 text-black/60 line-clamp-2">${esc(descriptionVal)}</p>`;
+  }
+
+  // Location and Due Date
+  let locationDueHTML = "";
+  if (showLocation || showDueDate) {
+    locationDueHTML = `<div class="mt-4 grid grid-cols-2 gap-2 text-xs">`;
+    if (showLocation) {
+      locationDueHTML += `
+        <div class="bg-black/5 rounded-lg p-2.5">
+          <p class="text-black/40">${esc(locationLabel)}</p>
+          <div class="font-bold text-black/80 mt-0.5 truncate">${formatFieldValue(locationVal)}</div>
+        </div>
+      `;
+    } else {
+      locationDueHTML += `<div></div>`;
+    }
+    if (showDueDate) {
+      locationDueHTML += `
+        <div class="bg-black/5 rounded-lg p-2.5">
+          <p class="text-black/40">${esc(dueLabel)}</p>
+          <div class="font-bold ${overdue ? "text-red-600" : "text-black/80"} mt-0.5">${formatFieldValue(due)}</div>
+        </div>
+      `;
+    } else {
+      locationDueHTML += `<div></div>`;
+    }
+    locationDueHTML += `</div>`;
+  }
+
+  // Extra fields
+  const skipFields = ["id", "title", "status", "location", "dueDate", "assignee", "priority", "category", "created", "requester", "description"];
+  const extraFields = Object.keys(fieldConfigs)
+    .filter(key => {
+      const cfg = fieldConfigs[key];
+      return cfg.showOnCard !== false && !skipFields.includes(key);
+    })
+    .slice(0, 4);
+
+  let extraFieldsHTML = "";
+  if (extraFields.length) {
+    extraFieldsHTML = `<div class="mt-4 grid grid-cols-2 gap-2 text-xs">`;
+    extraFields.forEach(key => {
+      const cfg = fieldConfigs[key];
+      const val = displayValue(o, cfg.source);
+      extraFieldsHTML += `
+        <div class="bg-black/5 rounded-lg p-2.5">
+          <p class="text-black/40 truncate">${esc(cfg.label || key)}</p>
+          <div class="font-bold text-black/80 mt-0.5 truncate">${formatFieldValue(val)}</div>
+        </div>
+      `;
+    });
+    extraFieldsHTML += `</div>`;
+  }
+
+  // Created line
+  let createdLineHTML = '';
+  if (createdConfig.showOnCard !== false) {
+    let line = `Created ${esc(created)}`;
+    if (requesterVal && requesterConfig.showOnCard !== false) {
+      line += ` • By ${esc(requesterVal)}`;
+    }
+    createdLineHTML = `<div class="mt-3 flex items-center gap-2 text-[11px] text-black/40">${line}</div>`;
+  }
+
+  // Footer: Assignee and Priority
+  let footerHTML = "";
+  if (showAssignee || showPriority) {
+    footerHTML = `
+      <div class="mt-4 pt-4 border-t border-black/10 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="w-8 h-8 rounded-full bg-brand-teal/20 text-brand-teal flex items-center justify-center text-[10px] font-black shrink-0">${esc(initials(assigneeVal))}</div>
+          <div class="min-w-0">
+            <p class="text-xs font-bold text-black/80 truncate">${esc(assigneeVal)}</p>
+            <p class="text-[10px] text-black/40">Assigned user</p>
+          </div>
+        </div>
+        ${showPriority ? `<span class="px-2 py-1 rounded-md text-[10px] font-bold ${priorityClass(priorityVal)}">${esc(priorityVal)}</span>` : ''}
+      </div>
+    `;
+  }
+
+  return `
+    <article class="bg-white border border-brand-teal/20 rounded-2xl p-5 shadow-sm text-black h-full flex flex-col ${getStatusAccentClass(o.status)}">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          ${headerTopHTML}
+          ${titleHTML}
+        </div>
+        ${statusHTML}
+      </div>
+
+      ${descriptionHTML}
+
+      ${locationDueHTML}
+
+      ${extraFieldsHTML}
+
+      ${createdLineHTML}
+
+      ${footerHTML}
+
+      <div class="mt-3 flex items-center justify-between">
+        <span class="text-[11px] font-bold text-brand-teal opacity-0 group-hover:opacity-100 transition">View details →</span>
+        <span class="text-[10px] text-black/30">${o.activity?.length || 0} activity</span>
+      </div>
+    </article>
+  `;
+}
+
+// ---------- Render import preview ----------
 export function renderImportPreview() {
-  // This is a simplified version – you can copy the full logic from your original code.
-  // For brevity, I'll provide a placeholder. You should copy the full `renderImportPreview` from your original `index.html` and adapt it.
-  // However, we need to ensure it's exported.
-  // For now, we'll just call it and let you copy the code later.
-  // I'll provide a basic implementation.
   const fields = Object.keys(displayConfig.fieldConfig || {});
   const coreFields = ['id','title','status','priority','assignee','location','created','dueDate'];
   coreFields.forEach(f => {
@@ -430,22 +750,177 @@ export function renderImportPreview() {
   const badge = document.getElementById('importReadyBadge');
   const confirm = document.getElementById('confirmImportBtn');
   if (!titleMapped) {
-    badge.textContent = 'NEEDS MAPPING: Title';
-    badge.className = 'inline-flex items-center px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black';
-    confirm.disabled = true;
+    if (badge) {
+      badge.textContent = 'NEEDS MAPPING: Title';
+      badge.className = 'inline-flex items-center px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-black';
+    }
+    if (confirm) confirm.disabled = true;
   } else {
-    badge.textContent = '✓ READY TO IMPORT';
-    badge.className = 'inline-flex items-center px-2 py-1 rounded-full bg-brand-success/20 text-brand-success text-[10px] font-black';
-    confirm.disabled = !importRows.length || !window.isLoggedIn;
+    if (badge) {
+      badge.textContent = '✓ READY TO IMPORT';
+      badge.className = 'inline-flex items-center px-2 py-1 rounded-full bg-brand-success/20 text-brand-success text-[10px] font-black';
+    }
+    if (confirm) confirm.disabled = !importRows.length || !window.isLoggedIn;
   }
   const previewLimit = 3;
-  document.getElementById('importPreviewCount').textContent = `Showing first ${Math.min(previewLimit, importRows.length)} of ${importRows.length}`;
-  // ... you can copy the rest of the preview table and card rendering from your original code.
-  // I'll skip the full implementation to keep the answer concise.
+  const previewCount = document.getElementById('importPreviewCount');
+  if (previewCount) previewCount.textContent = `Showing first ${Math.min(previewLimit, importRows.length)} of ${importRows.length}`;
+
+  // Build preview orders
+  const previewOrders = importRows.slice(0, previewLimit).map((r, i) => makeMappedOrder(r, i));
+  const timeOf = (v) => {
+    if (!v) return 0;
+    const t = Date.parse(String(v).length <= 10 ? String(v) + 'T00:00:00' : String(v));
+    return Number.isNaN(t) ? 0 : t;
+  };
+  previewOrders.sort((a, b) => timeOf(b.created) - timeOf(a.created) || (a.sourceOrder ?? 0) - (b.sourceOrder ?? 0));
+
+  // Preview table
+  const visibleFields = fieldKeys.filter(k => {
+    const cfg = displayConfig.fieldConfig[k];
+    return cfg.source && cfg.showInTable !== false;
+  });
+
+  const head = document.getElementById('importPreviewHead');
+  if (head) {
+    let headHTML = `<tr>`;
+    visibleFields.forEach(k => {
+      const cfg = displayConfig.fieldConfig[k];
+      headHTML += `<th class="px-3 py-2 text-left font-bold text-black/50 whitespace-nowrap">${esc(cfg.label || k)}<div class="text-[9px] font-normal text-black/30">${esc(cfg.source || '—')}</div></th>`;
+    });
+    headHTML += `</tr>`;
+    head.innerHTML = headHTML;
+  }
+
+  const body = document.getElementById('importPreviewBody');
+  if (body) {
+    let bodyHTML = '';
+    previewOrders.forEach(o => {
+      let rowHTML = `<tr class="border-t border-black/10 hover:bg-black/5">`;
+      visibleFields.forEach(k => {
+        const cfg = displayConfig.fieldConfig[k];
+        let val = displayValue(o, cfg.source);
+        val = esc(val || '—');
+        rowHTML += `<td class="px-3 py-2 max-w-[200px] truncate text-black/70">${val}</td>`;
+      });
+      rowHTML += `</tr>`;
+      bodyHTML += rowHTML;
+    });
+    body.innerHTML = bodyHTML;
+  }
+
+  // Projected cards
+  const cardsContainer = document.getElementById('projectedCards');
+  if (cardsContainer) {
+    if (previewOrders.length) {
+      cardsContainer.innerHTML = previewOrders.map(o => previewCardHTML(o)).join('');
+    } else {
+      cardsContainer.innerHTML = '<p class="text-sm text-black/40">No rows to preview.</p>';
+    }
+  }
 }
 
+// ---------- Apply import ----------
 export function applyImport(skipAuth = false, forceReplace = false, ignoreCheckbox = false) {
-  // Full logic from your original applyImport function – you need to copy it here.
-  // For now, placeholder.
-  toast('Import function not fully migrated yet.', 'info');
+  if (!skipAuth && !window.requireLogin) {
+    toast('Please log in to import.', 'error');
+    return;
+  }
+  if (!importRows.length) {
+    toast('Load a file or paste rows first.', 'error');
+    return;
+  }
+  if (!displayConfig.fieldConfig?.title?.source) {
+    toast('Please map the Title column before importing.', 'error');
+    return;
+  }
+
+  const isApiImport = importSourceType === 'api';
+  const replace = forceReplace || (isApiImport ? true : (ignoreCheckbox ? false : document.getElementById('replaceOrdersCheckbox')?.checked || false));
+
+  if (replace) {
+    orders.length = 0;
+    undoHistory.length = 0;
+    toast('🗑️ Existing orders cleared. New import will replace all data.', 'info');
+  }
+
+  const incoming = importRows.map((r, i) => makeMappedOrder(r, i));
+
+  if (!isApiImport) {
+    pushHistory(`import ${incoming.length} rows`);
+  }
+
+  if (replace) {
+    orders.length = 0;
+    orders.push(...incoming);
+  } else {
+    const existing = new Map(orders.map((o) => [String(o.id).trim().toLowerCase(), o]));
+    let added = 0, updated = 0;
+    incoming.forEach((n) => {
+      const key = String(n.id).trim().toLowerCase();
+      if (existing.has(key)) {
+        const old = existing.get(key);
+        const merged = { ...old };
+        for (let k in n) {
+          if (k === 'customFields') {
+            merged.customFields = mergeCustomFields(old.customFields, n.customFields);
+          } else if (k === 'activity') {
+            merged.activity = [...(old.activity || []), ...(n.activity || [])];
+          } else if (k === '_rawData' || k === '_importHeaders') {
+            merged[k] = n[k];
+          } else {
+            merged[k] = n[k];
+          }
+        }
+        const idx = orders.findIndex(o => String(o.id).trim().toLowerCase() === key);
+        if (idx >= 0) orders[idx] = merged;
+        updated++;
+      } else {
+        orders.push(n);
+        added++;
+      }
+    });
+    toast(`Merge complete: ${added} new, ${updated} updated.`, 'success');
+  }
+
+  saveOrders();
+
+  const importedAssignees = new Set(orders.map(o => o.assignee).filter(a => a && a !== 'Unassigned'));
+  importedAssignees.forEach(name => {
+    if (!users.some(u => u.name === name)) {
+      users.push({ id: `USR-${Date.now()}-${Math.random().toString(36).substr(2,5)}`, name, active: true });
+    }
+  });
+  saveUsers();
+
+  // Refresh main UI
+  if (typeof window.render === 'function') window.render();
+
+  // Reset filters and pagination
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) searchInput.value = '';
+  const statusFilter = document.getElementById('statusFilter');
+  if (statusFilter) statusFilter.value = 'all';
+  const priorityFilter = document.getElementById('priorityFilter');
+  if (priorityFilter) priorityFilter.value = 'all';
+  const sortSelect = document.getElementById('sortSelect');
+  if (sortSelect) sortSelect.value = 'created_desc';
+  window.currentPage = 1;
+
+  // Uncheck replace checkbox
+  const replaceCheckbox = document.getElementById('replaceOrdersCheckbox');
+  if (replaceCheckbox) replaceCheckbox.checked = false;
+
+  // ✅ CLOSE THE IMPORT MODAL
+  if (typeof window.closeImportModal === 'function') {
+    window.closeImportModal();
+  }
+
+  // Reset import center (keep URL)
+  resetImportCenter(true);
+
+  const msg = replace ?
+    `✅ ${incoming.length} orders imported (replaced all).` :
+    `✅ ${incoming.length} orders processed (${updated} updated, ${added} new).`;
+  toast(msg, 'success');
 }

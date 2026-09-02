@@ -3,7 +3,18 @@
 // =========================================================
 
 // ---------- Imports ----------
-import { orders, history, displayConfig, users, importedHeaders, saveOrders, saveHistory, pushHistory, isOnline } from './data.js';
+import {
+  orders,
+  undoHistory,
+  displayConfig,
+  users,
+  importedHeaders,
+  saveOrders,
+  saveUndoHistory,
+  pushHistory,
+  isOnline,
+} from './data.js';
+
 import {
   esc,
   normalize,
@@ -17,43 +28,40 @@ import {
   parseDateValue,
   normalizePriority,
   displayValue,
-  getFieldConfig,
-  updateFieldConfig,
-  addCustomFieldConfig,
-  removeCustomFieldConfig,
-  getAllFieldConfigs,
-  getOrderedFieldConfigs,
-  allAvailableHeaders,
-  allKnownCustomLabels,
-  ensureFieldInAllOrders,
-  getAvailableDateFields,
-  customFieldValue,
-  mergeCustomFields,
-  buildImportCustomFieldsForRow,
-  generateStableId,
-  makeMappedOrder,
-  showImportData,
-  resetImportCenter,
-  applyImport,
-  inferMapping,
-  normalizeApiRows,
-  parseDelimited,
-  detectColumnType,
-  renderImportMapping,
-  renderImportPreview,
   toast,
-  showLoadingToast,
-  hideLoadingToast,
 } from './utils.js';
 
-// Components
-import { selectedId, openDrawer, closeDrawer, renderDrawer } from './components/Drawer.js';
-import { openEdit, closeEdit, editingId, deleteFromEdit } from './components/EditModal.js';
-import { openConfirmationModal, closeConfirmationModal } from './components/ConfirmModal.js';
-import { openStatusModal, closeStatusModal } from './components/StatusModal.js';
+import {
+  getAllFieldConfigs,
+  getAvailableDateFields,
+} from './importHelpers.js';
+
+import {
+  selectedId,
+  openDrawer,
+  closeDrawer,
+  renderDrawer,
+} from './components/Drawer.js';
+
+import {
+  openEdit,
+  closeEdit,
+  editingId,
+  deleteFromEdit,
+} from './components/EditModal.js';
+
+import {
+  openConfirmationModal,
+  closeConfirmationModal,
+} from './components/ConfirmModal.js';
+
+import {
+  openStatusModal,
+  closeStatusModal,
+} from './components/StatusModal.js';
+
 import { cardHTML } from './components/WorkOrderCard.js';
 
-// Export selectedId and editingId for other modules
 export { selectedId, editingId };
 
 // ---------- Constants ----------
@@ -70,7 +78,7 @@ export function getFilteredOrders() {
   let list = orders.filter(o => {
     const hay = normalize([
       o.id, o.title, o.description, o.category, o.location,
-      o.assignee, o.requester, o.status, o.priority
+      o.assignee, o.requester, o.status, o.priority,
     ].join(' '));
     const matchSearch = !q || hay.includes(q);
     const matchStatus = st === 'all' || o.status === st;
@@ -97,8 +105,8 @@ export function getFilteredOrders() {
 
 // ---------- Main render function ----------
 export function render() {
-  // Normalize orders (ensure all fields exist)
-  orders = orders.filter(Boolean).map((o, i) => ({
+  // Normalize orders in place
+  const normalized = orders.filter(Boolean).map((o, i) => ({
     ...o,
     id: String(o.id ?? `WO-${i+1}`).trim() || `WO-${i+1}`,
     title: String(o.title ?? 'Untitled Work Order').trim() || 'Untitled Work Order',
@@ -117,7 +125,9 @@ export function render() {
     _rawData: o._rawData || {},
   }));
 
-  // Ensure filter dropdowns are up-to-date
+  orders.length = 0;
+  orders.push(...normalized);
+
   initializeDashboardFilters();
 
   const list = getFilteredOrders();
@@ -133,7 +143,6 @@ export function render() {
   }
   grid.innerHTML = html;
 
-  // Empty state
   document.getElementById('emptyState').classList.toggle('hidden', list.length !== 0);
   document.getElementById('resultCount').textContent = list.length
     ? `Showing ${start+1}–${Math.min(start+PAGE_SIZE, list.length)} of ${list.length} filtered work orders • ${orders.length} total`
@@ -142,14 +151,12 @@ export function render() {
   document.getElementById('prevPageBtn').disabled = currentPage <= 1;
   document.getElementById('nextPageBtn').disabled = currentPage >= totalPages;
 
-  // Update stats (hidden spans)
   document.getElementById('statTotal').textContent = orders.length;
   document.getElementById('statOpen').textContent = orders.filter(o => o.status === 'Open').length;
   document.getElementById('statProgress').textContent = orders.filter(o => o.status === 'In Progress').length;
   document.getElementById('statCompleted').textContent = orders.filter(o => o.status === 'Completed').length;
   document.getElementById('statOverdue').textContent = orders.filter(o => o.status === 'Overdue').length;
 
-  // Sidebar summary
   const statusMap = {};
   orders.forEach(o => { const s = o.status || 'Unknown'; statusMap[s] = (statusMap[s] || 0) + 1; });
   const sortedStatuses = Object.keys(statusMap).sort();
@@ -174,7 +181,6 @@ export function render() {
     : '0 work orders';
   document.getElementById('bottomPageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
 
-  // Bind event listeners to cards
   grid.querySelectorAll('[data-open]').forEach(el => el.addEventListener('click', () => openDrawer(el.dataset.open)));
   grid.querySelectorAll('[data-status-select]').forEach(el => {
     el.addEventListener('change', function(e) {
@@ -189,7 +195,6 @@ export function render() {
     });
   });
 
-  // Disable status dropdowns if not logged in
   if (!window.isLoggedIn) {
     grid.querySelectorAll('[data-status-select]').forEach(el => {
       el.disabled = true;
@@ -219,26 +224,27 @@ export function changeStatusDirect(id, newStatus) {
 
 // ---------- Undo ----------
 export function undoLast() {
-  if (!history.length) return;
-  const validHistory = history.filter(entry => isHistoryValid(entry));
+  if (!undoHistory.length) return;
+  const validHistory = undoHistory.filter(entry => isHistoryValid(entry));
   if (validHistory.length === 0) {
-    history = [];
-    saveHistory();
+    undoHistory.length = 0;
+    saveUndoHistory();
     updateUndoButtons();
     toast('No valid undo actions available (older than 12 hours).', 'info');
     return;
   }
   const last = validHistory.pop();
-  history = validHistory;
+  undoHistory = validHistory;
   if (!Array.isArray(last?.data)) {
-    saveHistory();
+    saveUndoHistory();
     updateUndoButtons();
     toast('Undo is not available for this action.', 'info');
     return;
   }
-  orders = last.data;
+  orders.length = 0;
+  orders.push(...last.data);
   saveOrders();
-  saveHistory();
+  saveUndoHistory();
   render();
   if (selectedId) {
     if (orders.some(o => o.id === selectedId)) renderDrawer(selectedId);
@@ -279,7 +285,9 @@ export function deleteSelected() {
     confirmClass: 'bg-red-600 hover:bg-red-700',
     onConfirm: () => {
       pushHistory('delete ' + o.id);
-      orders = orders.filter(x => x.id !== selectedId);
+      const filtered = orders.filter(x => x.id !== selectedId);
+      orders.length = 0;
+      orders.push(...filtered);
       saveOrders();
       render();
       closeDrawer();
@@ -313,7 +321,6 @@ export function newOrder() {
     _importHeaders: importedHeaders.slice(),
     _rawData: {},
   };
-  // Add global custom fields if any
   const allConfigs = getAllFieldConfigs();
   const globalCustomKeys = Object.keys(allConfigs).filter(k => k.startsWith('custom_'));
   globalCustomKeys.forEach(k => {
@@ -334,7 +341,7 @@ export function newOrder() {
 }
 
 // ---------- Filter initialisation ----------
-export function initializeDashboardFilters() {
+function initializeDashboardFilters() {
   const statusEl = document.getElementById('statusFilter');
   const priorityEl = document.getElementById('priorityFilter');
   const sortEl = document.getElementById('sortSelect');
@@ -384,7 +391,7 @@ export function initializeDashboardFilters() {
 
 // ---------- Undo buttons ----------
 function updateUndoButtons() {
-  const validCount = history.filter(entry => isHistoryValid(entry)).length;
+  const validCount = undoHistory.filter(entry => isHistoryValid(entry)).length;
   const disabled = validCount === 0;
   ['dashboardUndoBtn', 'mobileUndoBtn', 'drawerUndoBtn', 'modalUndoBtn'].forEach(id => {
     const el = document.getElementById(id);
@@ -395,12 +402,12 @@ function updateUndoButtons() {
 }
 
 // ---------- Editability toggle ----------
-export function toggleEditability() {
+function toggleEditability() {
   const editActions = [
     'newOrderBtn', 'importTopBtn', 'importSideBtn', 'openImportModalBtn',
     'drawerEditBtn', 'drawerDuplicateBtn', 'drawerDeleteBtn',
     'deleteFromEditBtn', 'addEditCustomFieldBtn', 'clearOrdersBtn',
-    'confirmImportBtn', 'settingsReset', 'openChangePasswordBtn'
+    'confirmImportBtn', 'settingsReset', 'openChangePasswordBtn',
   ];
   editActions.forEach(id => {
     const el = document.getElementById(id);
@@ -417,7 +424,7 @@ export function toggleEditability() {
   document.body.classList.toggle('readonly', !window.isLoggedIn);
 }
 
-// ---------- Storage badge update ----------
+// ---------- Storage badge ----------
 function updateStorageBadge() {
   const badge = document.getElementById('storageBadge');
   const badgeText = document.getElementById('badgeText');
