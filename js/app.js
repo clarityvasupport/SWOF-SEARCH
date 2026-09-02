@@ -142,7 +142,9 @@ function login(username, password) {
     const sectionPage = document.getElementById('sectionPage');
     if (!sectionPage.classList.contains('hidden')) {
       const title = document.getElementById('sectionPageTitle');
-      if (title && title.textContent === 'Settings') renderSettings();
+      if (title && title.textContent === 'Settings') {
+        renderSettings();
+      }
     }
     toast('✅ Logged in as Admin', 'success');
     return true;
@@ -751,6 +753,109 @@ function attachEventListeners() {
     }
   });
 
+  // ---- Keyboard shortcuts for modals ----
+  document.addEventListener('keydown', (e) => {
+    const key = e.key;
+    
+    // ---- 1. Escape key: close topmost modal ----
+    if (key === 'Escape') {
+      // Priority order (highest z-index first)
+      
+      // Change Password modal (z-95)
+      const changePasswordModal = document.getElementById('changePasswordModal');
+      if (!changePasswordModal.classList.contains('hidden')) {
+        e.preventDefault();
+        if (typeof window.closeChangePasswordModal === 'function') window.closeChangePasswordModal();
+        return;
+      }
+      
+      // Login modal (z-90)
+      const loginModal = document.getElementById('loginModal');
+      if (!loginModal.classList.contains('hidden')) {
+        e.preventDefault();
+        closeLoginModal();
+        return;
+      }
+      
+      // Image Preview modal (z-80)
+      const imageModal = document.getElementById('imagePreviewModal');
+      if (!imageModal.classList.contains('hidden')) {
+        e.preventDefault();
+        closeImagePreviewModal();
+        return;
+      }
+      
+      // Confirmation modal (z-75)
+      const confirmModal = document.getElementById('confirmModal');
+      if (!confirmModal.classList.contains('hidden')) {
+        e.preventDefault();
+        closeConfirmationModal();
+        return;
+      }
+      
+      // Import modal (z-70)
+      const importModal = document.getElementById('importModal');
+      if (!importModal.classList.contains('hidden')) {
+        e.preventDefault();
+        closeImportModal();
+        return;
+      }
+      
+      // Status modal (z-65)
+      const statusModal = document.getElementById('statusModal');
+      if (!statusModal.classList.contains('hidden')) {
+        e.preventDefault();
+        closeStatusModal();
+        return;
+      }
+      
+      // Edit modal (z-60)
+      const editModal = document.getElementById('editModal');
+      if (!editModal.classList.contains('hidden')) {
+        e.preventDefault();
+        closeEdit();
+        return;
+      }
+      
+      // Drawer (z-50)
+      if (selectedId) {
+        e.preventDefault();
+        closeDrawer();
+        return;
+      }
+      
+      // Section page (z-35)
+      const sectionPage = document.getElementById('sectionPage');
+      if (!sectionPage.classList.contains('hidden')) {
+        e.preventDefault();
+        hideSectionPage();
+        return;
+      }
+    }
+    
+    // ---- 2. Arrow keys: navigate image preview ----
+    if (key === 'ArrowLeft' || key === 'ArrowRight') {
+      const imageModal = document.getElementById('imagePreviewModal');
+      if (imageModal.classList.contains('hidden')) return;
+      e.preventDefault();
+      
+      const items = window._previewItems || [];
+      const currentIndex = window._previewCurrentIndex || 0;
+      
+      if (key === 'ArrowLeft') {
+        const prev = currentIndex - 1;
+        if (prev >= 0 && prev < items.length) {
+          showPreviewItem(prev);
+        }
+      } else if (key === 'ArrowRight') {
+        const next = currentIndex + 1;
+        if (next < items.length) {
+          showPreviewItem(next);
+        }
+      }
+    }
+  });
+
   // Login enter
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !document.getElementById('loginModal').classList.contains('hidden')) {
@@ -760,109 +865,6 @@ function attachEventListeners() {
       login(username, password);
     }
   });
-
-  // ---- Keyboard shortcuts for modals ----
-document.addEventListener('keydown', (e) => {
-  const key = e.key;
-  
-  // ---- 1. Escape key: close topmost modal ----
-  if (key === 'Escape') {
-    // Priority order (highest z-index first)
-    
-    // Change Password modal (z-95)
-    const changePasswordModal = document.getElementById('changePasswordModal');
-    if (!changePasswordModal.classList.contains('hidden')) {
-      e.preventDefault();
-      if (typeof window.closeChangePasswordModal === 'function') window.closeChangePasswordModal();
-      return;
-    }
-    
-    // Login modal (z-90)
-    const loginModal = document.getElementById('loginModal');
-    if (!loginModal.classList.contains('hidden')) {
-      e.preventDefault();
-      closeLoginModal();
-      return;
-    }
-    
-    // Image Preview modal (z-80)
-    const imageModal = document.getElementById('imagePreviewModal');
-    if (!imageModal.classList.contains('hidden')) {
-      e.preventDefault();
-      closeImagePreviewModal();
-      return;
-    }
-    
-    // Confirmation modal (z-75)
-    const confirmModal = document.getElementById('confirmModal');
-    if (!confirmModal.classList.contains('hidden')) {
-      e.preventDefault();
-      closeConfirmationModal();
-      return;
-    }
-    
-    // Import modal (z-70)
-    const importModal = document.getElementById('importModal');
-    if (!importModal.classList.contains('hidden')) {
-      e.preventDefault();
-      closeImportModal();
-      return;
-    }
-    
-    // Status modal (z-65)
-    const statusModal = document.getElementById('statusModal');
-    if (!statusModal.classList.contains('hidden')) {
-      e.preventDefault();
-      closeStatusModal();
-      return;
-    }
-    
-    // Edit modal (z-60)
-    const editModal = document.getElementById('editModal');
-    if (!editModal.classList.contains('hidden')) {
-      e.preventDefault();
-      closeEdit();
-      return;
-    }
-    
-    // Drawer (z-50)
-    if (selectedId) {
-      e.preventDefault();
-      closeDrawer();
-      return;
-    }
-    
-    // Section page (z-35)
-    const sectionPage = document.getElementById('sectionPage');
-    if (!sectionPage.classList.contains('hidden')) {
-      e.preventDefault();
-      hideSectionPage();
-      return;
-    }
-  }
-  
-  // ---- 2. Arrow keys: navigate image preview ----
-  if (key === 'ArrowLeft' || key === 'ArrowRight') {
-    const imageModal = document.getElementById('imagePreviewModal');
-    if (imageModal.classList.contains('hidden')) return;
-    e.preventDefault();
-    
-    const items = window._previewItems || [];
-    const currentIndex = window._previewCurrentIndex || 0;
-    
-    if (key === 'ArrowLeft') {
-      const prev = currentIndex - 1;
-      if (prev >= 0 && prev < items.length) {
-        showPreviewItem(prev);
-      }
-    } else if (key === 'ArrowRight') {
-      const next = currentIndex + 1;
-      if (next < items.length) {
-        showPreviewItem(next);
-      }
-    }
-  }
-});
 }
 
 // ---- Set active nav link ----
