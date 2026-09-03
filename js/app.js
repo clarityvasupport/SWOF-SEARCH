@@ -34,7 +34,8 @@ import {
   duplicateSelected,
   deleteSelected,
   newOrder,
-  currentPage,
+  currentPage as page,
+  setCurrentPage,
   updateUndoButtons,
   toggleEditability,
   initializeDashboardFilters,
@@ -567,6 +568,33 @@ function attachEventListeners() {
   document.getElementById('closeImagePreviewModalBtn')?.addEventListener('click', closeImagePreviewModal);
   document.getElementById('imagePreviewModalBackdrop')?.addEventListener('click', closeImagePreviewModal);
 
+  // ---- Zoom slider ----
+  const zoomSlider = document.getElementById('imagePreviewZoomSlider');
+  if (zoomSlider) {
+    zoomSlider.addEventListener('input', function() {
+      const val = parseFloat(this.value);
+      setImagePreviewZoom(val);
+    });
+  }
+
+  // ---- Zoom buttons (sync with slider) ----
+  document.getElementById('zoomInImagePreviewBtn')?.addEventListener('click', () => {
+    const newZoom = Math.min(imagePreviewZoom + 0.2, 4);
+    setImagePreviewZoom(newZoom);
+    if (zoomSlider) zoomSlider.value = newZoom;
+  });
+
+  document.getElementById('zoomOutImagePreviewBtn')?.addEventListener('click', () => {
+    const newZoom = Math.max(imagePreviewZoom - 0.2, 1);
+    setImagePreviewZoom(newZoom);
+    if (zoomSlider) zoomSlider.value = newZoom;
+  });
+
+  document.getElementById('resetImagePreviewZoomBtn')?.addEventListener('click', () => {
+    resetImagePreviewZoom();
+    if (zoomSlider) zoomSlider.value = 1;
+  });
+
   // ---- Image preview modal navigation ----
   document.getElementById('imagePreviewPrevBtn')?.addEventListener('click', () => {
     const current = window._previewCurrentIndex || 0;
@@ -580,17 +608,6 @@ function attachEventListeners() {
     const items = window._previewItems || [];
     if (next < items.length) showPreviewItem(next);
   });
-
-  // ---- Zoom buttons (using exported utils state) ----
-  document.getElementById('zoomInImagePreviewBtn')?.addEventListener('click', () => {
-    setImagePreviewZoom(imagePreviewZoom + 0.2);
-  });
-
-  document.getElementById('zoomOutImagePreviewBtn')?.addEventListener('click', () => {
-    setImagePreviewZoom(imagePreviewZoom - 0.2);
-  });
-
-  document.getElementById('resetImagePreviewZoomBtn')?.addEventListener('click', resetImagePreviewZoom);
 
   // ---- Pointer events for panning (using exported utils state) ----
   const imagePreviewViewport = document.getElementById('imagePreviewModalViewport');
@@ -721,7 +738,7 @@ function attachEventListeners() {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener(id === 'searchInput' ? 'input' : 'change', () => {
-        currentPage = 1;
+        setCurrentPage(1);
         render();
       });
     }
@@ -732,22 +749,23 @@ function attachEventListeners() {
     document.getElementById('statusFilter').value = 'all';
     document.getElementById('priorityFilter').value = 'all';
     document.getElementById('sortSelect').value = 'created_desc';
-    currentPage = 1;
+    setCurrentPage(1);
     render();
   });
 
   // Pagination
   document.getElementById('prevPageBtn')?.addEventListener('click', () => {
-    if (currentPage > 1) {
-      currentPage--;
+    if (page > 1) {
+      setCurrentPage(page - 1);
       render();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   });
+
   document.getElementById('nextPageBtn')?.addEventListener('click', () => {
     const totalPages = Math.max(1, Math.ceil(getFilteredOrders().length / 200));
-    if (currentPage < totalPages) {
-      currentPage++;
+    if (page < totalPages) {
+      setCurrentPage(page + 1);
       render();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -828,7 +846,10 @@ function attachEventListeners() {
       const sectionPage = document.getElementById('sectionPage');
       if (!sectionPage.classList.contains('hidden')) {
         e.preventDefault();
-        hideSectionPage();
+        // hideSectionPage is not defined; fallback to closing the page
+        sectionPage.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        window.location.hash = '#dashboard';
         return;
       }
     }

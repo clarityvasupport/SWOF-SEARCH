@@ -49,8 +49,8 @@ export function getFieldConfig(fieldKey) {
     category: { label: 'Category', source: 'category', showOnCard: false, showInTable: false },
     location: { label: 'Location', source: 'location', showOnCard: true, showInTable: true },
     assignee: { label: 'Assigned To', source: 'assignee', showOnCard: true, showInTable: true },
-    requester: { label: 'Requester', source: 'requester', showOnCard: false, showInTable: false },
-    created: { label: 'Created Date', source: 'created', showOnCard: false, showInTable: true },
+    requester: { label: 'Requester', source: 'requester', showOnCard: true, showInTable: false }, // changed to true
+    created: { label: 'Created Date', source: 'created', showOnCard: true, showInTable: true }, // changed to true
     dueDate: { label: 'Due Date', source: 'dueDate', showOnCard: true, showInTable: true },
     description: { label: 'Description', source: 'description', showOnCard: true, showInTable: false },
   };
@@ -363,34 +363,59 @@ export function detectColumnType(columnName, rows) {
   return 'mapped';
 }
 
-// ---------- Render custom rows (inline) ----------
+// ---------- Render custom rows (as cards in a 3-column grid) ----------
 function renderImportCustomRows() {
   const wrap = document.getElementById('importCustomRows');
   if (!wrap) return;
 
   let html = '';
-  importCustomMappings.forEach((f, i) => {
-    html += `
-      <div class="import-custom-row grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center" data-custom-index="${i}">
-        <input data-custom-label="${i}" class="field-input-sm border-black/10" placeholder="Name" value="${esc(f.label || '')}">
-        <select data-custom-source="${i}" class="field-input-sm border-black/10">
-          <option value="">Header from import</option>
-          ${importHeaders.map(h => `<option value="${esc(h)}" ${f.source === h ? 'selected' : ''}>${esc(h)}</option>`).join('')}
-        </select>
-        <input data-custom-value="${i}" class="field-input-sm border-black/10" placeholder="Value (optional)" value="${esc(f.value || '')}">
-        <button type="button" data-custom-remove="${i}" class="w-9 h-9 rounded-lg text-red-500 hover:bg-red-50 flex items-center justify-center">✕</button>
-      </div>
-    `;
-  });
+  if (importCustomMappings.length === 0) {
+    html = `<p class="text-xs text-black/40 italic">No custom fields added yet.</p>`;
+  } else {
+    html = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">`;
+    importCustomMappings.forEach((f, i) => {
+      const showOnCard = f.showOnCard !== undefined ? f.showOnCard : false;
+      const labelVal = f.label || '';
+      const sourceVal = f.source || '';
 
-  wrap.innerHTML = html || '<p class="text-xs text-black/40 italic">No custom fields added yet.</p>';
+      html += `
+        <div class="bg-black/5 border border-black/10 rounded-xl p-3 relative" data-custom-index="${i}">
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex-1">
+              <input data-custom-label="${i}" class="w-full rounded-md border border-black/10 bg-white px-2 py-1.5 text-[10px] font-bold text-black/80 placeholder:text-black/30 focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/20" value="${esc(labelVal)}" placeholder="Label">
+            </div>
+            <button type="button" data-custom-remove="${i}" class="shrink-0 w-8 h-8 rounded-lg text-red-500 hover:bg-red-50 flex items-center justify-center">✕</button>
+          </div>
 
+          <div class="flex items-center justify-between mt-2 gap-2">
+            <span class="text-[9px] font-black text-black/40">CUSTOM FIELD</span>
+            <label class="flex items-center gap-1.5 text-[10px] font-bold text-black/60 cursor-pointer">
+              <input type="checkbox" data-custom-show="${i}" ${showOnCard ? 'checked' : ''} class="rounded">
+              <span>Show on card</span>
+            </label>
+          </div>
+
+          <div class="mt-2 grid grid-cols-[76px_minmax(0,1fr)] items-center gap-2">
+            <span class="text-[8px] font-black uppercase tracking-wide text-black/40">Source</span>
+            <select data-custom-source="${i}" class="w-full bg-white border border-black/10 rounded-lg px-2 py-2 text-xs font-semibold text-black/70">
+              <option value="">— Not mapped —</option>
+              ${importHeaders.map(h => `<option value="${esc(h)}" ${sourceVal === h ? 'selected' : ''}>${esc(h)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      `;
+    });
+    html += `</div>`;
+  }
+
+  wrap.innerHTML = html;
+
+  // ---- Event listeners ----
   wrap.querySelectorAll('[data-custom-label]').forEach(el => {
     el.addEventListener('input', (e) => {
       const idx = parseInt(e.target.dataset.customLabel);
       if (importCustomMappings[idx]) {
         importCustomMappings[idx].label = e.target.value.trim();
-        renderImportMapping();
         renderImportPreview();
       }
     });
@@ -400,21 +425,23 @@ function renderImportCustomRows() {
     el.addEventListener('change', (e) => {
       const idx = parseInt(e.target.dataset.customSource);
       if (importCustomMappings[idx]) {
-        importCustomMappings[idx].source = e.target.value;
-        if (!importCustomMappings[idx].label && e.target.value) {
-          importCustomMappings[idx].label = e.target.value;
+        const newSource = e.target.value;
+        importCustomMappings[idx].source = newSource;
+        if (!importCustomMappings[idx].label && newSource) {
+          importCustomMappings[idx].label = newSource;
+          const labelInput = wrap.querySelector(`[data-custom-label="${idx}"]`);
+          if (labelInput) labelInput.value = newSource;
         }
-        renderImportMapping();
         renderImportPreview();
       }
     });
   });
 
-  wrap.querySelectorAll('[data-custom-value]').forEach(el => {
-    el.addEventListener('input', (e) => {
-      const idx = parseInt(e.target.dataset.customValue);
+  wrap.querySelectorAll('[data-custom-show]').forEach(el => {
+    el.addEventListener('change', (e) => {
+      const idx = parseInt(e.target.dataset.customShow);
       if (importCustomMappings[idx]) {
-        importCustomMappings[idx].value = e.target.value.trim();
+        importCustomMappings[idx].showOnCard = e.target.checked;
         renderImportPreview();
       }
     });
@@ -425,7 +452,7 @@ function renderImportCustomRows() {
       const idx = parseInt(e.target.dataset.customRemove);
       if (importCustomMappings.length > idx) {
         importCustomMappings.splice(idx, 1);
-        renderImportMapping();
+        renderImportCustomRows();
         renderImportPreview();
       }
     });
@@ -456,7 +483,7 @@ export function renderImportMapping() {
       importHeaders.forEach(h => { sourceSelect += `<option value="${esc(h)}" ${mapped === h ? 'selected' : ''}>${esc(h)}</option>`; });
     }
     sourceSelect += `</select>`;
-    const labelInput = `<input data-import-label-field="${key}" class="w-full rounded-md border border-black/10 bg-white px-2 py-1.5 text-[10px] font-black uppercase tracking-wide text-black/70 placeholder:text-black/30 focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/20" value="${esc(label)}" placeholder="Label">`;
+    const labelInput = `<input data-import-label-field="${key}" class="w-full rounded-md border border-black/10 bg-white px-2 py-1.5 text-[10px] text-black/70 placeholder:text-black/30 focus:border-brand-teal focus:outline-none focus:ring-2 focus:ring-brand-teal/20" value="${esc(label)}" placeholder="Label">`;
     const showOnCard = cfg.showOnCard !== false;
     const visibilityToggle = `<label class="flex items-center gap-1.5 text-[10px] font-bold text-black/60 cursor-pointer"><input type="checkbox" data-visibility="${key}" ${showOnCard ? 'checked' : ''} class="rounded"><span>Show on card</span></label>`;
     const removeBtn = isCore ? '' : `<button data-remove-custom="${key}" class="text-red-500 hover:text-red-700 text-sm font-bold" title="Remove this field">✕</button>`;
@@ -474,7 +501,7 @@ export function renderImportMapping() {
         ${visibilityToggle}
       </div>
       <div class="mt-2 grid grid-cols-[76px_minmax(0,1fr)] items-center gap-2">
-        <span class="text-[8px] font-black uppercase tracking-wide text-black/40">Source</span>
+        <span class="text-[8px] text-black/40">Source</span>
         ${sourceSelect}
       </div>
     </div>`;
@@ -488,8 +515,7 @@ export function renderImportMapping() {
       if (displayConfig.fieldConfig && displayConfig.fieldConfig[key]) {
         displayConfig.fieldConfig[key].label = val;
         saveDisplayConfig();
-        renderImportPreview();
-        if (typeof window.render === 'function') window.render();
+        renderImportPreview(); // update preview only, not dashboard
       }
     });
   });
@@ -500,8 +526,7 @@ export function renderImportMapping() {
       if (displayConfig.fieldConfig && displayConfig.fieldConfig[key]) {
         displayConfig.fieldConfig[key].source = val;
         saveDisplayConfig();
-        renderImportPreview();
-        if (typeof window.render === 'function') window.render();
+        renderImportPreview(); // update preview only
       }
     });
   });
@@ -512,19 +537,18 @@ export function renderImportMapping() {
       if (displayConfig.fieldConfig && displayConfig.fieldConfig[key]) {
         displayConfig.fieldConfig[key].showOnCard = checked;
         saveDisplayConfig();
-        renderImportPreview();
-        if (typeof window.render === 'function') window.render();
+        renderImportPreview(); // update preview only
       }
     });
   });
 
-  // Add custom field button – inline row (no prompt)
+  // Add custom field button – default showOnCard false
   const addCustomBtn = document.getElementById('addImportCustomBtn');
   if (addCustomBtn) {
     const newBtn = addCustomBtn.cloneNode(true);
     addCustomBtn.parentNode.replaceChild(newBtn, addCustomBtn);
     newBtn.addEventListener('click', function() {
-      importCustomMappings.push({ label: '', source: '', value: '' });
+      importCustomMappings.push({ label: '', source: '', showOnCard: false, value: '' });
       renderImportCustomRows();
       renderImportMapping();
       renderImportPreview();
@@ -548,7 +572,6 @@ export function renderImportMapping() {
         saveOrders();
         renderImportMapping();
         renderImportPreview();
-        if (typeof window.render === 'function') window.render();
         toast(`Removed field "${label}"`, 'info');
       }
     });
@@ -570,7 +593,7 @@ function previewCardHTML(o) {
   const dueDateConfig = fieldConfigs.dueDate || { label: "Due Date", source: "dueDate", showOnCard: true };
   const assigneeConfig = fieldConfigs.assignee || { label: "Assigned To", source: "assignee", showOnCard: true };
   const priorityConfig = fieldConfigs.priority || { label: "Priority", source: "priority", showOnCard: true };
-  const requesterConfig = fieldConfigs.requester || { label: "Requester", source: "requester", showOnCard: false };
+  const requesterConfig = fieldConfigs.requester || { label: "Requester", source: "requester", showOnCard: true };
   const descriptionConfig = fieldConfigs.description || { label: "Description", source: "description", showOnCard: true };
 
   const idVal = displayValue(o, idConfig.source) || o.id || "—";
@@ -680,7 +703,7 @@ function previewCardHTML(o) {
     extraFieldsHTML += `</div>`;
   }
 
-  // Created line
+  // Created line – now shows if showOnCard is true (default true)
   let createdLineHTML = '';
   if (createdConfig.showOnCard !== false) {
     let line = `Created ${esc(created)}`;
@@ -838,6 +861,34 @@ export function applyImport(skipAuth = false, forceReplace = false, ignoreCheckb
   const isApiImport = importSourceType === 'api';
   const replace = forceReplace || (isApiImport ? true : (ignoreCheckbox ? false : document.getElementById('replaceOrdersCheckbox')?.checked || false));
 
+  // ---- Add custom fields from importCustomMappings to displayConfig ----
+  if (importCustomMappings && importCustomMappings.length) {
+    if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
+    importCustomMappings.forEach(custom => {
+      const label = custom.label ? custom.label.trim() : '';
+      if (!label) return;
+      const existingKey = Object.keys(displayConfig.fieldConfig).find(key => {
+        const cfg = displayConfig.fieldConfig[key];
+        return cfg.label && normalize(cfg.label) === normalize(label);
+      });
+      if (existingKey) {
+        displayConfig.fieldConfig[existingKey].source = custom.source || '';
+        displayConfig.fieldConfig[existingKey].showOnCard = custom.showOnCard !== undefined ? custom.showOnCard : false;
+        displayConfig.fieldConfig[existingKey].label = label;
+      } else {
+        const newKey = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        displayConfig.fieldConfig[newKey] = {
+          label: label,
+          source: custom.source || '',
+          showOnCard: custom.showOnCard !== undefined ? custom.showOnCard : false,
+          showInTable: true,
+        };
+      }
+    });
+    saveDisplayConfig();
+  }
+
+  // Now proceed with import
   if (replace) {
     orders.length = 0;
     undoHistory.length = 0;
@@ -893,10 +944,9 @@ export function applyImport(skipAuth = false, forceReplace = false, ignoreCheckb
   });
   saveUsers();
 
-  // Refresh main UI
+  // Refresh main UI only after import is confirmed
   if (typeof window.render === 'function') window.render();
 
-  // Reset filters and pagination
   const searchInput = document.getElementById('searchInput');
   if (searchInput) searchInput.value = '';
   const statusFilter = document.getElementById('statusFilter');
@@ -907,16 +957,13 @@ export function applyImport(skipAuth = false, forceReplace = false, ignoreCheckb
   if (sortSelect) sortSelect.value = 'created_desc';
   window.currentPage = 1;
 
-  // Uncheck replace checkbox
   const replaceCheckbox = document.getElementById('replaceOrdersCheckbox');
   if (replaceCheckbox) replaceCheckbox.checked = false;
 
-  // ✅ CLOSE THE IMPORT MODAL
   if (typeof window.closeImportModal === 'function') {
     window.closeImportModal();
   }
 
-  // Reset import center (keep URL)
   resetImportCenter(true);
 
   const msg = replace ?

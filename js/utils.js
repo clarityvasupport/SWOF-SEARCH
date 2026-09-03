@@ -98,6 +98,8 @@ export function statusClass(s) {
     Completed: 'bg-brand-success/20 text-brand-success border-brand-success/30',
     Overdue: 'bg-red-50 text-red-700 border-red-100',
     Cancelled: 'bg-black/5 text-black/50 border-black/10',
+    pending: 'bg-gray-100 text-gray-700 border-gray-200',
+    'On Process': 'bg-yellow-100 text-yellow-700 border-yellow-200',
   }[s] || 'bg-black/5 text-black/60 border-black/10');
 }
 
@@ -161,7 +163,12 @@ export function getStatusAccentClass(status) {
   if (s.includes('in progress') || s.includes('progress') || s.includes('ongoing')) {
     return `${base} border-l-blue-400 hover:border-l-blue-300 hover:shadow-[inset_0_0_20px_rgba(96,165,250,0.4),0_20px_40px_-12px_rgba(96,165,250,0.3)]`;
   }
-  if (s.includes('on hold') || s.includes('pending') || s.includes('waiting')) {
+  // NEW: pending → grey
+  if (s.includes('pending')) {
+    return `${base} border-l-gray-400 hover:border-l-gray-300 hover:shadow-[0_20px_40px_-12px_rgba(0,0,0,0.1)]`;
+  }
+  // NEW: On Process → yellow (keep same as on hold)
+  if (s.includes('on process') || s.includes('on hold') || s.includes('waiting')) {
     return `${base} border-l-yellow-500 hover:border-l-yellow-400 hover:shadow-[inset_0_0_20px_rgba(234,179,8,0.4),0_20px_40px_-12px_rgba(234,179,8,0.3)]`;
   }
   if (s.includes('overdue') || s.includes('late')) {

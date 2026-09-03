@@ -441,5 +441,9 @@ function updateStorageBadge() {
   }
 }
 
+function setCurrentPage(newPage) {
+  currentPage = newPage;
+}
+
 // ---------- Exports ----------
-export { currentPage, updateUndoButtons, toggleEditability, initializeDashboardFilters };
+export { setCurrentPage, currentPage, updateUndoButtons, toggleEditability, initializeDashboardFilters };
