@@ -1,6 +1,6 @@
 // =========================================================
 // ROUTER – hash-based navigation (with dashboard hide/show)
-// (v1.3.21 – decode URI component for order IDs)
+// (v1.3.22 – handle initial hash if load event already fired)
 // =========================================================
 
 import { render as renderAllOrders } from './pages/allOrders.js';
@@ -31,6 +31,13 @@ export function initRouter() {
   console.log('[router] initRouter - attaching hashchange and load listeners');
   window.addEventListener('hashchange', handleRoute);
   window.addEventListener('load', handleRoute);
+
+  // If the page is already loaded (e.g., on refresh or direct URL paste),
+  // the 'load' event may have already fired, so handle the route immediately.
+  if (document.readyState === 'complete') {
+    console.log('[router] page already loaded – handling route now');
+    handleRoute();
+  }
 }
 
 function handleRoute() {
@@ -73,8 +80,8 @@ function handleRoute() {
       return;
     }
     closeDrawer();
-    // Try to open the drawer; if it fails (order not found), navigate back to the current page.
-    const orderExists = orders.some(o => o.id === id);
+    // Check if the order actually exists before trying to open it
+    const orderExists = window.orders ? window.orders.some(o => o.id === id) : false;
     if (!orderExists) {
       console.warn(`[router] Order with id "${id}" not found – navigating to dashboard`);
       navigateTo('dashboard');
