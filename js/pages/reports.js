@@ -1,14 +1,15 @@
 // =========================================================
 // REPORTS – comprehensive status, priority, assignee summary
+// (v1.2.3 – configurable completion date source)
 // =========================================================
 
-import { orders } from '../data.js';
-import { esc, parseDateValue, nowDate } from '../utils.js';
+import { orders, displayConfig } from '../data.js';
+import { esc, parseDateValue, nowDate, displayValue, toast } from '../utils.js';
 
 export function render() {
   const container = document.getElementById('sectionPageBody');
 
-  // --- Compute weekly stats ---
+  // --- Weekly stats (activity) ---
   const now = new Date();
   const currentWeekStart = new Date(now);
   currentWeekStart.setDate(now.getDate() - now.getDay() + 1);
@@ -35,23 +36,27 @@ export function render() {
   const activityTrend = activityChange >= 0 ? '+' : '';
   const activityPercent = activityChange.toFixed(0);
 
+  // =========================================================
+  // 📊 CONFIGURABLE COMPLETION DATE (v1.2.3)
+  // =========================================================
+  const completionSource = displayConfig.completionDateSource || 'dueDate'; // fallback to dueDate
+  const onlyCompleted = displayConfig.completionOnlyCompleted !== false; // default true
+
   function getCompletionDate(o) {
-    if (o.status !== 'Completed') return null;
-    const activities = o.activity || [];
-    for (const act of activities) {
-      if (act.text && act.text.includes('Status changed from') && act.text.includes('to Completed')) {
-        return act.date ? parseDateValue(act.date) : null;
-      }
-    }
-    return null;
+    // Use the configured source to get a date value
+    const val = displayValue(o, completionSource);
+    return val ? parseDateValue(val) : null;
   }
 
   const thisWeekCompleted = orders.filter(o => {
+    // Optionally filter by status
+    if (onlyCompleted && o.status?.toLowerCase() !== 'completed') return false;
     const compDate = getCompletionDate(o);
     return compDate && isDateInRange(compDate, currentWeekStart, currentWeekEnd);
   }).length;
 
   const lastWeekCompleted = orders.filter(o => {
+    if (onlyCompleted && o.status?.toLowerCase() !== 'completed') return false;
     const compDate = getCompletionDate(o);
     return compDate && isDateInRange(compDate, lastWeekStart, lastWeekEnd);
   }).length;
@@ -86,11 +91,12 @@ export function render() {
         <p class="text-xs text-white/40">✅ Weekly Completion</p>
         <p class="text-2xl font-black text-white">${thisWeekCompleted} orders completed</p>
         <p class="text-sm ${completionChange >= 0 ? 'text-green-400' : 'text-red-400'}">${completionTrend}${completionPercent}% from last week</p>
+        <p class="text-[10px] text-white/30 mt-1">Using field: <span class="font-mono">${esc(completionSource)}</span></p>
       </div>
     </div>
   `;
 
-  // ---- Dynamic status cards (flex wrap) ----
+  // ---- Dynamic status cards ----
   const statusCards = Object.entries(statusCounts)
     .filter(([_, count]) => count > 0)
     .map(([status, count]) => `
@@ -141,7 +147,7 @@ export function render() {
     </div>
   ` : '';
 
-  // ---- Detailed status table (responsive) ----
+  // ---- Detailed status table ----
   const sortedStatuses = Object.keys(statusCounts).sort();
   const rows = sortedStatuses.map(s => {
     const count = statusCounts[s];

@@ -1,5 +1,5 @@
 // =========================================================
-// APP – entry point
+// APP – entry point (v1.3.0 – cloud-first initialisation)
 // =========================================================
 
 import {
@@ -83,6 +83,7 @@ import {
   openImagePreviewModal,
   applyImagePreviewTransform,
   showPreviewItem,
+  initCollapsibleFilter,
 } from './utils.js';
 
 import {
@@ -302,37 +303,38 @@ async function fetchAndApplyWithSavedMapping(apiUrl) {
 
 // ---------- Init ----------
 async function initApp() {
-  const loadedOrders = loadOrders();
-  orders.length = 0;
-  orders.push(...loadedOrders);
+  // === FIX: define setActiveNav on window BEFORE router init ===
+  window.setActiveNav = setActiveNav;
 
-  const loadedUsers = loadUsers();
-  users.length = 0;
-  users.push(...loadedUsers);
+  // ------------------------------------------------------------------
+  // NEW: CLOUD-FIRST initialisation
+  // ------------------------------------------------------------------
+  // 1. Attempt to load from KV (cloud) – falls back to localStorage if needed
+  await loadSharedState();
 
-  const loadedHeaders = loadImportedHeaders();
-  importedHeaders.length = 0;
-  importedHeaders.push(...loadedHeaders);
-
-  const loadedConfig = loadDisplayConfig();
-  Object.assign(displayConfig, loadedConfig);
-
-  render();
-
-  try {
-    await loadSharedState();
-    storedPassword = getStoredPassword();
-    render();
-    if (isLoggedIn) updateLoginUI();
-  } catch (e) {
-    console.warn('Cloud load failed, using local cache.', e);
+  // 2. Ensure displayConfig has defaults
+  if (displayConfig.sidebarPinned === undefined) {
+    displayConfig.sidebarPinned = false;
+    saveDisplayConfig();
   }
 
+  // 3. Render the dashboard with the loaded data (cloud or local)
+  render();
+
+  // 4. Update password from stored (cloud or local)
+  storedPassword = getStoredPassword();
+
+  // 5. If logged in, update UI
+  if (isLoggedIn) updateLoginUI();
+
+  // 6. Auto-sync from API endpoint (if configured) – this runs separately
   autoSyncFromStoredApi();
 
+  // 7. Initialize router and event listeners
   initRouter();
   attachEventListeners();
 
+  // Expose globals
   window.render = render;
   window.undoLast = undoLast;
   window.newOrder = newOrder;
@@ -359,11 +361,62 @@ async function initApp() {
 
 // ---------- Event listeners ----------
 function attachEventListeners() {
-  // Hamburger
-  const hamburger = document.getElementById('hamburgerBtn');
+  // --- Sidebar auto-close toggle with pin rotation ---
   const sidebar = document.getElementById('sidebarNav');
+  const toggleBtn = document.getElementById('toggleAutoCloseBtn');
+  const pinIcon = document.getElementById('pinIcon');
+
+  function updateSidebarPinState(pinned) {
+    if (!pinIcon) return;
+    if (pinned) {
+      pinIcon.innerHTML = `
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v6m0 0l-3-3m3 3l3-3M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z" />
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v2m0 14v2" />
+      `;
+      pinIcon.setAttribute('data-pinned', 'true');
+      pinIcon.classList.add('pin-rotated');
+    } else {
+      pinIcon.innerHTML = `
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v6m0 0l-3-3m3 3l3-3M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z" />
+      `;
+      pinIcon.setAttribute('data-pinned', 'false');
+      pinIcon.classList.remove('pin-rotated');
+    }
+    if (sidebar) {
+      sidebar.dataset.pinned = pinned ? 'true' : 'false';
+    }
+  }
+
+  const pinned = displayConfig.sidebarPinned || false;
+  updateSidebarPinState(pinned);
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const newPinned = !displayConfig.sidebarPinned;
+      displayConfig.sidebarPinned = newPinned;
+      saveDisplayConfig();
+      updateSidebarPinState(newPinned);
+      toast(newPinned ? 'Sidebar pinned – will not auto-close.' : 'Sidebar unpinned – will auto-close on outside tap.', 'info');
+    });
+  }
+
+  // --- Close sidebar on outside click (if not pinned) ---
+  const hamburger = document.getElementById('hamburgerBtn');
+
+  document.addEventListener('click', function(e) {
+    if (!sidebar || !hamburger) return;
+    if (displayConfig.sidebarPinned) return;
+    if (!sidebar.classList.contains('open')) return;
+    if (sidebar.contains(e.target) || hamburger.contains(e.target)) return;
+    sidebar.classList.remove('open');
+  });
+
+  // Hamburger toggles open/close
   if (hamburger && sidebar) {
-    hamburger.addEventListener('click', () => sidebar.classList.toggle('open'));
+    hamburger.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+    });
     hamburger.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
@@ -396,11 +449,10 @@ function attachEventListeners() {
       const page = this.dataset.nav;
       if (page === 'import') {
         openImportModal();
-        setActiveNav('import'); // highlight import
+        setActiveNav('import');
         return;
       }
       navigateTo(page);
-      // Always set active link, even if hash didn't change
       setActiveNav(page);
     });
   });
@@ -444,7 +496,8 @@ function attachEventListeners() {
     icon.classList.add('animate-spin');
     showLoadingToast('🔄 Refreshing dashboard...');
     try {
-      await Promise.all([loadSharedState(), autoSyncFromStoredApi()]);
+      await loadSharedState();
+      await autoSyncFromStoredApi();
       const freshOrders = loadOrders();
       orders.length = 0;
       orders.push(...freshOrders);
@@ -475,6 +528,7 @@ function attachEventListeners() {
     document.getElementById('sectionPage').classList.add('hidden');
     document.body.classList.remove('overflow-hidden');
     window.location.hash = '#dashboard';
+    setActiveNav('dashboard');
   });
 
   // Section refresh
@@ -485,7 +539,7 @@ function attachEventListeners() {
     render();
     const p = document.getElementById('sectionPageTitle').textContent;
     const map = {
-      'All Work Orders': 'all-orders',
+      'All Work Orders': 'orders',
       Calendar: 'calendar',
       Reports: 'reports',
       Analytics: 'analytics',
@@ -609,7 +663,7 @@ function attachEventListeners() {
     if (next < items.length) showPreviewItem(next);
   });
 
-  // ---- Pointer events for panning (using exported utils state) ----
+  // ---- Pointer events for panning ----
   const imagePreviewViewport = document.getElementById('imagePreviewModalViewport');
   let dragStart = null;
 
@@ -643,6 +697,19 @@ function attachEventListeners() {
     imagePreviewViewport.addEventListener('pointerleave', () => {
       dragStart = null;
     });
+
+    // ---- Collapsible filter bar on mobile ----
+    const filterBar = document.querySelector('.filter-bar-collapsible');
+    if (filterBar) {
+      initCollapsibleFilter(filterBar, {
+        toggleLabel: 'Search & Filter',
+        toggleIcon: `
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="2" stroke-linecap="round" d="M21 21l-4.5-4.5M16 10.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0Z" />
+          </svg>
+        `
+      });
+    }
   }
 
   // ---- Auto-refresh drawer when file detection completes ----
@@ -777,8 +844,6 @@ function attachEventListeners() {
     
     // ---- 1. Escape key: close topmost modal ----
     if (key === 'Escape') {
-      // Priority order (highest z-index first)
-      
       // Change Password modal (z-95)
       const changePasswordModal = document.getElementById('changePasswordModal');
       if (!changePasswordModal.classList.contains('hidden')) {
@@ -846,10 +911,10 @@ function attachEventListeners() {
       const sectionPage = document.getElementById('sectionPage');
       if (!sectionPage.classList.contains('hidden')) {
         e.preventDefault();
-        // hideSectionPage is not defined; fallback to closing the page
         sectionPage.classList.add('hidden');
         document.body.classList.remove('overflow-hidden');
         window.location.hash = '#dashboard';
+        setActiveNav('dashboard');
         return;
       }
     }

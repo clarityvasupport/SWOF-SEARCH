@@ -1,5 +1,6 @@
 // =========================================================
 // SETTINGS – prototype settings, field config, password
+// (v1.2.4 – all fields appear in Reports dropdown)
 // =========================================================
 
 import { orders, users, displayConfig, importedHeaders, saveDisplayConfig, loadOrders, saveOrders, pushHistory } from '../data.js';
@@ -22,7 +23,79 @@ export function render() {
   const allHeaders = allAvailableHeaders();
   const isLoggedIn = window.isLoggedIn || false;
 
-  // Calendar configuration HTML
+  // ---- Helper: check if a source contains date values (reused) ----
+  function fieldHasDateValues(source) {
+    if (!source) return false;
+    let dateCount = 0, totalCount = 0;
+    const sample = orders.slice(0, 500);
+    for (const o of sample) {
+      const val = displayValue(o, source);
+      if (val && typeof val === 'string' && val.trim()) {
+        totalCount++;
+        if (parseDateValue(val) !== '') dateCount++;
+      }
+    }
+    if (totalCount === 0) return false;
+    return (dateCount / totalCount) >= 0.3;
+  }
+
+  // ---- NEW: build dropdown from ALL field configs ----
+  function buildCompletionDateOptions() {
+    const allConfigs = getAllFieldConfigs();
+    const current = displayConfig.completionDateSource || 'dueDate';
+    let html = '';
+
+    // Collect all fields with a source
+    const candidates = [];
+    Object.keys(allConfigs).forEach(key => {
+      const cfg = allConfigs[key];
+      const source = cfg.source || key;
+      if (!source) return;
+      const label = cfg.label || key;
+      const isDate = fieldHasDateValues(source);
+      candidates.push({ value: source, label, isDate });
+    });
+
+    // Sort: date fields first, then alphabetically
+    candidates.sort((a, b) => {
+      if (a.isDate && !b.isDate) return -1;
+      if (!a.isDate && b.isDate) return 1;
+      return a.label.localeCompare(b.label);
+    });
+
+    if (candidates.length === 0) {
+      // Fallback
+      html += `<option value="dueDate" ${current === 'dueDate' ? 'selected' : ''}>Due Date (default)</option>`;
+    } else {
+      candidates.forEach(f => {
+        const selected = f.value === current ? 'selected' : '';
+        const suffix = f.isDate ? ' (date)' : '';
+        html += `<option value="${esc(f.value)}" ${selected}>${esc(f.label)}${suffix}</option>`;
+      });
+    }
+    return html;
+  }
+
+  // ---- Reports Configuration HTML ----
+  const reportsConfigHTML = `
+    <div class="bg-white/5 border border-white/10 rounded-2xl p-5 mt-4">
+      <h3 class="font-black text-white">📊 Reports Configuration</h3>
+      <p class="text-sm text-white/50 mt-1">Select the date field used for the "Weekly Completion" stat on Reports.</p>
+      <div class="mt-3">
+        <label class="block text-sm text-white/70 mb-1">Completion Date Field</label>
+        <select id="completionDateSource" class="bg-black/30 text-white border border-white/20 rounded-xl px-3 py-2 w-full max-w-xs">
+          ${buildCompletionDateOptions()}
+        </select>
+        <div class="mt-2 flex items-center gap-2">
+          <input type="checkbox" id="completionOnlyCompleted" ${displayConfig.completionOnlyCompleted !== false ? 'checked' : ''} />
+          <label class="text-sm text-white/70" for="completionOnlyCompleted">Only count orders with status "Completed"</label>
+        </div>
+        <p class="text-[10px] text-white/30 mt-1">Fields marked "(date)" contain date values. You can select any field.</p>
+      </div>
+    </div>
+  `;
+
+  // ---- Calendar configuration HTML ----
   const calendarConfigHTML = `
     <div class="bg-white/5 border border-white/10 rounded-2xl p-5 mt-4">
       <h3 class="font-black text-white">Calendar Date Fields</h3>
@@ -35,7 +108,7 @@ export function render() {
     </div>
   `;
 
-  // Field config HTML
+  // ---- Field config HTML (unchanged) ----
   let fieldConfigHTML = `<div class="bg-white/5 border border-white/10 rounded-2xl p-5 mt-4">
     <h3 class="font-black text-white">Field Configuration</h3>
     <p class="text-sm text-white/50 mt-1">Customize which fields appear on cards and in the All Work Orders table. Rename fields and map them to different headers.</p>
@@ -82,7 +155,7 @@ export function render() {
     </div>
   </div>`;
 
-  // Build the settings page
+  // ---- Build the main settings page ----
   container.innerHTML = `<div class="max-w-3xl space-y-4">
     <div class="bg-white/5 border border-white/10 rounded-2xl p-5">
       <h3 class="font-black text-white">Local Data</h3>
@@ -101,16 +174,16 @@ export function render() {
       <p class="text-sm text-white/50 mt-1">Change your admin password. This will be stored in the cloud (KV) and synced across devices.</p>
       <button id="openChangePasswordBtn" class="mt-4 px-4 py-2.5 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white font-bold text-sm transition">Change Password</button>
     </div>
+    ${reportsConfigHTML}
     ${calendarConfigHTML}
     ${fieldConfigHTML}
   </div>`;
 
-  // Render calendar checkboxes
+  // ---- Render calendar checkboxes ----
   renderCalendarCheckboxes();
 
   // ---- Event listeners ----
   document.getElementById('settingsRefresh').addEventListener('click', () => {
-    // Reload from localStorage and refresh
     const freshOrders = loadOrders();
     orders.length = 0;
     orders.push(...freshOrders);
@@ -128,8 +201,6 @@ export function render() {
       onConfirm: () => {
         pushHistory('before demo reset');
         orders.length = 0;
-        // If you have seedOrders, use it; otherwise keep empty.
-        // You could also load from a default set if defined.
         window.render();
         toast('Demo data restored.', 'success');
         closeConfirmationModal();
@@ -146,40 +217,62 @@ export function render() {
     }
   });
 
-  // Field config events (label, source, visibility, remove)
-  document.addEventListener('change', function(e) {
-  const target = e.target;
-  if (target.dataset.fieldKey && target.dataset.fieldProperty) {
-    const key = target.dataset.fieldKey;
-    const property = target.dataset.fieldProperty;
-    let value = target.type === 'checkbox' ? target.checked : target.value;
-    // Only update the config object, don't save yet
-    if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
-    displayConfig.fieldConfig[key] = {
-      ...displayConfig.fieldConfig[key],
-      [property]: value,
-    };
-    // Re-render to reflect changes in the UI
-    window.render();
-    // BUT do NOT call saveDisplayConfig() here
+  // ---- Reports Configuration events ----
+  const completionSelect = document.getElementById('completionDateSource');
+  if (completionSelect) {
+    completionSelect.addEventListener('change', function() {
+      displayConfig.completionDateSource = this.value;
+      saveDisplayConfig();
+      toast('Completion date field updated.', 'success');
+      const sectionPage = document.getElementById('sectionPage');
+      if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Reports') {
+        import('./reports.js').then(m => m.render());
+      }
+    });
   }
-});
- document.addEventListener('input', function(e) {
-  const target = e.target;
-  if (target.dataset.fieldKey && target.dataset.fieldProperty && target.type !== 'checkbox') {
-    const key = target.dataset.fieldKey;
-    const property = target.dataset.fieldProperty;
-    if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
-    displayConfig.fieldConfig[key] = {
-      ...displayConfig.fieldConfig[key],
-      [property]: target.value,
-    };
-    window.render();
-    // Still no save
-  }
-});
 
-  // Add Field button – shows the hidden row
+  const completionCheckbox = document.getElementById('completionOnlyCompleted');
+  if (completionCheckbox) {
+    completionCheckbox.addEventListener('change', function() {
+      displayConfig.completionOnlyCompleted = this.checked;
+      saveDisplayConfig();
+      toast('Completion filter updated.', 'success');
+      const sectionPage = document.getElementById('sectionPage');
+      if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Reports') {
+        import('./reports.js').then(m => m.render());
+      }
+    });
+  }
+
+  // ---- Field config events (unchanged) ----
+  document.addEventListener('change', function(e) {
+    const target = e.target;
+    if (target.dataset.fieldKey && target.dataset.fieldProperty) {
+      const key = target.dataset.fieldKey;
+      const property = target.dataset.fieldProperty;
+      let value = target.type === 'checkbox' ? target.checked : target.value;
+      if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
+      displayConfig.fieldConfig[key] = {
+        ...displayConfig.fieldConfig[key],
+        [property]: value,
+      };
+      window.render();
+    }
+  });
+  document.addEventListener('input', function(e) {
+    const target = e.target;
+    if (target.dataset.fieldKey && target.dataset.fieldProperty && target.type !== 'checkbox') {
+      const key = target.dataset.fieldKey;
+      const property = target.dataset.fieldProperty;
+      if (!displayConfig.fieldConfig) displayConfig.fieldConfig = {};
+      displayConfig.fieldConfig[key] = {
+        ...displayConfig.fieldConfig[key],
+        [property]: target.value,
+      };
+      window.render();
+    }
+  });
+
   document.getElementById('addFieldConfigBtn').addEventListener('click', function() {
     if (!window.requireLogin || !window.requireLogin()) return;
     const sourceSelect = document.getElementById('newFieldSourceInline');
@@ -195,7 +288,6 @@ export function render() {
     document.getElementById('addFieldRow').style.display = 'none';
   });
 
-  // Save new field from the inline row
   document.getElementById('saveNewFieldInline').addEventListener('click', function() {
     if (!window.requireLogin || !window.requireLogin()) return;
     const label = document.getElementById('newFieldLabelInline').value.trim();
@@ -203,7 +295,6 @@ export function render() {
       toast('Please enter a label.', 'error');
       return;
     }
-    // Check duplicate
     const labelNorm = normalize(label);
     const duplicate = Object.values(displayConfig.fieldConfig || {}).find(cfg => normalize(cfg.label || '') === labelNorm);
     if (duplicate) {
@@ -214,27 +305,20 @@ export function render() {
     const showOnCard = document.getElementById('newFieldShowOnCardInline').checked;
     const showInTable = document.getElementById('newFieldShowInTableInline').checked;
 
-    // Add to fieldConfig and to all orders
     const newKey = addCustomFieldConfig(label, source);
-    // Ensure the field exists in all orders
     ensureFieldInAllOrders(label, source);
 
-    // Hide the add row
     document.getElementById('addFieldRow').style.display = 'none';
-
-    // Re-render settings and dashboard
     window.render();
-    render(); // re-render settings page to show the new field in table
+    render();
     toast(`✅ Field "${label}" added to all orders.`, 'success');
   });
 
-  // Reset all fields (both Reset All and Reset Sources)
   document.addEventListener('click', function(e) {
     const target = e.target.closest('#resetFieldConfigBtn');
     if (target) {
       const btnText = target.textContent.trim();
       if (!btnText.includes('Reset All') && btnText !== 'Reset All to Defaults') {
-        // Reset Sources
         if (!window.requireLogin || !window.requireLogin()) return;
         openConfirmationModal({
           title: 'Reset Sources to Defaults',
@@ -254,7 +338,6 @@ export function render() {
         });
         return;
       } else {
-        // Reset All
         if (!window.requireLogin || !window.requireLogin()) return;
         openConfirmationModal({
           title: 'Reset All Field Configurations',
@@ -288,7 +371,6 @@ export function render() {
               requester: false, created: true, dueDate: true,
               description: false
             };
-            // Reset core fields
             coreFields.forEach(field => {
               displayConfig.fieldConfig[field] = {
                 label: defaultLabels[field] || field.charAt(0).toUpperCase() + field.slice(1),
@@ -297,11 +379,9 @@ export function render() {
                 showInTable: defaultShowInTable[field] !== undefined ? defaultShowInTable[field] : true,
               };
             });
-            // Remove all custom fields
             Object.keys(displayConfig.fieldConfig).forEach(key => {
               if (key.startsWith('custom_')) delete displayConfig.fieldConfig[key];
             });
-            // Also remove custom fields from all orders
             orders.forEach(o => {
               if (Array.isArray(o.customFields)) {
                 o.customFields = o.customFields.filter(f => !f.label || !f._sourceHeader);
@@ -319,7 +399,6 @@ export function render() {
     }
   });
 
-  // Remove field (custom only)
   document.addEventListener('click', function(e) {
     const target = e.target.closest('[data-remove-field]');
     if (target) {
@@ -333,7 +412,6 @@ export function render() {
         confirmText: 'Remove',
         confirmClass: 'bg-red-600 hover:bg-red-700',
         onConfirm: () => {
-          // Remove field data from all orders
           orders.forEach(o => {
             if (Array.isArray(o.customFields)) {
               o.customFields = o.customFields.filter(f => String(f.label || '').trim() !== label);
@@ -350,21 +428,19 @@ export function render() {
     }
   });
 
-  // Save Changes button – explicitly save displayConfig and re-render
   document.getElementById('saveFieldConfigBtn').addEventListener('click', function() {
-  if (this.dataset.saving === 'true') return;
-  if (!window.requireLogin || !window.requireLogin()) return;
-  this.dataset.saving = 'true';
-  // Persist everything
-  saveDisplayConfig();
-  window.render();
-  render(); // refresh settings page
-  toast('Field configuration saved.', 'success');
-  setTimeout(() => delete this.dataset.saving, 1000);
-});
+    if (this.dataset.saving === 'true') return;
+    if (!window.requireLogin || !window.requireLogin()) return;
+    this.dataset.saving = 'true';
+    saveDisplayConfig();
+    window.render();
+    render();
+    toast('Field configuration saved.', 'success');
+    setTimeout(() => delete this.dataset.saving, 1000);
+  });
 }
 
-// ---- Render calendar checkboxes (same as before) ----
+// ---- Render calendar checkboxes (unchanged) ----
 function renderCalendarCheckboxes() {
   const container = document.getElementById('calendarFieldCheckboxes');
   if (!container) return;
@@ -435,7 +511,6 @@ function renderCalendarCheckboxes() {
         displayConfig.calendarDateFields = displayConfig.calendarDateFields.filter(s => s !== source);
       }
       saveDisplayConfig();
-      // Refresh calendar if open
       const sectionPage = document.getElementById('sectionPage');
       if (!sectionPage.classList.contains('hidden') && document.getElementById('sectionPageTitle').textContent === 'Calendar') {
         import('./calendar.js').then(m => m.render());

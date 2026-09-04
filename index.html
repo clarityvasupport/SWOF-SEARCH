@@ -36,6 +36,66 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/styles.css" />
 
+    <!-- ============================================================
+         CRITICAL FIX: Force section page visibility
+         (Now without !important on left/right/width so that
+          the xl media query can position it correctly)
+         ============================================================ -->
+    <style>
+      /* Force section page to be visible and fill the screen */
+      #sectionPage:not(.hidden) {
+        display: block !important;
+        position: fixed !important;
+        top: 64px !important;
+        bottom: 0;
+        z-index: 35 !important;
+        background: #1E1E1C !important;
+        overflow-y: auto !important;
+      }
+
+      /* Force all content inside section page to be visible */
+      #sectionPageBody,
+      #sectionPageBody * {
+        color: white !important;
+      }
+
+      #sectionPageBody .bg-white\/5 {
+        background: rgba(255, 255, 255, 0.05) !important;
+      }
+
+      #sectionPageBody .text-white\/50 {
+        color: rgba(255, 255, 255, 0.5) !important;
+      }
+      #sectionPageBody .text-white\/70 {
+        color: rgba(255, 255, 255, 0.7) !important;
+      }
+      #sectionPageBody .text-white\/40 {
+        color: rgba(255, 255, 255, 0.4) !important;
+      }
+      #sectionPageBody .text-white\/60 {
+        color: rgba(255, 255, 255, 0.6) !important;
+      }
+      #sectionPageBody .text-brand-teal {
+        color: #326363 !important;
+      }
+
+      /* Force calendar grid cells */
+      #sectionPageBody button[data-calendar-date] {
+        background: rgba(255, 255, 255, 0.05) !important;
+        border-color: rgba(255, 255, 255, 0.1) !important;
+        color: white !important;
+      }
+      #sectionPageBody button[data-calendar-date]:hover {
+        border-color: rgba(50, 99, 99, 0.5) !important;
+      }
+      #sectionPageBody .border-brand-teal\/30 {
+        border-color: rgba(50, 99, 99, 0.3) !important;
+      }
+      #sectionPageBody .bg-brand-teal\/10 {
+        background: rgba(50, 99, 99, 0.1) !important;
+      }
+    </style>
+
     <!-- Main App (ES Module) -->
     <script type="module" src="js/app.js"></script>
   </head>
@@ -98,224 +158,266 @@
       </div>
     </header>
 
-    <main class="max-w-none mx-auto px-5 lg:px-6 py-4">
-      <div class="grid grid-cols-1 xl:pl-[182px] gap-5 items-start">
-        <!-- ========================= LEFT NAV ========================= -->
-        <aside id="sidebarNav" class="hidden xl:block fixed top-0 left-0 bottom-0 w-[182px] bg-brand-orange text-black p-4 overflow-y-auto z-30 border-r border-black/10">
-          <!-- Pin/Auto-close toggle -->
-          <div class="flex justify-end mb-2">
-            <button id="toggleAutoCloseBtn" class="p-1.5 rounded-lg hover:bg-black/10 transition" title="Toggle auto-close on outside tap">
-              <svg id="pinIcon" class="w-5 h-5 text-black/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v6m0 0l-3-3m3 3l3-3M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z" />
-              </svg>
-            </button>
-          </div>
+    <!-- ========================= SIDEBAR (moved outside #dashboardMain) ========================= -->
+    <aside id="sidebarNav" class="hidden xl:block fixed top-0 left-0 bottom-0 w-[182px] bg-brand-orange text-black p-4 overflow-y-auto z-30 border-r border-black/10">
+      <!-- Pin/Auto-close toggle -->
+      <div class="flex justify-end mb-2">
+        <button id="toggleAutoCloseBtn" class="p-1.5 rounded-lg hover:bg-black/10 transition" title="Toggle auto-close on outside tap">
+          <svg id="pinIcon" class="w-5 h-5 text-black/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v6m0 0l-3-3m3 3l3-3M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z" />
+          </svg>
+        </button>
+      </div>
 
-          <nav class="space-y-1 text-sm">
-            <!-- Dashboard -->
-            <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-black/10 text-black font-bold text-left active" data-nav="dashboard">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-9 9 9M5 10v10h14V10M9 20v-6h6v6" />
-              </svg>
-              Dashboard
-            </button>
+      <nav class="space-y-1 text-sm">
+        <!-- Dashboard -->
+        <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg bg-black/10 text-black font-bold text-left active" data-nav="dashboard">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 12l9-9 9 9M5 10v10h14V10M9 20v-6h6v6" />
+          </svg>
+          Dashboard
+        </button>
 
-            <!-- All Work Orders -->
-            <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-black/80 font-bold text-left" data-nav="orders">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-width="1.8" stroke-linecap="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
-              </svg>
-              All Work Orders
-            </button>
+        <!-- All Work Orders -->
+        <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-black/80 font-bold text-left" data-nav="orders">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.8" stroke-linecap="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+          </svg>
+          All Work Orders
+        </button>
 
-            <!-- Calendar -->
-            <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-black/80 font-bold text-left" data-nav="calendar">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-width="1.8" stroke-linecap="round" d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z" />
-              </svg>
-              Calendar
-            </button>
+        <!-- Calendar -->
+        <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-black/80 font-bold text-left" data-nav="calendar">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.8" stroke-linecap="round" d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z" />
+          </svg>
+          Calendar
+        </button>
 
-            <!-- Reports -->
-            <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-black/80 font-bold text-left" data-nav="reports">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 4h10l4 4v12H5V4Zm10 0v5h4M8 13h8M8 16h6" />
-              </svg>
-              Reports
-            </button>
+        <!-- Reports -->
+        <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-black/80 font-bold text-left" data-nav="reports">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 4h10l4 4v12H5V4Zm10 0v5h4M8 13h8M8 16h6" />
+          </svg>
+          Reports
+        </button>
 
-            <!-- Analytics -->
-            <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-black/80 font-bold text-left" data-nav="analytics">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 19V9m5 10V5m5 14v-7m5 7V3" />
-              </svg>
-              Analytics
-            </button>
+        <!-- Analytics -->
+        <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-black/80 font-bold text-left" data-nav="analytics">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 19V9m5 10V5m5 14v-7m5 7V3" />
+          </svg>
+          Analytics
+        </button>
 
-            <!-- Activity Log -->
-            <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-black/80 font-bold text-left" data-nav="activity">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-width="1.8" stroke-linecap="round" d="M12 8v4l3 2M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z" />
-              </svg>
-              Activity Log
-            </button>
-          </nav>
+        <!-- Activity Log -->
+        <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-black/80 font-bold text-left" data-nav="activity">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.8" stroke-linecap="round" d="M12 8v4l3 2M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z" />
+          </svg>
+          Activity Log
+        </button>
+      </nav>
 
-          <div class="my-4 border-t border-black/10"></div>
+      <div class="my-4 border-t border-black/10"></div>
 
-          <!-- Admin section -->
-          <button id="adminToggleBtn" class="w-full px-3 py-1.5 rounded-lg hover:bg-black/10 transition flex items-center justify-between text-left" aria-expanded="true">
-            <span class="text-xs font-bold text-black/60">Admin</span>
-            <svg id="adminArrow" class="w-4 h-4 text-black/40 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+      <!-- Admin section -->
+      <button id="adminToggleBtn" class="w-full px-3 py-1.5 rounded-lg hover:bg-black/10 transition flex items-center justify-between text-left" aria-expanded="true">
+        <span class="text-xs font-bold text-black/60">Admin</span>
+        <svg id="adminArrow" class="w-4 h-4 text-black/40 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
 
-          <nav id="adminNav" class="space-y-1 text-sm">
-            <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-black/80 font-bold text-left" data-nav="import">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-width="1.8" stroke-linecap="round" d="M12 3v12m0-12 4 4m-4-4-4 4M5 14v5h14v-5" />
-              </svg>
-              Data Import
-            </button>
-            <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-black/80 font-bold text-left" data-nav="users">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-width="1.8" stroke-linecap="round" d="M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7-3a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm0 12v-1a4 4 0 0 0-2.5-3.7" />
-              </svg>
-              Users
-            </button>
-            <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-black/80 font-bold text-left" data-nav="settings">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-width="1.8" stroke-linecap="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.4-6.4-1.4 1.4M7 17l-1.4 1.4m12.8 0L17 17M7 7 5.6 5.6M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" />
-              </svg>
-              Settings
-            </button>
-          </nav>
+      <nav id="adminNav" class="space-y-1 text-sm">
+        <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-black/80 font-bold text-left" data-nav="import">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.8" stroke-linecap="round" d="M12 3v12m0-12 4 4m-4-4-4 4M5 14v5h14v-5" />
+          </svg>
+          Data Import
+        </button>
+        <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-black/80 font-bold text-left" data-nav="users">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.8" stroke-linecap="round" d="M16 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7-3a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm0 12v-1a4 4 0 0 0-2.5-3.7" />
+          </svg>
+          Users
+        </button>
+        <button class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-black/80 font-bold text-left" data-nav="settings">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.8" stroke-linecap="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.4-6.4-1.4 1.4M7 17l-1.4 1.4m12.8 0L17 17M7 7 5.6 5.6M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" />
+          </svg>
+          Settings
+        </button>
+      </nav>
 
-          <!-- Summary Sidebar -->
-          <section class="mt-5 bg-white/10 backdrop-blur-sm border border-black/10 rounded-xl p-4 text-black">
-            <div class="flex items-center gap-2 mb-4">
-              <svg class="w-4 h-4 text-black/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-width="1.8" stroke-linecap="round" d="M4 19V9m5 10V5m5 14v-7m5 7V3" />
-              </svg>
-              <span class="text-xs font-bold text-black/70">Summary</span>
-            </div>
-            <div id="statusSummaryList" class="space-y-2.5 text-xs"></div>
-            <div class="border-t border-black/10 mt-4 pt-3">
-              <p class="text-[11px] text-black/50">Total Work Orders</p>
-              <p id="sideTotal" class="text-2xl font-black text-black leading-tight">0</p>
-              <p class="text-[10px] text-black/40 mt-1">Last updated: <span id="sideUpdated">Just now</span></p>
-            </div>
-          </section>
-        </aside>
+      <!-- Summary Sidebar -->
+      <section class="mt-5 bg-white/10 backdrop-blur-sm border border-black/10 rounded-xl p-4 text-black">
+        <div class="flex items-center gap-2 mb-4">
+          <svg class="w-4 h-4 text-black/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.8" stroke-linecap="round" d="M4 19V9m5 10V5m5 14v-7m5 7V3" />
+          </svg>
+          <span class="text-xs font-bold text-black/70">Summary</span>
+        </div>
+        <div id="statusSummaryList" class="space-y-2.5 text-xs"></div>
+        <div class="border-t border-black/10 mt-4 pt-3">
+          <p class="text-[11px] text-black/50">Total Work Orders</p>
+          <p id="sideTotal" class="text-2xl font-black text-black leading-tight">0</p>
+          <p class="text-[10px] text-black/40 mt-1">Last updated: <span id="sideUpdated">Just now</span></p>
+        </div>
+      </section>
+    </aside>
 
-        <!-- ========================= MAIN WORKSPACE ========================= -->
-        <div class="min-w-0">
-          <div class="hidden">
-            <span id="statTotal">0</span><span id="statOpen">0</span><span id="statProgress">0</span><span id="statCompleted">0</span><span id="statOverdue">0</span>
-          </div>
+    <!-- ========================= DASHBOARD MAIN (shifted right via xl:ml-[182px]) ========================= -->
+    <div id="dashboardMain" class="max-w-none mx-auto px-5 lg:px-6 py-4 xl:ml-[182px]">
+      <div id="dashboardContent" class="min-w-0">
+        <div class="hidden">
+          <span id="statTotal">0</span><span id="statOpen">0</span><span id="statProgress">0</span><span id="statCompleted">0</span><span id="statOverdue">0</span>
+        </div>
 
-          <!-- FILTER BAR -->
-          <section class="sticky top-[64px] z-20 bg-brand-pending text-black rounded-xl shadow-sm p-3 mb-4">
-            <div class="flex flex-nowrap items-center gap-1 lg:gap-2.5 overflow-x-auto">
-              <!-- Search input -->
-              <div class="relative flex-1 min-w-[60px] lg:min-w-[280px]">
-                <svg class="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-width="1.8" stroke-linecap="round" d="m20 20-4.5-4.5m2-5.5a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" />
-                </svg>
-                <input id="searchInput" type="search" placeholder="Search SWOF NO, Location, Corporate..." class="w-full pl-8 pr-2 py-1.5 lg:py-2.5 rounded-lg border-0 bg-white text-black placeholder:text-black/40 text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal" />
-              </div>
-              <!-- Status dropdown -->
-              <select id="statusFilter" class="flex-1 min-w-[50px] lg:min-w-[120px] px-2 py-1.5 lg:py-2.5 rounded-lg border-0 bg-white text-black text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal truncate"></select>
-              <!-- Priority dropdown -->
-              <select id="priorityFilter" class="flex-1 min-w-[50px] lg:min-w-[120px] px-2 py-1.5 lg:py-2.5 rounded-lg border-0 bg-white text-black text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal truncate"></select>
-              <!-- Sort dropdown -->
-              <select id="sortSelect" class="flex-1 min-w-[50px] lg:min-w-[140px] px-2 py-1.5 lg:py-2.5 rounded-lg border-0 bg-white text-black text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal truncate">
-                <option value="created_desc">Newest Created</option>
-                <option value="created_asc">Oldest Created</option>
-                <option value="due_asc">Due Soonest</option>
-                <option value="title_asc">Title A–Z</option>
-              </select>
-              <!-- Clear button -->
-              <button id="clearFiltersBtn" type="button" class="px-2 lg:px-3 py-1.5 lg:py-2.5 rounded-lg bg-white/80 hover:bg-white text-black text-xs lg:text-sm font-semibold whitespace-nowrap flex-shrink-0 transition">
-                <span class="hidden sm:inline">Clear</span>
-                <svg class="w-4 h-4 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-width="2" stroke-linecap="round" d="M6 18L18 6M6 6l12 12" />
+        <!-- ===== FILTER BAR ===== -->
+        <section class="sticky top-[64px] z-20 bg-brand-pending text-black rounded-xl shadow-sm p-3 mb-4">
+          <div class="filter-bar-compact flex flex-wrap items-center gap-1 lg:gap-2.5 relative" id="dashboardFilterBar">
+            
+            <!-- Search -->
+            <div class="filter-control-wrapper" data-control="search">
+              <button class="filter-icon-btn sm:hidden" data-control="search" title="Search">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-width="2" stroke-linecap="round" d="m20 20-4.5-4.5m2-5.5a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" />
                 </svg>
               </button>
-              <!-- Refresh button -->
-              <button id="refreshBtn" type="button" class="inline-flex items-center justify-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 lg:py-2.5 rounded-lg bg-white/80 hover:bg-white text-black text-xs lg:text-sm font-semibold whitespace-nowrap flex-shrink-0 transition" title="Sync from cloud and reload">
-                <svg id="refreshIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-width="1.8" stroke-linecap="round" d="M20 11a8 8 0 0 0-15.3-3M4 5v4h4M4 13a8 8 0 0 0 15.3 3M20 19v-4h-4" />
-                </svg>
-                <span class="hidden sm:inline">Refresh</span>
-              </button>
-            </div>
-          </section>
-
-          <div id="dashboardContentGrid" class="grid grid-cols-1 gap-6 items-start">
-            <!-- WORK ORDERS -->
-            <section class="min-w-0 bg-white text-black rounded-xl shadow-sm p-4">
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                <div>
-                  <h2 class="text-base font-black text-black">Work Orders</h2>
-                  <p id="resultCount" class="text-xs text-black/50 mt-1"></p>
-                </div>
-                <div class="flex items-center gap-2">
-                  <button id="prevPageBtn" type="button" class="px-2.5 py-2 rounded-lg border border-black/10 text-xs font-bold text-black/60 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/5 transition">← Prev</button>
-                  <span id="pageInfo" class="min-w-[125px] text-center text-xs font-bold text-black/50">Page 1 • 0 of 0</span>
-                  <button id="nextPageBtn" type="button" class="px-2.5 py-2 rounded-lg border border-black/10 text-xs font-bold text-black/60 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/5 transition">Next →</button>
-                  <button id="mobileUndoBtn" type="button" class="sm:hidden inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg border border-black/10 text-xs font-bold text-black/60 disabled:opacity-40" disabled>↶ Undo</button>
-                </div>
-              </div>
-
-              <div id="workOrderGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch"></div>
-              
-              <div id="emptyState" class="hidden bg-white border border-dashed border-black/20 rounded-xl py-16 text-center">
-                <div class="text-3xl mb-2 text-black/30">⌕</div>
-                <h3 class="font-bold text-black/70">No work orders found</h3>
-                <p class="text-xs text-black/40 mt-1">Import your data to get started.</p>
-              </div>
-
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-black/10 mt-5 pt-4">
-                <p id="bottomResultCount" class="text-xs text-black/40"></p>
-                <div class="flex items-center gap-2 text-xs text-black/50">
-                  <span id="bottomPageInfo">Page 1 of 1</span><span>•</span><span>200 per page</span>
-                </div>
-              </div>
-            </section>
-
-            <!-- ADMIN IMPORT LAUNCHER -->
-            <section id="adminImportSection" class="bg-white text-black border border-black/10 rounded-2xl shadow-sm p-5">
-              <div class="flex items-start gap-3">
-                <div class="w-10 h-10 rounded-xl bg-brand-teal/10 text-brand-teal flex items-center justify-center shrink-0">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0 4 4m-4-4L8 8M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+              <div class="filter-control-expanded hidden sm:block absolute sm:static left-0 top-full mt-1 sm:mt-0 z-10 min-w-[200px] sm:min-w-0 sm:flex-1">
+                <div class="relative">
+                  <svg class="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-black/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-width="1.8" stroke-linecap="round" d="m20 20-4.5-4.5m2-5.5a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" />
                   </svg>
-                </div>
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <h2 class="font-black text-black">Admin Data Import</h2>
-                    <span class="inline-flex items-center px-2 py-1 rounded-full bg-brand-orange/20 text-brand-orange text-[9px] font-black">PRE-BACKEND</span>
-                  </div>
-                  <p class="text-xs text-black/50 mt-2 leading-5">Import Excel, CSV or pasted tables. Review the mapping and see the work-order cards that will be created before anything is saved.</p>
-                  <button id="openImportModalBtn" type="button" class="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white text-sm font-bold transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-width="1.8" stroke-linecap="round" d="M12 3v12m0-12 4 4m-4-4L8 7M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
-                    </svg>
-                    Open Import Center
-                  </button>
+                  <input id="searchInput" type="search" placeholder="Search SWOF NO, Location, Corporate..." class="w-full sm:flex-1 pl-8 pr-2 py-1.5 lg:py-2.5 rounded-lg border-0 bg-white text-black placeholder:text-black/40 text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal" />
                 </div>
               </div>
-              <div class="mt-4 rounded-xl border border-brand-success/20 bg-brand-success/10 p-3">
-                <p class="text-xs font-bold text-brand-success">Safe import workflow</p>
-                <p class="text-[10px] leading-4 text-brand-success/70 mt-1">Read → Auto-map → Preview actual cards → Confirm Import → Dashboard refreshes immediately.</p>
+            </div>
+
+            <!-- Status -->
+            <div class="filter-control-wrapper" data-control="status">
+              <button class="filter-icon-btn sm:hidden" data-control="status" title="Status">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-width="2" stroke-linecap="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+                </svg>
+              </button>
+              <div class="filter-control-expanded hidden sm:block absolute sm:static left-0 top-full mt-1 sm:mt-0 z-10 min-w-[160px] sm:min-w-0 sm:flex-1">
+                <select id="statusFilter" class="w-full sm:flex-1 min-w-[50px] lg:min-w-[120px] px-2 py-1.5 lg:py-2.5 rounded-lg border-0 bg-white text-black text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal truncate"></select>
               </div>
-            </section>
+            </div>
+
+            <!-- Priority -->
+            <div class="filter-control-wrapper" data-control="priority">
+              <button class="filter-icon-btn sm:hidden" data-control="priority" title="Priority">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-width="2" stroke-linecap="round" d="M5 9l7-4 7 4v10l-7 4-7-4V9z" />
+                </svg>
+              </button>
+              <div class="filter-control-expanded hidden sm:block absolute sm:static left-0 top-full mt-1 sm:mt-0 z-10 min-w-[160px] sm:min-w-0 sm:flex-1">
+                <select id="priorityFilter" class="w-full sm:flex-1 min-w-[50px] lg:min-w-[120px] px-2 py-1.5 lg:py-2.5 rounded-lg border-0 bg-white text-black text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal truncate"></select>
+              </div>
+            </div>
+
+            <!-- Sort -->
+            <div class="filter-control-wrapper" data-control="sort">
+              <button class="filter-icon-btn sm:hidden" data-control="sort" title="Sort">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-width="2" stroke-linecap="round" d="M3 7h18M3 12h14M3 17h10" />
+                </svg>
+              </button>
+              <div class="filter-control-expanded hidden sm:block absolute sm:static left-0 top-full mt-1 sm:mt-0 z-10 min-w-[160px] sm:min-w-0 sm:flex-1">
+                <select id="sortSelect" class="w-full sm:flex-1 min-w-[50px] lg:min-w-[140px] px-2 py-1.5 lg:py-2.5 rounded-lg border-0 bg-white text-black text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-brand-teal truncate">
+                  <option value="created_desc">Newest Created</option>
+                  <option value="created_asc">Oldest Created</option>
+                  <option value="due_asc">Due Soonest</option>
+                  <option value="title_asc">Title A–Z</option>
+                  <option value="priority">Priority (High→Low)</option>
+                  <option value="status">Status (A–Z)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Clear button -->
+            <button id="clearFiltersBtn" type="button" class="px-2 lg:px-3 py-1.5 lg:py-2.5 rounded-lg bg-white/80 hover:bg-white text-black text-xs lg:text-sm font-semibold whitespace-nowrap flex-shrink-0 transition flex items-center gap-1">
+              <span class="hidden sm:inline">Clear</span>
+              <svg class="w-4 h-4 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-width="2" stroke-linecap="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <!-- Refresh button -->
+            <button id="refreshBtn" type="button" class="inline-flex items-center justify-center gap-1 lg:gap-2 px-2 lg:px-3 py-1.5 lg:py-2.5 rounded-lg bg-white/80 hover:bg-white text-black text-xs lg:text-sm font-semibold whitespace-nowrap flex-shrink-0 transition">
+              <svg id="refreshIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-width="1.8" stroke-linecap="round" d="M20 11a8 8 0 0 0-15.3-3M4 5v4h4M4 13a8 8 0 0 0 15.3 3M20 19v-4h-4" />
+              </svg>
+              <span class="hidden sm:inline">Refresh</span>
+            </button>
           </div>
+        </section>
+
+        <div id="dashboardContentGrid" class="grid grid-cols-1 gap-6 items-start">
+          <!-- WORK ORDERS -->
+          <section class="min-w-0 bg-white text-black rounded-xl shadow-sm p-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h2 class="text-base font-black text-black">Work Orders</h2>
+                <p id="resultCount" class="text-xs text-black/50 mt-1"></p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button id="prevPageBtn" type="button" class="px-2.5 py-2 rounded-lg border border-black/10 text-xs font-bold text-black/60 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/5 transition">← Prev</button>
+                <span id="pageInfo" class="min-w-[125px] text-center text-xs font-bold text-black/50">Page 1 • 0 of 0</span>
+                <button id="nextPageBtn" type="button" class="px-2.5 py-2 rounded-lg border border-black/10 text-xs font-bold text-black/60 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-black/5 transition">Next →</button>
+                <button id="mobileUndoBtn" type="button" class="sm:hidden inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg border border-black/10 text-xs font-bold text-black/60 disabled:opacity-40" disabled>↶ Undo</button>
+              </div>
+            </div>
+
+            <div id="workOrderGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch"></div>
+            
+            <div id="emptyState" class="hidden bg-white border border-dashed border-black/20 rounded-xl py-16 text-center">
+              <div class="text-3xl mb-2 text-black/30">⌕</div>
+              <h3 class="font-bold text-black/70">No work orders found</h3>
+              <p class="text-xs text-black/40 mt-1">Import your data to get started.</p>
+            </div>
+
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-black/10 mt-5 pt-4">
+              <p id="bottomResultCount" class="text-xs text-black/40"></p>
+              <div class="flex items-center gap-2 text-xs text-black/50">
+                <span id="bottomPageInfo">Page 1 of 1</span><span>•</span><span>200 per page</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- ADMIN IMPORT LAUNCHER -->
+          <section id="adminImportSection" class="bg-white text-black border border-black/10 rounded-2xl shadow-sm p-5">
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 rounded-xl bg-brand-teal/10 text-brand-teal flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0 4 4m-4-4L8 8M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+                </svg>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h2 class="font-black text-black">Admin Data Import</h2>
+                  <span class="inline-flex items-center px-2 py-1 rounded-full bg-brand-orange/20 text-brand-orange text-[9px] font-black">PRE-BACKEND</span>
+                </div>
+                <p class="text-xs text-black/50 mt-2 leading-5">Import Excel, CSV or pasted tables. Review the mapping and see the work-order cards that will be created before anything is saved.</p>
+                <button id="openImportModalBtn" type="button" class="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white text-sm font-bold transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-width="1.8" stroke-linecap="round" d="M12 3v12m0-12 4 4m-4-4L8 7M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+                  </svg>
+                  Open Import Center
+                </button>
+              </div>
+            </div>
+            <div class="mt-4 rounded-xl border border-brand-success/20 bg-brand-success/10 p-3">
+              <p class="text-xs font-bold text-brand-success">Safe import workflow</p>
+              <p class="text-[10px] leading-4 text-brand-success/70 mt-1">Read → Auto-map → Preview actual cards → Confirm Import → Dashboard refreshes immediately.</p>
+            </div>
+          </section>
         </div>
       </div>
-    </main>
+    </div>
 
     <!-- ========================= IMPORT CENTER MODAL ========================= -->
     <div id="importModal" class="fixed inset-0 z-[70] hidden">
@@ -513,6 +615,7 @@
     </div>
 
     <!-- ========================= SECTION PAGES ========================= -->
+    <!-- CRITICAL: This div is a sibling of #dashboardMain and #sidebarNav -->
     <div id="sectionPage" class="hidden fixed left-0 xl:left-[182px] right-0 top-[64px] bottom-0 z-[35] bg-brand-dark text-white overflow-y-auto">
       <div class="max-w-[1500px] mx-auto px-5 lg:px-8 py-6">
         <div class="flex items-center justify-between gap-4 mb-6">

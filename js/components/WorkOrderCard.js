@@ -218,7 +218,7 @@ export function cardHTML(o) {
             <p class="text-[10px] text-black/40">Assigned user</p>
           </div>
         </div>
-        ${showPriority ? `<span class="px-2 py-1 rounded-md text-[10px] font-bold ${priorityClass(priorityVal)}">${esc(priorityVal)}</span>` : ''}
+        ${showPriority ? `<span class="px-2.5 py-1 rounded-md text-[10px] font-bold ${getPriorityColor(priorityVal)}">${esc(priorityVal)}</span>` : ''}
       </div>
     `;
   }

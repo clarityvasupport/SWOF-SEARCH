@@ -1229,3 +1229,113 @@ export function loadDriveImage(imgEl, sourceUrl, { size = 2048, onFail } = {}) {
   imgEl.onload = () => { imgEl.style.display = 'block'; };
   tryNext();
 }
+
+// ============================================================
+// FILTER BAR COLLAPSIBLE (mobile)
+// ============================================================
+
+/**
+ * Initialise a collapsible filter bar.
+ * @param {HTMLElement} container – the element with class .filter-bar-collapsible
+ * @param {Object} options
+ * @param {string} options.toggleLabel – label for the toggle button (e.g., "Search & Filter")
+ * @param {string} options.toggleIcon – SVG icon HTML (optional)
+ */
+export function initCollapsibleFilter(container, options = {}) {
+  if (!container) return;
+  // If already initialised, skip
+  if (container.dataset.filterInitialised === 'true') return;
+
+  const toggleLabel = options.toggleLabel || 'Search & Filter';
+  const toggleIcon = options.toggleIcon || `
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-width="2" stroke-linecap="round" d="M21 21l-4.5-4.5M16 10.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0Z" />
+    </svg>
+  `;
+
+  // 1. Wrap existing controls in a .filter-controls div if not already
+  let controls = container.querySelector('.filter-controls');
+  if (!controls) {
+    controls = document.createElement('div');
+    controls.className = 'filter-controls';
+    // Move all direct children (except the toggle btn) into controls
+    const children = Array.from(container.children);
+    children.forEach(child => {
+      if (!child.classList.contains('filter-toggle-btn')) {
+        controls.appendChild(child);
+      }
+    });
+    container.prepend(controls);
+  }
+
+  // 2. Create toggle button (if not exists)
+  let toggleBtn = container.querySelector('.filter-toggle-btn');
+  if (!toggleBtn) {
+    toggleBtn = document.createElement('button');
+    toggleBtn.className = 'filter-toggle-btn';
+    toggleBtn.type = 'button';
+    toggleBtn.setAttribute('aria-label', 'Toggle filters');
+    toggleBtn.innerHTML = `
+      ${toggleIcon}
+      <span>${toggleLabel}</span>
+    `;
+    container.prepend(toggleBtn);
+  }
+
+  // 3. Toggle logic
+  let expanded = false;
+
+  function expand() {
+    if (expanded) return;
+    expanded = true;
+    container.classList.add('filter-bar-expanded');
+    // Focus the first input inside controls
+    const firstInput = controls.querySelector('input, select, textarea');
+    if (firstInput) setTimeout(() => firstInput.focus(), 100);
+  }
+
+  function collapse() {
+    if (!expanded) return;
+    expanded = false;
+    container.classList.remove('filter-bar-expanded');
+  }
+
+  toggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    expand();
+  });
+
+  // Click outside collapses
+  document.addEventListener('click', function outsideClick(e) {
+    if (!expanded) return;
+    if (!container.contains(e.target)) {
+      collapse();
+    }
+  });
+
+  // Escape key collapses
+  document.addEventListener('keydown', function escapeHandler(e) {
+    if (e.key === 'Escape' && expanded) {
+      collapse();
+      // Optionally blur any focused input
+      if (document.activeElement) document.activeElement.blur();
+    }
+  });
+
+  // Optional: collapse when pressing "Cancel" or "Clear" inside?
+  // We'll handle that via the existing clear/refresh buttons.
+
+  // Mark as initialised
+  container.dataset.filterInitialised = 'true';
+
+  // On resize, if screen becomes large, ensure expanded is removed
+  const mediaQuery = window.matchMedia('(min-width: 640px)');
+  mediaQuery.addEventListener('change', (mq) => {
+    if (mq.matches && expanded) {
+      collapse();
+    }
+  });
+
+  // Return API to manually expand/collapse
+  return { expand, collapse, toggle: () => expanded ? collapse() : expand() };
+}

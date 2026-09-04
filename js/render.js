@@ -1,5 +1,6 @@
 // =========================================================
 // RENDER MODULE – core rendering, pagination, undo, actions
+// (v1.3.1 – compact icon‑only filter bar on mobile)
 // =========================================================
 
 // ---------- Imports ----------
@@ -13,6 +14,7 @@ import {
   saveUndoHistory,
   pushHistory,
   isOnline,
+  loadSharedState,
 } from './data.js';
 
 import {
@@ -205,6 +207,48 @@ export function render() {
   updateUndoButtons();
   toggleEditability();
   updateStorageBadge();
+
+  // =========================================================
+  // REFRESH BUTTON – sync from KV
+  // =========================================================
+  const refreshBtn = document.getElementById('refreshBtn');
+  if (refreshBtn) {
+    // Remove old listener to avoid duplicates
+    const newRefreshBtn = refreshBtn.cloneNode(true);
+    refreshBtn.parentNode.replaceChild(newRefreshBtn, refreshBtn);
+    
+    let isSyncing = false;
+    newRefreshBtn.addEventListener('click', async function() {
+      if (isSyncing) return;
+      isSyncing = true;
+      const originalText = this.innerHTML;
+      this.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-width="1.8" stroke-linecap="round" d="M20 11a8 8 0 0 0-15.3-3M4 5v4h4M4 13a8 8 0 0 0 15.3 3M20 19v-4h-4" />
+        </svg>
+        <span class="hidden sm:inline">Syncing…</span>
+      `;
+      this.disabled = true;
+
+      try {
+        await loadSharedState();
+        render();
+        toast('Dashboard synced from cloud.', 'success');
+      } catch (err) {
+        console.warn('Dashboard sync error:', err);
+        toast('Sync failed – using local data.', 'error');
+      } finally {
+        this.innerHTML = originalText;
+        this.disabled = false;
+        isSyncing = false;
+      }
+    });
+  }
+
+  // =========================================================
+  // MOBILE COMPACT FILTER BAR
+  // =========================================================
+  initDashboardFilterBar();
 }
 
 // ---------- Status change ----------
@@ -443,6 +487,81 @@ function updateStorageBadge() {
 
 function setCurrentPage(newPage) {
   currentPage = newPage;
+}
+
+// ============================================================
+// MOBILE FILTER BAR – compact icon‑only (Dashboard)
+// ============================================================
+
+let dashboardExpandedControl = null;
+
+function initDashboardFilterBar() {
+  const container = document.getElementById('dashboardFilterBar');
+  if (!container) return;
+  if (container.dataset.initialized === 'true') return;
+
+  const wrappers = container.querySelectorAll('.filter-control-wrapper');
+
+  wrappers.forEach(wrapper => {
+    const iconBtn = wrapper.querySelector('.filter-icon-btn');
+    const expandedDiv = wrapper.querySelector('.filter-control-expanded');
+
+    if (!iconBtn || !expandedDiv) return;
+
+    iconBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const controlId = this.dataset.control;
+
+      if (dashboardExpandedControl === controlId) {
+        collapseDashboardFilters();
+        return;
+      }
+      expandDashboardFilter(controlId);
+    });
+  });
+
+  // Click outside to collapse
+  document.addEventListener('click', function(e) {
+    if (!container.contains(e.target)) {
+      collapseDashboardFilters();
+    }
+  });
+
+  // Escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      collapseDashboardFilters();
+    }
+  });
+
+  // Resize: if screen becomes large, collapse all
+  const mediaQuery = window.matchMedia('(min-width: 640px)');
+  mediaQuery.addEventListener('change', (mq) => {
+    if (mq.matches) {
+      collapseDashboardFilters();
+    }
+  });
+
+  container.dataset.initialized = 'true';
+}
+
+function expandDashboardFilter(controlId) {
+  collapseDashboardFilters();
+  const wrapper = document.querySelector(`#dashboardFilterBar .filter-control-wrapper[data-control="${controlId}"]`);
+  if (!wrapper) return;
+  const expandedDiv = wrapper.querySelector('.filter-control-expanded');
+  if (!expandedDiv) return;
+  expandedDiv.classList.remove('hidden');
+  dashboardExpandedControl = controlId;
+  const input = expandedDiv.querySelector('input, select, textarea');
+  if (input) setTimeout(() => input.focus(), 100);
+}
+
+function collapseDashboardFilters() {
+  document.querySelectorAll('#dashboardFilterBar .filter-control-expanded').forEach(el => {
+    el.classList.add('hidden');
+  });
+  dashboardExpandedControl = null;
 }
 
 // ---------- Exports ----------

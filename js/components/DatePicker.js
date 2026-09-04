@@ -1,5 +1,6 @@
 // =========================================================
 // DatePicker – Range picker with Clear & Today
+// (v1.2.1 – popover attached to body to avoid clipping)
 // =========================================================
 
 /**
@@ -139,7 +140,7 @@ export function attachRangeDatePicker(startInput, endInput, options = {}) {
 
     html += `</div>`;
 
-    // --- Footer: Clear + Today buttons ---
+    // Footer: Clear + Today buttons
     html += `
       <div class="flex items-center justify-between mt-3 pt-3 border-t border-black/10">
         <button class="dp-clear text-xs font-bold text-red-500 hover:text-red-700 transition px-2 py-1 rounded hover:bg-red-50">Clear</button>
@@ -149,7 +150,7 @@ export function attachRangeDatePicker(startInput, endInput, options = {}) {
 
     popover.innerHTML = html;
 
-    // --- Day click ---
+    // Day clicks
     popover.querySelectorAll('[data-date]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -172,7 +173,7 @@ export function attachRangeDatePicker(startInput, endInput, options = {}) {
       });
     });
 
-    // --- Month nav ---
+    // Month nav
     popover.querySelector('.dp-prev-month').addEventListener('click', (e) => {
       e.stopPropagation();
       currentMonth.setMonth(currentMonth.getMonth() - 1);
@@ -184,30 +185,48 @@ export function attachRangeDatePicker(startInput, endInput, options = {}) {
       renderCalendar();
     });
 
-    // --- Clear button ---
+    // Clear button
     popover.querySelector('.dp-clear').addEventListener('click', (e) => {
       e.stopPropagation();
       clearRange();
     });
 
-    // --- Today button ---
+    // Today button
     popover.querySelector('.dp-today').addEventListener('click', (e) => {
       e.stopPropagation();
       setToday();
     });
   }
 
-  // --- Popover element ---
+  // --- Popover element (appended to body) ---
   const popover = document.createElement('div');
-  popover.className = 'date-picker-popover hidden absolute z-50 mt-1 bg-white rounded-xl shadow-2xl border border-black/10 p-3 w-[280px]';
+  popover.className = 'date-picker-popover hidden fixed z-[9999] mt-1 bg-white rounded-xl shadow-2xl border border-black/10 p-3 w-[280px]';
   popover.setAttribute('role', 'dialog');
   popover.setAttribute('aria-label', 'Date range picker');
+  document.body.appendChild(popover);
 
+  // --- Wrap inputs in a container for layout (no popover inside) ---
   const wrapper = document.createElement('div');
   wrapper.style.position = 'relative';
+  wrapper.style.display = 'inline-flex';
+  wrapper.style.alignItems = 'center';
   startInput.parentNode.insertBefore(wrapper, startInput);
   wrapper.appendChild(startInput);
-  wrapper.appendChild(popover);
+
+  // Ensure the second input is also placed inside the wrapper (it might be adjacent)
+  // We need to move endInput into the wrapper as well, preserving order.
+  // Since the inputs are siblings in the DOM, we'll move endInput after startInput.
+  const endInputParent = endInput.parentNode;
+  if (endInputParent === wrapper.parentNode) {
+    // If they are siblings, we can just append endInput to wrapper.
+    wrapper.appendChild(endInput);
+  } else {
+    // Fallback: if they are not siblings, we still need to place endInput inside the wrapper.
+    // We'll move it.
+    endInputParent.insertBefore(wrapper, endInput);
+    wrapper.appendChild(endInput);
+    // But the original endInput might be elsewhere; ensure we have it.
+  }
 
   // --- Toggle popover ---
   function togglePopover(e) {
@@ -230,18 +249,27 @@ export function attachRangeDatePicker(startInput, endInput, options = {}) {
       currentMonth = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
     }
     renderCalendar();
+
+    // Position popover relative to startInput
     const rect = startInput.getBoundingClientRect();
-    popover.style.top = (rect.height + 4) + 'px';
-    popover.style.left = '0';
     const popoverRect = popover.getBoundingClientRect();
+    let left = rect.left + window.scrollX;
+    let top = rect.bottom + window.scrollY + 4;
+
+    // Adjust to stay within viewport
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    if (popoverRect.right > vw) {
-      popover.style.left = (vw - popoverRect.width - 10) + 'px';
+    if (left + popoverRect.width > vw) {
+      left = vw - popoverRect.width - 10;
     }
-    if (popoverRect.bottom > vh) {
-      popover.style.top = (rect.top - popoverRect.height - 10) + 'px';
+    if (left < 10) left = 10;
+    if (top + popoverRect.height > vh + window.scrollY) {
+      top = rect.top + window.scrollY - popoverRect.height - 4;
     }
+    if (top < window.scrollY + 10) top = window.scrollY + 10;
+
+    popover.style.left = left + 'px';
+    popover.style.top = top + 'px';
   }
 
   function closePopover() {
@@ -250,7 +278,7 @@ export function attachRangeDatePicker(startInput, endInput, options = {}) {
     isOpen = false;
   }
 
-  // --- Click toggles ---
+  // Click toggles
   startInput.addEventListener('click', togglePopover);
   endInput.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -258,14 +286,14 @@ export function attachRangeDatePicker(startInput, endInput, options = {}) {
     startInput.focus();
   });
 
-  // --- Close on outside click ---
+  // Close on outside click
   document.addEventListener('click', (e) => {
     if (!wrapper.contains(e.target) && !popover.contains(e.target)) {
       closePopover();
     }
   });
 
-  // --- Keyboard: Escape closes ---
+  // Keyboard: Escape closes
   startInput.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       closePopover();
@@ -273,7 +301,7 @@ export function attachRangeDatePicker(startInput, endInput, options = {}) {
     }
   });
 
-  // --- Set initial values ---
+  // Set initial values
   if (initialStart) {
     rangeStart = parseDate(initialStart);
     startInput.value = initialStart;
@@ -287,7 +315,15 @@ export function attachRangeDatePicker(startInput, endInput, options = {}) {
 
   // --- Public API ---
   return {
-    destroy: () => wrapper.remove(),
+    destroy: () => {
+      popover.remove();
+      // Remove the wrapper and put inputs back as siblings? We'll just remove wrapper.
+      // But we need to keep the inputs in the DOM. We'll detach children from wrapper.
+      while (wrapper.firstChild) {
+        wrapper.parentNode.insertBefore(wrapper.firstChild, wrapper);
+      }
+      wrapper.remove();
+    },
     setRange: (start, end) => {
       rangeStart = start ? parseDate(start) : null;
       rangeEnd = end ? parseDate(end) : null;
