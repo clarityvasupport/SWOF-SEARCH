@@ -12,6 +12,7 @@ import { render as renderUsers } from './pages/users.js';
 import { render as renderSettings } from './pages/settings.js';
 import { closeDrawer, selectedId, openDrawer } from './components/Drawer.js';
 import { openImportModal } from './pages/import.js';
+import { orders } from './data.js';
 
 let currentPage = 'dashboard';
 
@@ -81,7 +82,7 @@ function handleRoute() {
     }
     closeDrawer();
     // Check if the order actually exists before trying to open it
-    const orderExists = window.orders ? window.orders.some(o => o.id === id) : false;
+    const orderExists = orders.some(o => o.id === id);
     if (!orderExists) {
       console.warn(`[router] Order with id "${id}" not found – navigating to dashboard`);
       navigateTo('dashboard');
