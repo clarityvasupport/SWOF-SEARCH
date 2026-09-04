@@ -1,6 +1,6 @@
 // =========================================================
 // ROUTER – hash-based navigation (with dashboard hide/show)
-// (v1.3.20 – force re-render when hash is unchanged)
+// (v1.3.21 – decode URI component for order IDs)
 // =========================================================
 
 import { render as renderAllOrders } from './pages/allOrders.js';
@@ -16,10 +16,9 @@ import { openImportModal } from './pages/import.js';
 let currentPage = 'dashboard';
 
 export function navigateTo(page, params = {}) {
-  const hash = `#${page}` + (params.id ? `/${params.id}` : '');
+  const hash = `#${page}` + (params.id ? `/${encodeURIComponent(params.id)}` : '');
   console.log(`[router] navigateTo called: ${hash}`);
 
-  // If the hash is already the same, force a re-render by dispatching a hashchange event.
   if (window.location.hash === hash) {
     console.log('[router] hash is already the same – forcing re-render');
     window.dispatchEvent(new HashChangeEvent('hashchange'));
@@ -38,7 +37,10 @@ function handleRoute() {
   const hash = window.location.hash.slice(1) || 'dashboard';
   console.log(`[router] handleRoute called with hash: "${hash}"`);
 
-  const [page, id] = hash.split('/');
+  const [rawPage, rawId] = hash.split('/');
+  const page = rawPage;
+  // Decode the ID – important for spaces and special characters
+  const id = rawId ? decodeURIComponent(rawId) : null;
   console.log(`[router] parsed page: "${page}", id: "${id || 'none'}"`);
 
   let sectionPage = document.getElementById('sectionPage');
@@ -71,6 +73,13 @@ function handleRoute() {
       return;
     }
     closeDrawer();
+    // Try to open the drawer; if it fails (order not found), navigate back to the current page.
+    const orderExists = orders.some(o => o.id === id);
+    if (!orderExists) {
+      console.warn(`[router] Order with id "${id}" not found – navigating to dashboard`);
+      navigateTo('dashboard');
+      return;
+    }
     openDrawer(id);
     return;
   }
@@ -148,7 +157,6 @@ function handleRoute() {
   sectionPage.style.zIndex = '35';
   sectionPage.style.background = '#1E1E1C';
   sectionPage.style.overflowY = 'auto';
-  // Let the xl:left-[182px] class handle left on large screens; we don't set left/right/width here.
 
   document.body.classList.add('overflow-hidden');
   currentPage = page;
