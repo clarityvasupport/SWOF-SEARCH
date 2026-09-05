@@ -5,7 +5,7 @@
 
 import { orders, displayConfig, saveDisplayConfig, loadOrders, loadSharedState } from '../data.js';
 import { esc, normalize, parseDateValue, formatDate, statusClass, getPriorityColor, getAssigneeColor, displayValue, toast } from '../utils.js';
-import { getAllFieldConfigs, getOrderedFieldConfigs, getAvailableDateFields } from '../importHelpers.js';
+import { getAllFieldConfigs, getAvailableDateFields } from '../importHelpers.js';
 import { openDrawer } from '../components/Drawer.js';
 import { attachRangeDatePicker } from '../components/DatePicker.js';
 
@@ -91,7 +91,26 @@ function _doRender() {
     datePickerInstance = null;
   }
 
-  const fieldConfigs = getOrderedFieldConfigs();
+  // ---- Build fieldConfigs with custom field order ----
+  const allConfigs = getAllFieldConfigs();
+  const customOrder = displayConfig.customFieldOrder || [];
+  const coreKeys = Object.keys(allConfigs).filter(k => !k.startsWith('custom_'));
+  const customKeys = Object.keys(allConfigs).filter(k => k.startsWith('custom_'));
+  // Sort custom keys by the user-defined order
+  const sortedCustomKeys = [...customKeys].sort((a, b) => {
+    const idxA = customOrder.indexOf(a);
+    const idxB = customOrder.indexOf(b);
+    if (idxA === -1 && idxB === -1) return 0;
+    if (idxA === -1) return 1;
+    if (idxB === -1) return -1;
+    return idxA - idxB;
+  });
+  const orderedKeys = [...coreKeys, ...sortedCustomKeys];
+  const fieldConfigs = {};
+  orderedKeys.forEach(key => {
+    fieldConfigs[key] = allConfigs[key];
+  });
+  // Now fieldConfigs contains all fields with custom fields in the correct order
 
   // Build filter dropdowns
   const statuses = [...new Set(orders.map(o => o.status).filter(Boolean))].sort();

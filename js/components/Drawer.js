@@ -118,42 +118,18 @@ export function renderDrawer(id) {
   const detailsGridHTML = uniqueGridItems.map(item => detailBox(item.label, item.value, o.id)).join('');
 
   // ---- CUSTOM FIELDS ----
-  const globalCustomKeys = Object.keys(fieldConfigs).filter(k => k.startsWith('custom_'));
-  const globalCustomFields = globalCustomKeys
-    .filter(k => fieldConfigs[k].showOnCard !== false)
-    .map(k => {
-      const cfg = fieldConfigs[k];
-      const label = cfg.label || k;
-      const source = cfg.source || '';
-      const value = source ? displayValue(o, source) : '';
-      return { label, value };
-    })
-    .filter(f => f.label && f.value);
+  // The shared helper is the single source of truth for
+  // custom-field ordering and value resolution.
 
-  const perOrderFields = (o.customFields || [])
-    .filter(f => {
-      const hasLabel = f.label && f.label.trim() !== '';
-      const hasValue = (f.value && f.value.trim() !== '') || (f._sourceHeader && f._sourceHeader.trim() !== '');
-      return hasLabel && hasValue;
-    })
-    .filter(f => !globalCustomFields.some(g => g.label === f.label))
-    .map(f => ({
-      label: f.label,
-      value: customFieldValue(o, f.label) || f.value || ''
-    }))
-    .filter(f => f.label && f.value);
-
-  const allCustomFields = [];
-  const seenCustomLabels = new Set();
-  [...globalCustomFields, ...perOrderFields].forEach(f => {
-    if (!seenCustomLabels.has(f.label)) {
-      seenCustomLabels.add(f.label);
-      allCustomFields.push(f);
-    }
-  });
+  const allCustomFields = buildOrderedDrawerCustomFields(
+    o,
+    fieldConfigs
+  );
 
   const customFieldsHTML = allCustomFields.length
-    ? allCustomFields.map(f => detailBox(f.label, f.value, o.id)).join('')
+    ? allCustomFields
+        .map(f => detailBox(f.label, f.value, o.id))
+        .join('')
     : '<p class="text-xs text-black/40 col-span-2">No custom fields yet. Click "Add Field" to add one.</p>';
 
   // ---- ACTIVITY ----
@@ -311,7 +287,199 @@ export function renderDrawer(id) {
   if (typeof window.updateUndoButtons === 'function') window.updateUndoButtons();
 }
 
-// ---- Helper functions ----
+/**
+ * Refresh only the custom fields section of the drawer
+ * – used by Settings after reordering fields.
+ * Now rebuilds the entire drawer to ensure all changes apply.
+ */
+export function refreshDrawerCustomFields() {
+  if (selectedId === null) return;
+  renderDrawer(selectedId);
+}
+
+// =========================================================
+// SHARED CUSTOM FIELD BUILDER
+// =========================================================
+//
+// This is the single source of truth for custom-field
+// display order inside the Drawer.
+//
+// Priority:
+//   1. displayConfig.customFieldOrder
+//   2. Any configured custom fields missing from that order
+//   3. Per-work-order custom fields that are not globally configured
+//
+// The stored o.customFields array is NOT used to determine
+// the order of globally configured fields.
+//
+
+function buildOrderedDrawerCustomFields(o, fieldConfigs = getAllFieldConfigs()) {
+  if (!o) return [];
+
+  const customOrder = Array.isArray(displayConfig.customFieldOrder)
+    ? displayConfig.customFieldOrder
+    : [];
+
+  // -------------------------------------------------------
+  // ALL GLOBALLY CONFIGURED CUSTOM FIELD LABELS
+  // -------------------------------------------------------
+  //
+  // Drawer visibility is intentionally independent of
+  // showOnCard. The "showOnCard" setting controls cards only.
+  // Configured custom fields must still appear in the Drawer.
+  //
+  const globalCustomKeys = Object.keys(fieldConfigs)
+    .filter(key => key.startsWith('custom_'));
+
+  const globallyConfiguredLabels = new Set(
+    globalCustomKeys
+      .map(key => String(fieldConfigs[key]?.label || key).trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  // -------------------------------------------------------
+  // ORDER GLOBAL CUSTOM FIELDS USING SETTINGS ORDER
+  // -------------------------------------------------------
+
+  const orderedKeys = customOrder.filter(key =>
+    globalCustomKeys.includes(key)
+  );
+
+  // Include configured fields that are not yet present in
+  // customFieldOrder, preserving their configuration order.
+  const unorderedKeys = globalCustomKeys.filter(key =>
+    !customOrder.includes(key)
+  );
+
+  const finalKeys = [
+    ...orderedKeys,
+    ...unorderedKeys,
+  ];
+
+  // -------------------------------------------------------
+  // BUILD GLOBAL CUSTOM FIELDS
+  // -------------------------------------------------------
+  //
+  // Do NOT filter by cfg.showOnCard here.
+  // Drawer fields must follow Settings order regardless
+  // of whether they are shown on the work-order cards.
+  //
+  const globalCustomFields = [];
+
+  finalKeys.forEach(key => {
+    const cfg = fieldConfigs[key];
+    if (!cfg) return;
+
+    const label = String(cfg.label || key).trim();
+    const source = String(cfg.source || '').trim();
+
+    if (!label) return;
+
+    let value = source
+      ? displayValue(o, source)
+      : '';
+
+    // If the mapped source has no value, fall back to the
+    // matching custom field on this specific work order.
+    if (
+      value === undefined ||
+      value === null ||
+      String(value).trim() === ''
+    ) {
+      const fallbackValue = customFieldValue(o, label);
+      if (
+        fallbackValue !== undefined &&
+        fallbackValue !== null &&
+        String(fallbackValue).trim() !== ''
+      ) {
+        value = fallbackValue;
+      }
+    }
+
+    if (
+      value !== undefined &&
+      value !== null &&
+      String(value).trim() !== ''
+    ) {
+      globalCustomFields.push({
+        key,
+        label,
+        value: String(value).trim(),
+      });
+    }
+  });
+
+  // -------------------------------------------------------
+  // PER-ORDER CUSTOM FIELDS
+  // -------------------------------------------------------
+  //
+  // Only append fields that are not globally configured.
+  // This prevents globally configured fields from appearing
+  // a second time in their old insertion order.
+  //
+  const perOrderFields = (
+    Array.isArray(o.customFields)
+      ? o.customFields
+      : []
+  )
+    .filter(field => {
+      if (!field) return false;
+
+      const label = String(field.label || '').trim();
+      const value = String(field.value ?? '').trim();
+      const source = String(field._sourceHeader || '').trim();
+
+      return !!label && (!!value || !!source);
+    })
+    .filter(field => {
+      const label = String(field.label || '')
+        .trim()
+        .toLowerCase();
+
+      return !globallyConfiguredLabels.has(label);
+    })
+    .map(field => {
+      const label = String(field.label || '').trim();
+
+      const resolvedValue = customFieldValue(o, label);
+
+      const finalValue =
+        resolvedValue !== undefined &&
+        resolvedValue !== null &&
+        String(resolvedValue).trim() !== ''
+          ? resolvedValue
+          : field.value || '';
+
+      return {
+        key: null,
+        label,
+        value: String(finalValue).trim(),
+      };
+    })
+    .filter(field => field.label && field.value);
+
+  // -------------------------------------------------------
+  // FINAL DEDUPLICATION
+  // -------------------------------------------------------
+
+  const result = [];
+  const seenLabels = new Set();
+
+  [...globalCustomFields, ...perOrderFields].forEach(field => {
+    const normalizedLabel = String(field.label || '')
+      .trim()
+      .toLowerCase();
+
+    if (!normalizedLabel) return;
+    if (seenLabels.has(normalizedLabel)) return;
+
+    seenLabels.add(normalizedLabel);
+    result.push(field);
+  });
+
+  return result;
+}
+
 function detailBox(label, value, orderId) {
   return `<div class="bg-black/5 rounded-lg p-3"><p class="text-[10px] text-black/40 font-semibold">${esc(label)}</p><div class="mt-1 text-sm font-bold text-black/80 break-words">${formatFieldValue(value, orderId)}</div></div>`;
 }
@@ -507,49 +675,45 @@ export function renderDrawerCustomFieldsEditor(o, emptyFields) {
 
 export function updateDrawerCustomFieldsDisplay(o) {
   const list = document.getElementById('drawerCustomFieldsList');
-  if (!list) return;
+
+  if (!list || !o) return;
+
   const fieldConfigs = getAllFieldConfigs();
-  const globalCustomKeys = Object.keys(fieldConfigs).filter(k => k.startsWith('custom_'));
-  const globalCustomFields = globalCustomKeys
-    .filter(k => fieldConfigs[k].showOnCard !== false)
-    .map(k => {
-      const cfg = fieldConfigs[k];
-      const label = cfg.label || k;
-      const source = cfg.source || '';
-      const value = source ? displayValue(o, source) : '';
-      return { label, value };
-    })
-    .filter(f => f.label && f.value);
-  const perOrderFields = (o.customFields || [])
-    .filter(f => {
-      const hasLabel = f.label && f.label.trim() !== '';
-      const hasValue = (f.value && f.value.trim() !== '') || (f._sourceHeader && f._sourceHeader.trim() !== '');
-      return hasLabel && hasValue;
-    })
-    .filter(f => !globalCustomFields.some(g => g.label === f.label))
-    .map(f => ({
-      label: f.label,
-      value: customFieldValue(o, f.label) || f.value || ''
-    }))
-    .filter(f => f.label && f.value);
-  const allCustomFields = [];
-  const seenLabels = new Set();
-  [...globalCustomFields, ...perOrderFields].forEach(f => {
-    if (!seenLabels.has(f.label)) {
-      seenLabels.add(f.label);
-      allCustomFields.push(f);
-    }
-  });
+
+  // -------------------------------------------------------
+  // USE THE EXACT SAME BUILDER AS renderDrawer()
+  // -------------------------------------------------------
+  //
+  // This prevents the live-update path from using a
+  // different ordering/value-resolution system.
+  //
+
+  const allCustomFields = buildOrderedDrawerCustomFields(
+    o,
+    fieldConfigs
+  );
+
+  // -------------------------------------------------------
+  // RENDER
+  // -------------------------------------------------------
 
   if (!allCustomFields.length) {
-    list.innerHTML = '<p class="text-xs text-black/40">No custom fields yet. Click "Add Field" to add one.</p>';
+    list.innerHTML = `
+      <p class="text-xs text-black/40 col-span-2">
+        No custom fields yet. Click "Add Field" to add one.
+      </p>
+    `;
     return;
   }
+
   list.innerHTML = allCustomFields
-    .map(f => {
-      const actualValue = customFieldValue(o, f.label) || f.value || '';
-      return `<div class="custom-field-item bg-black/5 rounded-lg p-2 border border-black/10"><strong class="text-black/60">${esc(f.label)}</strong> <span class="text-black/80">${formatFieldValue(actualValue)}</span></div>`;
-    })
+    .map(field =>
+      detailBox(
+        field.label,
+        field.value,
+        o.id
+      )
+    )
     .join('');
 }
 

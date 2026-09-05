@@ -16,6 +16,10 @@ import {
   addCustomFieldConfig,
 } from '../importHelpers.js';
 import { openConfirmationModal, closeConfirmationModal } from '../components/ConfirmModal.js';
+import { renderDrawer, selectedId, refreshDrawerCustomFields, openDrawer, closeDrawer } from '../components/Drawer.js';
+
+let fieldConfigOpen = false;
+let settingsListenersAttached = false;
 
 export function render() {
   const container = document.getElementById('sectionPageBody');
@@ -108,10 +112,33 @@ export function render() {
     </div>
   `;
 
-  // ---- Field config HTML (unchanged) ----
+  // ---- Field config HTML (with order management) ----
+  // Ensure customFieldOrder exists, but do NOT reorder it.
+  if (!displayConfig.customFieldOrder || !Array.isArray(displayConfig.customFieldOrder)) {
+    displayConfig.customFieldOrder = Object.keys(fieldConfigs).filter(k => k.startsWith('custom_'));
+    saveDisplayConfig();
+  }
+  // Remove any keys that no longer exist
+  displayConfig.customFieldOrder = displayConfig.customFieldOrder.filter(k => fieldConfigs[k]);
+  // Add any new custom keys that aren't in the order yet (append them)
+  const allCustomKeys = Object.keys(fieldConfigs).filter(k => k.startsWith('custom_'));
+  allCustomKeys.forEach(k => {
+    if (!displayConfig.customFieldOrder.includes(k)) {
+      displayConfig.customFieldOrder.push(k);
+    }
+  });
+  // Do NOT call saveDisplayConfig() here – save only when a change is made.
+
+  // Build the table rows with order-aware sorting for custom fields
+  const coreKeys = Object.keys(fieldConfigs).filter(k => !k.startsWith('custom_'));
+  const orderedCustomKeys = displayConfig.customFieldOrder.filter(k => fieldConfigs[k]);
+
+  // Combine: core fields first (in their natural order), then custom fields in the user's order
+  const allKeysInOrder = [...coreKeys, ...orderedCustomKeys];
+
   let fieldConfigHTML = `<div class="bg-white/5 border border-white/10 rounded-2xl p-5 mt-4">
     <h3 class="font-black text-white">Field Configuration</h3>
-    <p class="text-sm text-white/50 mt-1">Customize which fields appear on cards and in the All Work Orders table. Rename fields and map them to different headers.</p>
+    <p class="text-sm text-white/50 mt-1">Customize which fields appear on cards and in the All Work Orders table. Rename fields and map them to different headers. Use ↑/↓ arrows to reorder custom fields.</p>
     <div class="overflow-x-auto mt-4">
       <table class="w-full text-sm">
         <thead><tr class="border-b border-white/10">
@@ -123,16 +150,31 @@ export function render() {
           <th class="px-3 py-2 text-center text-white/60">Action</th>
         </tr></thead>
         <tbody id="fieldConfigTable">
-          ${Object.keys(fieldConfigs).map(key => {
+          ${allKeysInOrder.map((key, index) => {
             const cfg = fieldConfigs[key];
             const isCustom = key.startsWith('custom_');
+            const isFirst = isCustom && index === coreKeys.length;
+            const isLast = isCustom && index === allKeysInOrder.length - 1;
             return `<tr class="border-b border-white/10">
               <td class="px-3 py-2 text-white/70">${esc(cfg.label || key)}</td>
               <td class="px-3 py-2"><input class="field-input-sm bg-black/20 text-white border-white/20" data-field-key="${esc(key)}" data-field-property="label" value="${esc(cfg.label || key)}" placeholder="Label"></td>
               <td class="px-3 py-2"><select class="field-input-sm bg-black/30 text-white border-white/20" data-field-key="${esc(key)}" data-field-property="source"><option value="${esc(cfg.source)}" selected>${esc(cfg.source)}</option>${allHeaders.map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join('')}</select></td>
               <td class="px-3 py-2 text-center"><input type="checkbox" data-field-key="${esc(key)}" data-field-property="showOnCard" ${cfg.showOnCard !== false ? 'checked' : ''} class="rounded"></td>
               <td class="px-3 py-2 text-center"><input type="checkbox" data-field-key="${esc(key)}" data-field-property="showInTable" ${cfg.showInTable !== false ? 'checked' : ''} class="rounded"></td>
-              <td class="px-3 py-2 text-center">${isCustom ? `<button data-remove-field="${esc(key)}" class="text-red-500 hover:text-red-400">✕</button>` : '<span class="text-black/30 text-xs">—</span>'}</td>
+              <td class="px-2 md:px-3 py-2 text-center">
+                ${isCustom ? `
+                  <div class="flex items-center justify-center gap-4">
+                    <button data-move-field="${esc(key)}" data-direction="up" 
+                            class="w-10 h-10 rounded hover:bg-white/20 text-white/90 hover:text-white text-2xl font-bold transition disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center" 
+                            title="Move up" ${isFirst ? 'disabled' : ''}>↑</button>
+                    <button data-move-field="${esc(key)}" data-direction="down" 
+                            class="w-10 h-10 rounded hover:bg-white/20 text-white/90 hover:text-white text-2xl font-bold transition disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center" 
+                            title="Move down" ${isLast ? 'disabled' : ''}>↓</button>
+                    <button data-remove-field="${esc(key)}" 
+                            class="w-10 h-10 rounded hover:bg-red-500/30 text-red-400 hover:text-red-300 text-2xl font-bold transition flex items-center justify-center">✕</button>
+                  </div>
+                ` : '<span class="text-black/30 text-[10px]">—</span>'}
+              </td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -253,7 +295,7 @@ export function render() {
     <!-- ============================================================
          ACCORDION: FIELD CONFIGURATION (THE TABLE)
          ============================================================ -->
-    <details>
+    <details id="fieldConfigDetails">
       <summary class="cursor-pointer list-none flex flex-wrap items-center justify-between gap-1 sm:gap-2 p-3 sm:p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition">
         <div class="flex items-center gap-2 sm:gap-3">
           <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -266,7 +308,6 @@ export function render() {
       <div class="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5 mt-1">
         <p class="text-xs sm:text-sm text-white/50">Customize which fields appear on cards and in the All Work Orders table. Rename fields and map them to different headers.</p>
         <div class="overflow-x-auto mt-4 -mx-2 sm:mx-0">
-          <!-- Table now has a minimum width so it scrolls horizontally on small screens -->
           <table class="w-full text-xs sm:text-sm min-w-[700px]">
             <thead><tr class="border-b border-white/10">
               <th class="px-2 md:px-3 py-2 text-left text-white/60 font-bold">Field</th>
@@ -277,16 +318,31 @@ export function render() {
               <th class="px-2 md:px-3 py-2 text-center text-white/60 font-bold">Action</th>
             </tr></thead>
             <tbody id="fieldConfigTable">
-              ${Object.keys(fieldConfigs).map(key => {
+              ${allKeysInOrder.map((key, index) => {
                 const cfg = fieldConfigs[key];
                 const isCustom = key.startsWith('custom_');
+                const isFirst = isCustom && index === coreKeys.length;
+                const isLast = isCustom && index === allKeysInOrder.length - 1;
                 return `<tr class="border-b border-white/10">
                   <td class="px-2 md:px-3 py-2 text-white/70 text-[10px] sm:text-xs font-semibold">${esc(cfg.label || key)}</td>
                   <td class="px-2 md:px-3 py-2"><input class="w-full field-input-sm bg-black/20 text-white border-white/20 text-[10px] sm:text-xs" data-field-key="${esc(key)}" data-field-property="label" value="${esc(cfg.label || key)}" placeholder="Label"></td>
                   <td class="px-2 md:px-3 py-2"><select class="w-full field-input-sm bg-black/30 text-white border-white/20 text-[10px] sm:text-xs" data-field-key="${esc(key)}" data-field-property="source"><option value="${esc(cfg.source)}" selected>${esc(cfg.source)}</option>${allHeaders.map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join('')}</select></td>
                   <td class="px-2 md:px-3 py-2 text-center"><input type="checkbox" data-field-key="${esc(key)}" data-field-property="showOnCard" ${cfg.showOnCard !== false ? 'checked' : ''} class="rounded w-3.5 h-3.5 sm:w-4 sm:h-4"></td>
                   <td class="px-2 md:px-3 py-2 text-center"><input type="checkbox" data-field-key="${esc(key)}" data-field-property="showInTable" ${cfg.showInTable !== false ? 'checked' : ''} class="rounded w-3.5 h-3.5 sm:w-4 sm:h-4"></td>
-                  <td class="px-2 md:px-3 py-2 text-center">${isCustom ? `<button data-remove-field="${esc(key)}" class="text-red-500 hover:text-red-400 text-sm">✕</button>` : '<span class="text-black/30 text-[10px]">—</span>'}</td>
+                  <td class="px-2 md:px-3 py-2 text-center">
+                    ${isCustom ? `
+                      <div class="flex items-center justify-center gap-2 w-full">
+                        <button data-move-field="${esc(key)}" data-direction="up" 
+                                class="flex-1 min-h-[44px] rounded hover:bg-white/20 text-white/90 hover:text-white text-2xl font-bold transition disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center" 
+                                title="Move up" ${isFirst ? 'disabled' : ''}>↑</button>
+                        <button data-move-field="${esc(key)}" data-direction="down" 
+                                class="flex-1 min-h-[44px] rounded hover:bg-white/20 text-white/90 hover:text-white text-2xl font-bold transition disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center" 
+                                title="Move down" ${isLast ? 'disabled' : ''}>↓</button>
+                        <button data-remove-field="${esc(key)}" 
+                                class="flex-1 min-h-[44px] rounded hover:bg-red-500/30 text-red-400 hover:text-red-300 text-2xl font-bold transition flex items-center justify-center">✕</button>
+                      </div>
+                    ` : '<span class="text-black/30 text-[10px]">—</span>'}
+                  </td>
                 </tr>`;
               }).join('')}
             </tbody>
@@ -310,7 +366,7 @@ export function render() {
       </div>
     </details>
   </div>`;
-
+  
   // ---- Render calendar checkboxes ----
   renderCalendarCheckboxes();
 
@@ -376,7 +432,35 @@ export function render() {
     });
   }
 
-  // ---- Field config events (unchanged) ----
+  // ---- Field config events ----
+  // ---- Handle Field Configuration accordion state and prevent closing ----
+  const fieldConfigDetails = document.getElementById('fieldConfigDetails');
+  if (fieldConfigDetails) {
+    // Restore open state after re-render
+    if (fieldConfigOpen) {
+      fieldConfigDetails.setAttribute('open', '');
+    } else {
+      fieldConfigDetails.removeAttribute('open');
+    }
+
+    // Prevent closing when clicking the summary (allow open only)
+    const summary = fieldConfigDetails.querySelector('summary');
+    if (summary) {
+      summary.addEventListener('click', function(e) {
+        if (fieldConfigDetails.hasAttribute('open')) {
+          // Currently open → prevent default (which would close it)
+          e.preventDefault();
+          // fieldConfigOpen remains true
+        } else {
+          // Currently closed → allow native toggle to open it
+          // After the click, it will be open, so set the flag
+          fieldConfigOpen = true;
+        }
+      });
+    }
+  }
+
+  if (!settingsListenersAttached) {
   document.addEventListener('change', function(e) {
     const target = e.target;
     if (target.dataset.fieldKey && target.dataset.fieldProperty) {
@@ -391,6 +475,9 @@ export function render() {
       window.render();
     }
   });
+  }
+
+    if (!settingsListenersAttached) {
   document.addEventListener('input', function(e) {
     const target = e.target;
     if (target.dataset.fieldKey && target.dataset.fieldProperty && target.type !== 'checkbox') {
@@ -404,6 +491,53 @@ export function render() {
       window.render();
     }
   });
+  }
+
+    // ---- Move custom field up/down (with full drawer refresh) ----
+  if (!settingsListenersAttached) {
+  document.addEventListener('click', function(e) {
+    const target = e.target.closest('[data-move-field]');
+    if (!target) return;
+
+    e.stopPropagation();
+    e.preventDefault();
+    e.stopImmediatePropagation();
+
+    if (!window.requireLogin || !window.requireLogin()) return;
+
+    const key = target.dataset.moveField;
+    const direction = target.dataset.direction;
+    if (!key || !direction) return;
+
+    const order = displayConfig.customFieldOrder || [];
+    const currentIndex = order.indexOf(key);
+    if (currentIndex === -1) {
+      order.push(key);
+      displayConfig.customFieldOrder = order;
+      saveDisplayConfig();
+      render(); // rebuild Settings page
+      if (selectedId !== null) {
+        setTimeout(() => {
+          renderDrawer(selectedId);
+        }, 50);
+      }
+      return;
+    }
+
+    let newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= order.length) return;
+
+    [order[currentIndex], order[newIndex]] = [order[newIndex], order[currentIndex]];
+    displayConfig.customFieldOrder = order;
+    saveDisplayConfig();
+    render(); // rebuild Settings page
+    if (selectedId !== null) {
+      setTimeout(() => {
+        renderDrawer(selectedId);
+      }, 50);
+    }
+  });
+  }
 
   document.getElementById('addFieldConfigBtn').addEventListener('click', function() {
     if (!window.requireLogin || !window.requireLogin()) return;
@@ -440,12 +574,20 @@ export function render() {
     const newKey = addCustomFieldConfig(label, source);
     ensureFieldInAllOrders(label, source);
 
+    // Append to custom order
+    if (!displayConfig.customFieldOrder) displayConfig.customFieldOrder = [];
+    if (!displayConfig.customFieldOrder.includes(newKey)) {
+      displayConfig.customFieldOrder.push(newKey);
+      saveDisplayConfig();
+    }
+
     document.getElementById('addFieldRow').style.display = 'none';
     window.render();
     render();
     toast(`✅ Field "${label}" added to all orders.`, 'success');
   });
 
+    if (!settingsListenersAttached) {
   document.addEventListener('click', function(e) {
     const target = e.target.closest('#resetFieldConfigBtn');
     if (target) {
@@ -514,6 +656,8 @@ export function render() {
             Object.keys(displayConfig.fieldConfig).forEach(key => {
               if (key.startsWith('custom_')) delete displayConfig.fieldConfig[key];
             });
+            // Clear custom order
+            displayConfig.customFieldOrder = [];
             orders.forEach(o => {
               if (Array.isArray(o.customFields)) {
                 o.customFields = o.customFields.filter(f => !f.label || !f._sourceHeader);
@@ -530,7 +674,9 @@ export function render() {
       }
     }
   });
+  }
 
+  if (!settingsListenersAttached) {
   document.addEventListener('click', function(e) {
     const target = e.target.closest('[data-remove-field]');
     if (target) {
@@ -551,6 +697,11 @@ export function render() {
           });
           saveOrders();
           removeCustomFieldConfig(key);
+          // Remove from order
+          if (displayConfig.customFieldOrder) {
+            displayConfig.customFieldOrder = displayConfig.customFieldOrder.filter(k => k !== key);
+            saveDisplayConfig();
+          }
           window.render();
           render();
           toast(`✅ Removed field "${label}" from all orders.`, 'info');
@@ -559,6 +710,8 @@ export function render() {
       });
     }
   });
+  settingsListenersAttached = true;
+  }
 
   document.getElementById('saveFieldConfigBtn').addEventListener('click', function() {
     if (this.dataset.saving === 'true') return;
@@ -568,6 +721,12 @@ export function render() {
     window.render();
     render();
     toast('Field configuration saved.', 'success');
+    // Close the Field Configuration accordion and update flag
+    fieldConfigOpen = false;
+    const details = document.getElementById('fieldConfigDetails');
+    if (details) {
+      details.removeAttribute('open');
+    }
     setTimeout(() => delete this.dataset.saving, 1000);
   });
 }
