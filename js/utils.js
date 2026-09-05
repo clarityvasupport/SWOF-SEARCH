@@ -1037,6 +1037,65 @@ export function openImagePreviewModal(srcOrGallery, alt = 'Attachment preview', 
 
   modal.classList.remove('hidden');
   document.body.classList.add('overflow-hidden');
+
+  // ---- PINCH TO ZOOM (Mobile) ----
+  // Clean up any existing touch listeners to prevent duplicates
+  if (image._pinchHandlers) {
+    image.removeEventListener('touchstart', image._pinchHandlers.start);
+    image.removeEventListener('touchmove', image._pinchHandlers.move);
+    image.removeEventListener('touchend', image._pinchHandlers.end);
+    image._pinchHandlers = null;
+  }
+
+  let initialPinchDistance = 0;
+  let initialPinchZoom = 1;
+
+  function getTouchDistance(touches) {
+    if (touches.length < 2) return 0;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  const pinchStart = function(e) {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      initialPinchDistance = getTouchDistance(e.touches);
+      initialPinchZoom = imagePreviewZoom;
+    }
+  };
+
+  const pinchMove = function(e) {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const currentDistance = getTouchDistance(e.touches);
+      if (initialPinchDistance > 0) {
+        const scale = currentDistance / initialPinchDistance;
+        const newZoom = Math.min(Math.max(initialPinchZoom * scale, 1), 4);
+        setImagePreviewZoom(newZoom);
+        // Update slider to match
+        const slider = document.getElementById('imagePreviewZoomSlider');
+        if (slider) slider.value = newZoom;
+        // Update zoom value display
+        const zoomValue = document.getElementById('imagePreviewZoomValue');
+        if (zoomValue) zoomValue.textContent = `${Math.round(newZoom * 100)}%`;
+      }
+    }
+  };
+
+  const pinchEnd = function(e) {
+    initialPinchDistance = 0;
+    initialPinchZoom = imagePreviewZoom;
+  };
+
+  image._pinchHandlers = { start: pinchStart, move: pinchMove, end: pinchEnd };
+
+  // Only attach if it's an image (not PDF)
+  if (items[0].type === 'image') {
+    image.addEventListener('touchstart', pinchStart, { passive: false });
+    image.addEventListener('touchmove', pinchMove, { passive: false });
+    image.addEventListener('touchend', pinchEnd, { passive: false });
+  }
 }
 
 export function showPreviewItem(index) {
