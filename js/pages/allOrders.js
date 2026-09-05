@@ -117,7 +117,7 @@ function _doRender() {
     const cfg = fieldConfigs[key];
     const storedWidth = displayConfig.columnWidths?.[key];
     const widthStyle = storedWidth ? `width:${storedWidth}px;min-width:${storedWidth}px;` : 'min-width:80px;';
-    headersHTML += `<th class="px-4 py-3 text-left text-black/60" data-field-key="${esc(key)}" style="${widthStyle}">${esc(cfg.label || key)}</th>`;
+    headersHTML += `<th class="px-4 py-3 text-left text-black/70 font-semibold" data-field-key="${esc(key)}" style="${widthStyle}">${esc(cfg.label || key)}</th>`;
   });
 
   const isMobile = window.innerWidth < 640;
@@ -239,15 +239,15 @@ function _doRender() {
           ${dateDropdownHTML}
         </select>
 
-        <button id="allOrdersRefresh" class="px-3 py-2 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white text-sm font-bold transition whitespace-nowrap">↻ Refresh</button>
-        <button id="allOrdersClearFilters" class="px-3 py-2 rounded-xl border border-black/10 hover:bg-black/5 text-black/60 text-sm font-bold transition whitespace-nowrap">✕ Clear</button>
+        <button id="allOrdersRefresh" class="px-3 py-2 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white text-sm font-bold transition whitespace-nowrap shadow-sm">↻ Refresh</button>
+        <button id="allOrdersClearFilters" class="px-3 py-2 rounded-xl bg-black/10 hover:bg-black/20 text-black/70 text-sm font-bold transition whitespace-nowrap">✕ Clear</button>
       </div>
     `;
   }
 
   // ---- Main HTML ----
   container.innerHTML = `
-    <div id="allOrdersContainer" class="bg-white text-black border border-black/10 rounded-2xl shadow-sm overflow-hidden">
+    <div id="allOrdersContainer" class="bg-white text-black rounded-2xl shadow-sm overflow-hidden">
       <!-- Filter bar -->
       <div class="p-3 border-b border-black/10 relative">
         ${filterBarHTML}
@@ -266,37 +266,9 @@ function _doRender() {
     </div>
   `;
 
-  // ---- OVERRIDE GLOBAL WHITE TEXT FORCE (FIX) ----
-  // We inject a style to reset color for all elements inside the container,
-  // and then explicitly set colors for specific elements that need black.
-  const styleOverride = document.createElement('style');
-  styleOverride.textContent = `
-    /* Reset all text to black for this container */
-    #allOrdersContainer, #allOrdersContainer * {
-      color: black !important;
-    }
-    /* But status/priority badges should keep their own colors */
-    #allOrdersContainer .px-2\\.py-1\\.rounded-full,
-    #allOrdersContainer .px-2\\.py-1\\.rounded-md {
-      color: inherit !important;
-    }
-    /* Filter bar inputs and selects already have text-black, but we reinforce */
-    #allOrdersContainer input, #allOrdersContainer select, #allOrdersContainer button {
-      color: black !important;
-    }
-    /* Keep placeholder text grey */
-    #allOrdersContainer input::placeholder {
-      color: rgba(0,0,0,0.4) !important;
-    }
-    /* Ensure table header and cell text is black with opacity */
-    #allOrdersContainer .text-black\\/60 { color: rgba(0,0,0,0.6) !important; }
-    #allOrdersContainer .text-black\\/70 { color: rgba(0,0,0,0.7) !important; }
-    #allOrdersContainer .text-black\\/80 { color: rgba(0,0,0,0.8) !important; }
-    #allOrdersContainer .text-black\\/40 { color: rgba(0,0,0,0.4) !important; }
-    /* Override any white text from global style */
-    #allOrdersContainer .text-white { color: black !important; }
-  `;
-  container.appendChild(styleOverride);
+  // ---- NO INJECTED STYLE OVERRIDE ----
+  // The global #sectionPageBody rule has been fixed to not force child elements.
+  // We rely on proper Tailwind classes in the HTML.
 
   // ---- FORCE REPAINT ----
   container.style.display = 'none';
@@ -378,7 +350,7 @@ function _doRender() {
           }
           rowHTML += `<td class="px-4 py-3 ${key === 'title' ? 'font-semibold text-black/80' : 'text-black/70'}">${val}</td>`;
         });
-        rowHTML += `<td class="px-4 py-3 text-right"><button data-all-open="${esc(o.id)}" class="px-3 py-1.5 rounded-lg bg-brand-teal/20 text-brand-teal font-bold hover:bg-brand-teal/30 transition">Open</button></td>`;
+        rowHTML += `<td class="px-4 py-3 text-right"><button data-all-open="${esc(o.id)}" class="px-3 py-1.5 rounded-lg bg-brand-teal text-white font-bold hover:bg-[#2A5454] transition shadow-sm">Open</button></td>`;
         rowHTML += `</tr>`;
         rowsHTML += rowHTML;
       });

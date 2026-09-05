@@ -1,5 +1,5 @@
 // =========================================================
-// APP – entry point (v1.3.0 – cloud-first initialisation)
+// APP – entry point (v1.3.3 – added Change Password modal)
 // =========================================================
 
 import {
@@ -23,6 +23,7 @@ import {
   isOnline,
   loadApiUrl,
   getStoredPassword,
+  setStoredPassword,
   clearMappingConfig,
 } from './data.js';
 
@@ -201,6 +202,84 @@ function requireLogin() {
   return true;
 }
 
+// ---------- Change Password functions ----------
+function openChangePasswordModal() {
+  // Reset form state
+  const modal = document.getElementById('changePasswordModal');
+  if (!modal) return;
+  document.getElementById('currentPassword').value = '';
+  document.getElementById('newPassword').value = '';
+  document.getElementById('confirmNewPassword').value = '';
+  document.getElementById('changePasswordError').classList.add('hidden');
+  document.getElementById('changePasswordSuccess').classList.add('hidden');
+  modal.classList.remove('hidden');
+  document.body.classList.add('overflow-hidden');
+  setTimeout(() => document.getElementById('currentPassword').focus(), 100);
+}
+
+function closeChangePasswordModal() {
+  const modal = document.getElementById('changePasswordModal');
+  if (modal) modal.classList.add('hidden');
+  document.body.classList.remove('overflow-hidden');
+}
+
+function handleChangePassword(e) {
+  e.preventDefault();
+  const current = document.getElementById('currentPassword').value.trim();
+  const newPass = document.getElementById('newPassword').value.trim();
+  const confirm = document.getElementById('confirmNewPassword').value.trim();
+
+  const errorEl = document.getElementById('changePasswordError');
+  const successEl = document.getElementById('changePasswordSuccess');
+  errorEl.classList.add('hidden');
+  successEl.classList.add('hidden');
+
+  // Validate current password
+  if (current !== storedPassword) {
+    errorEl.textContent = 'Current password is incorrect.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  if (newPass.length < 4) {
+    errorEl.textContent = 'New password must be at least 4 characters.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  if (newPass !== confirm) {
+    errorEl.textContent = 'New passwords do not match.';
+    errorEl.classList.remove('hidden');
+    return;
+  }
+
+  // Update password
+  storedPassword = newPass;
+  setStoredPassword(newPass);
+
+  // Sync to cloud (KV) – update the password in the shared state
+  // We need to push the updated password to KV.
+  // syncSharedStorage() will send the current state including the new password.
+  // However, syncSharedStorage() relies on the global `orders` etc.
+  // We can call it directly, but we also need to ensure the password is included in the payload.
+  // The password is stored in `storedPassword` and `setStoredPassword` updates the internal variable.
+  // The `syncSharedStorage` function reads `storedPassword` via getStoredPassword().
+  // But we need to make sure that `syncSharedStorage` actually sends it.
+  // In data.js, syncSharedStorage builds payload with `password: storedPassword || 'password'`.
+  // Since we updated `storedPassword` and called `setStoredPassword`, it's already reflected.
+  // We'll call syncSharedStorage to push to KV.
+  syncSharedStorage();
+
+  // Show success and close after short delay
+  successEl.textContent = 'Password updated successfully!';
+  successEl.classList.remove('hidden');
+  toast('✅ Password changed successfully.', 'success');
+
+  setTimeout(() => {
+    closeChangePasswordModal();
+  }, 1500);
+}
+
 // ---------- Override protected functions ----------
 const originalNewOrder = newOrder;
 const originalOpenEdit = openEdit;
@@ -357,6 +436,9 @@ async function initApp() {
   window.openImagePreviewModal = openImagePreviewModal;
   window.setImagePreviewZoom = setImagePreviewZoom;
   window.resetImagePreviewZoom = resetImagePreviewZoom;
+  // Change Password functions
+  window.openChangePasswordModal = openChangePasswordModal;
+  window.closeChangePasswordModal = closeChangePasswordModal;
 }
 
 // ---------- Event listeners ----------
@@ -436,9 +518,13 @@ function attachEventListeners() {
       localStorage.setItem('adminCollapsed', adminNav.classList.contains('collapsed') ? 'true' : 'false');
     });
     const saved = localStorage.getItem('adminCollapsed');
-    if (saved === 'true') {
+    // Default to collapsed (true) if no preference is saved
+    if (saved === null || saved === 'true') {
       adminNav.classList.add('collapsed');
       adminArrow.classList.add('rotated');
+      if (saved === null) {
+        localStorage.setItem('adminCollapsed', 'true');
+      }
     }
   }
 
@@ -487,6 +573,11 @@ function attachEventListeners() {
     const password = document.getElementById('loginPassword').value.trim();
     login(username, password);
   });
+
+  // ---- Change Password modal events ----
+  document.getElementById('closeChangePasswordModalBtn')?.addEventListener('click', closeChangePasswordModal);
+  document.getElementById('changePasswordModalBackdrop')?.addEventListener('click', closeChangePasswordModal);
+  document.getElementById('changePasswordForm')?.addEventListener('submit', handleChangePassword);
 
   // Refresh
   document.getElementById('refreshBtn')?.addEventListener('click', async () => {
@@ -980,4 +1071,6 @@ export {
   logout,
   requireLogin,
   setActiveNav,
+  openChangePasswordModal,
+  closeChangePasswordModal,
 };

@@ -146,9 +146,29 @@ export function render() {
   grid.innerHTML = html;
 
   document.getElementById('emptyState').classList.toggle('hidden', list.length !== 0);
-  document.getElementById('resultCount').textContent = list.length
-    ? `Showing ${start+1}–${Math.min(start+PAGE_SIZE, list.length)} of ${list.length} filtered work orders • ${orders.length} total`
-    : `0 of ${orders.length} work orders`;
+  
+  // Check which filters are active and build a summary
+  const searchVal = document.getElementById('searchInput')?.value?.trim() || '';
+  const statusVal = document.getElementById('statusFilter')?.value || 'all';
+  const priorityVal = document.getElementById('priorityFilter')?.value || 'all';
+
+  const filterParts = [];
+  if (searchVal) filterParts.push(`"${searchVal}"`);
+  if (statusVal !== 'all') filterParts.push(`Status: ${statusVal}`);
+  if (priorityVal !== 'all') filterParts.push(`Priority: ${priorityVal}`);
+  const filterSummary = filterParts.length > 0 ? ` • ${filterParts.join(' • ')}` : '';
+  const isFiltered = filterParts.length > 0;
+
+  let resultText;
+  if (list.length === 0) {
+    resultText = `0 of ${orders.length} work orders${filterSummary}`;
+  } else if (isFiltered) {
+    resultText = `🔍 ${start+1}–${Math.min(start+PAGE_SIZE, list.length)} of ${list.length} results${filterSummary} • ${orders.length} total work orders`;
+  } else {
+    resultText = `Showing ${start+1}–${Math.min(start+PAGE_SIZE, list.length)} of ${list.length} work orders • ${orders.length} total`;
+  }
+  document.getElementById('resultCount').textContent = resultText;
+
   document.getElementById('pageInfo').textContent = `Page ${currentPage} • ${pageItems.length} of ${list.length}`;
   document.getElementById('prevPageBtn').disabled = currentPage <= 1;
   document.getElementById('nextPageBtn').disabled = currentPage >= totalPages;

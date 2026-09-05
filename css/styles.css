@@ -13,6 +13,14 @@
 .assignee-color-12 { background-color: #00B894; color: white; }
 .assignee-color-default { background-color: #636E72; color: white; }
 
+/* Smooth accordion arrow rotation */
+details summary .text-white\/40 {
+  transition: transform 0.2s ease;
+}
+details[open] summary .text-white\/40 {
+  transform: rotate(180deg);
+}
+
 /* Force hide dashboard when section page is open */
 .dashboard-hidden {
   display: none !important;
@@ -230,20 +238,24 @@ header {
   .filter-icon-btn:hover {
     background: rgba(255,255,255,0.25);
   }
+    .filter-control-wrapper {
+    position: static !important;
+  }
   .filter-control-expanded {
-    position: absolute;
-    left: 0;
-    top: calc(100% + 0.25rem);
-    z-index: 20;
-    min-width: 200px;
-    max-width: calc(100vw - 2rem);
-    background: #fff;
-    color: #000;
-    border-radius: 0.75rem;
-    padding: 0.75rem;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-    display: none; /* hidden by default */
-    width: auto;
+    position: fixed !important;
+    left: 1rem !important;
+    right: 1rem !important;
+    top: calc(64px + 56px + 0.5rem) !important;
+    z-index: 50 !important;
+    min-width: 200px !important;
+    max-width: calc(100vw - 2rem) !important;
+    background: #fff !important;
+    color: #000 !important;
+    border-radius: 0.75rem !important;
+    padding: 0.75rem !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15) !important;
+    display: none !important;
+    width: auto !important;
   }
   .filter-control-expanded:not(.hidden) {
     display: block !important;

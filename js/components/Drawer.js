@@ -64,17 +64,19 @@ export function renderDrawer(id) {
   const getSource = (key) => fieldConfigs[key]?.source || key;
   const getValue = (key) => displayValue(o, getSource(key));
 
-  // Status badge
-  const badge = document.getElementById('drawerStatusBadge');
-  badge.textContent = o.status;
-  badge.className = `px-2.5 py-1 rounded-full text-[11px] font-bold border ${statusClass(o.status)}`;
+  // ---- HEADER ----
   document.getElementById('drawerNumber').textContent = o.id;
-  document.getElementById('drawerTitle').textContent = o.title || 'Untitled';
+  document.getElementById('drawerCategory').textContent = getValue('category') || 'Uncategorized';
   document.getElementById('drawerCreatedText').textContent =
     `Created ${formatDate(displayValue(o, getSource('created')))}` +
     (getValue('requester') ? ` • Requested by ${getValue('requester')}` : '');
 
-  // Status dropdown
+  // Status badge in header (upper right)
+  const statusBadge = document.getElementById('drawerStatusBadge');
+  statusBadge.textContent = o.status;
+  statusBadge.className = `px-2.5 py-1 rounded-full text-[11px] font-bold border ${statusClass(o.status)}`;
+
+  // Status dropdown (footer)
   const dataStatuses = orders.map(o => o.status).filter(Boolean);
   const uniqueStatuses = Array.from(new Set(dataStatuses)).sort();
   const statusOpts = uniqueStatuses.length ? uniqueStatuses : ['Open'];
@@ -83,15 +85,37 @@ export function renderDrawer(id) {
     `<option value="${esc(s)}" ${o.status === s ? 'selected' : ''}>${esc(s)}</option>`
   ).join('');
 
-  // Core details
-  const detailFields = [
-    { key: 'category', label: fieldConfigs.category?.label || 'Category' },
-    { key: 'location', label: fieldConfigs.location?.label || 'Location' },
-    { key: 'created', label: fieldConfigs.created?.label || 'Created' },
-    { key: 'dueDate', label: fieldConfigs.dueDate?.label || 'Due Date' },
-    { key: 'requester', label: fieldConfigs.requester?.label || 'Requester' },
-  ];
-  const detailsHTML = detailFields.map(f => detailBox(f.label, getValue(f.key), o.id)).join('');
+  // ---- BODY ----
+  const priorityBadge = `<span class="px-3 py-1.5 rounded-md text-xs font-bold ${priorityClass(o.priority)}">${esc(o.priority || 'Medium')}</span>`;
+  const priorityBg = priorityClass(o.priority).split(' ').filter(c => c.startsWith('bg-')).join(' ') || 'bg-gray-100';
+
+  const titleValue = esc(o.title || 'Untitled');
+  const descriptionValue = esc((o.description || 'No description provided.').trim());
+
+  // ---- Build detail grid (Location, Due Date, Remarks) with deduplication ----
+  const gridItems = [];
+
+  const addGridItem = (key, defaultValue) => {
+    const label = fieldConfigs[key]?.label || defaultValue;
+    const value = getValue(key);
+    if (value && value.trim() !== '') {
+      gridItems.push({ label, value });
+    }
+  };
+
+  addGridItem('location', 'Location');
+  addGridItem('dueDate', 'Due Date');
+  addGridItem('remarks', 'Remarks');
+
+  // Deduplicate by label (e.g., if dueDate label is "Remarks" and there's a remarks field with same label)
+  const seenLabels = new Set();
+  const uniqueGridItems = gridItems.filter(item => {
+    if (seenLabels.has(item.label)) return false;
+    seenLabels.add(item.label);
+    return true;
+  });
+
+  const detailsGridHTML = uniqueGridItems.map(item => detailBox(item.label, item.value, o.id)).join('');
 
   // ---- CUSTOM FIELDS ----
   const globalCustomKeys = Object.keys(fieldConfigs).filter(k => k.startsWith('custom_'));
@@ -120,10 +144,10 @@ export function renderDrawer(id) {
     .filter(f => f.label && f.value);
 
   const allCustomFields = [];
-  const seenLabels = new Set();
+  const seenCustomLabels = new Set();
   [...globalCustomFields, ...perOrderFields].forEach(f => {
-    if (!seenLabels.has(f.label)) {
-      seenLabels.add(f.label);
+    if (!seenCustomLabels.has(f.label)) {
+      seenCustomLabels.add(f.label);
       allCustomFields.push(f);
     }
   });
@@ -132,7 +156,7 @@ export function renderDrawer(id) {
     ? allCustomFields.map(f => detailBox(f.label, f.value, o.id)).join('')
     : '<p class="text-xs text-black/40 col-span-2">No custom fields yet. Click "Add Field" to add one.</p>';
 
-  // Activity
+  // ---- ACTIVITY ----
   const activity = (o.activity || [])
     .filter(a => !/prepared for import from|updated by import|import/i.test(String(a.text || '')))
     .slice().reverse()
@@ -142,26 +166,40 @@ export function renderDrawer(id) {
 
   const assigneeValue = getValue('assignee') || 'Unassigned';
 
-  // Build drawer body
+  // ---- Build Drawer Body ----
   const body = document.getElementById('drawerBody');
   body.innerHTML = `
     <div class="space-y-6 text-black">
-      <!-- Priority -->
-      <div class="rounded-xl border p-4 ${priorityClass(o.priority).replace('text-', 'border-').split(' ')[0]}">
-        <div class="flex items-center justify-between gap-3">
-          <div><p class="text-[10px] uppercase tracking-wider font-bold text-black/40">Priority</p><p class="mt-1 font-black ${priorityClass(o.priority).split(' ')[1] || 'text-black/80'}">${esc(o.priority || 'Medium')}</p></div>
-          <span class="px-2.5 py-1 rounded-md text-[10px] font-bold ${priorityClass(o.priority)}">${esc(o.priority || 'Medium')}</span>
-        </div>
+      <!-- Priority Row with background colour -->
+      <div class="p-3 rounded-xl ${priorityBg} border border-black/5 flex items-center justify-between">
+        <span class="text-xs font-bold text-black/60">Priority</span>
+        ${priorityBadge}
       </div>
 
-      <!-- Description -->
-      <section><h3 class="text-sm font-black text-black/80 mb-2">Description</h3><p class="text-sm leading-6 text-black/60 whitespace-pre-wrap">${esc(o.description || 'No description provided.')}</p></section>
-
-      <!-- Core Details -->
+      <!-- Work Order Details -->
       <section>
         <h3 class="text-sm font-black text-black/80 mb-3">Work Order Details</h3>
-        <div class="detail-box-grid">
-          ${detailsHTML}
+        <div class="space-y-3">
+          <!-- Title (plain) -->
+          <div>
+            <p class="text-[10px] text-black/40 font-semibold">Title</p>
+            <div id="drawerDetailTitle" class="mt-1 text-sm font-bold text-black/80 break-words overflow-hidden transition-all max-h-[3rem]">
+              ${titleValue}
+            </div>
+            <button id="drawerTitleExpandBtn" class="text-xs font-bold text-brand-teal hover:underline mt-1">Show more</button>
+          </div>
+
+          <!-- Description (expandable) -->
+          <div>
+            <p class="text-[10px] text-black/40 font-semibold">Description</p>
+            <div id="drawerDetailDescription" class="mt-1 text-sm text-black/80 whitespace-pre-wrap overflow-hidden transition-all max-h-[3rem]">${descriptionValue}</div>
+            <button id="drawerDescExpandBtn" class="text-xs font-bold text-brand-teal hover:underline mt-1">Show more</button>
+          </div>
+
+          <!-- Grid for Location, Due Date, Remarks -->
+          <div class="detail-box-grid">
+            ${detailsGridHTML}
+          </div>
         </div>
       </section>
 
@@ -194,7 +232,42 @@ export function renderDrawer(id) {
     </div>
   `;
 
-  // Bind "Add Field" button
+    // ---- Title Expand/Collapse ----
+  const expandBtn = document.getElementById('drawerTitleExpandBtn');
+  const titleDiv = document.getElementById('drawerDetailTitle');
+  if (expandBtn && titleDiv) {
+    let expanded = false;
+    const isOverflowing = titleDiv.scrollHeight > titleDiv.clientHeight;
+    if (!isOverflowing) {
+      expandBtn.style.display = 'none';
+    } else {
+      expandBtn.addEventListener('click', () => {
+        expanded = !expanded;
+        titleDiv.style.maxHeight = expanded ? '1000px' : '3rem';
+        expandBtn.textContent = expanded ? 'Show less' : 'Show more';
+      });
+    }
+  }
+
+  // ---- Description Expand/Collapse ----
+  const descExpandBtn = document.getElementById('drawerDescExpandBtn');
+  const descDiv = document.getElementById('drawerDetailDescription');
+  if (descExpandBtn && descDiv) {
+    let descExpanded = false;
+    // Check if content overflows (has more than ~2 lines)
+    const isDescOverflowing = descDiv.scrollHeight > descDiv.clientHeight;
+    if (!isDescOverflowing) {
+      descExpandBtn.style.display = 'none';
+    } else {
+      descExpandBtn.addEventListener('click', () => {
+        descExpanded = !descExpanded;
+        descDiv.style.maxHeight = descExpanded ? '1000px' : '3rem';
+        descExpandBtn.textContent = descExpanded ? 'Show less' : 'Show more';
+      });
+    }
+  }
+
+  // ---- Add Field button ----
   document.getElementById('drawerAddFieldBtn')?.addEventListener('click', function() {
     if (!window.requireLogin || !window.requireLogin()) return;
     const o2 = orders.find(x => x.id === id);
@@ -219,14 +292,9 @@ export function renderDrawer(id) {
   }
 
   // ---- Auto‑refresh detection after a short delay ----
-  // If any field is still pending after 2 seconds, re‑render the drawer
-  // This catches pending detections that finish later.
   setTimeout(() => {
     if (selectedId === id) {
-      // Check if there are still pending detections for this order
       let hasPending = false;
-      // We can check if any value is a pending HTML string, but simpler: just re‑render once.
-      // However, we don't want to loop endlessly. We'll check if there's any pending detection in cache.
       const allValues = [...Object.values(o._rawData || {}), ...(o.customFields || []).map(f => f.value)];
       for (const val of allValues) {
         if (typeof val === 'string' && val.includes('animate-spin') && val.includes('Detecting file type')) {
@@ -243,13 +311,13 @@ export function renderDrawer(id) {
   if (typeof window.updateUndoButtons === 'function') window.updateUndoButtons();
 }
 
-// ---- Helper functions (same as before) ----
+// ---- Helper functions ----
 function detailBox(label, value, orderId) {
   return `<div class="bg-black/5 rounded-lg p-3"><p class="text-[10px] text-black/40 font-semibold">${esc(label)}</p><div class="mt-1 text-sm font-bold text-black/80 break-words">${formatFieldValue(value, orderId)}</div></div>`;
 }
 
 function getAllFieldConfigs() {
-  const coreFields = ['id','title','status','priority','category','location','assignee','requester','created','dueDate','description'];
+  const coreFields = ['id','title','status','priority','category','location','assignee','requester','created','dueDate','description','remarks'];
   const configs = {};
   coreFields.forEach(f => {
     const fromConfig = displayConfig.fieldConfig?.[f];
@@ -273,7 +341,7 @@ function getAllFieldConfigs() {
   return configs;
 }
 
-// ---- Add/Edit/Remove custom fields (same as before) ----
+// ---- Add/Edit/Remove custom fields ----
 export function addDrawerCustomField(orderId) {
   const o = orders.find(x => x.id === orderId);
   if (!o) return;
@@ -355,7 +423,6 @@ export function renderDrawerCustomFieldsEditor(o, emptyFields) {
 
   editor.innerHTML = html;
 
-  // Bind events (same as before)
   editor.querySelectorAll('.drawer-field-label').forEach(el => {
     el.addEventListener('input', function() {
       const idx = parseInt(this.dataset.idx);

@@ -938,7 +938,13 @@ export function closeImagePreviewModal() {
   imagePreviewTranslate.x = 0;
   imagePreviewTranslate.y = 0;
   imagePreviewZoom = 1;
-  document.body.classList.remove('overflow-hidden');
+
+  // --- FIX: Only remove scroll lock if the drawer is NOT open ---
+  const drawer = document.getElementById('detailDrawer');
+  if (!drawer || drawer.classList.contains('translate-x-full')) {
+    document.body.classList.remove('overflow-hidden');
+  }
+  // If the drawer is open (translate-x-full is NOT present), we leave the lock in place.
 }
 
 // ---- Spinner management ----

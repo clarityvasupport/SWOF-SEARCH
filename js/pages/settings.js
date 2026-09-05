@@ -156,27 +156,159 @@ export function render() {
   </div>`;
 
   // ---- Build the main settings page ----
-  container.innerHTML = `<div class="max-w-3xl space-y-4">
-    <div class="bg-white/5 border border-white/10 rounded-2xl p-5">
-      <h3 class="font-black text-white">Local Data</h3>
-      <p class="text-sm text-white/50 mt-1">Work orders and undo history are stored in this browser until a backend is connected.</p>
-      <div class="flex flex-wrap gap-2 mt-4">
-        <button id="settingsRefresh" class="px-4 py-2.5 rounded-xl border border-white/10 hover:bg-white/10 text-white font-bold text-sm transition">Reload Saved Data</button>
-        <button id="settingsReset" class="px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/10 transition">Reset Demo Data</button>
+  container.innerHTML = `<div class="w-full max-w-3xl space-y-3">
+    <!-- ============================================================
+         ACCORDION: LOCAL DATA
+         ============================================================ -->
+    <details open>
+      <summary class="cursor-pointer list-none flex flex-wrap items-center justify-between gap-1 sm:gap-2 p-3 sm:p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition">
+        <div class="flex items-center gap-2 sm:gap-3">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.8" stroke-linecap="round" d="M5 8h14M5 12h14M5 16h10" />
+          </svg>
+          <span class="font-black text-white text-sm sm:text-base">Local Data</span>
+        </div>
+        <span class="text-white/40 text-xs sm:text-sm transition-transform duration-200">▾</span>
+      </summary>
+      <div class="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5 mt-1">
+        <p class="text-xs sm:text-sm text-white/50">Work orders and undo history are stored in this browser until a backend is connected.</p>
+        <div class="flex flex-wrap gap-2 mt-4">
+          <button id="settingsRefresh" class="flex-1 sm:flex-none px-3 sm:px-4 py-2.5 rounded-xl border border-white/10 hover:bg-white/10 text-white font-bold text-xs sm:text-sm transition">Reload Saved Data</button>
+          <button id="settingsReset" class="flex-1 sm:flex-none px-3 sm:px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 font-bold text-xs sm:text-sm hover:bg-red-500/10 transition">Reset Demo Data</button>
+        </div>
       </div>
-    </div>
-    <div class="bg-white/5 border border-white/10 rounded-2xl p-5">
-      <h3 class="font-black text-white">Import Behavior</h3>
-      <p class="text-sm text-white/50 mt-1">Existing Work Order IDs are updated; new IDs are added. Imported records are sorted newest-created first.</p>
-    </div>
-    <div class="bg-white/5 border border-white/10 rounded-2xl p-5">
-      <h3 class="font-black text-white">Security</h3>
-      <p class="text-sm text-white/50 mt-1">Change your admin password. This will be stored in the cloud (KV) and synced across devices.</p>
-      <button id="openChangePasswordBtn" class="mt-4 px-4 py-2.5 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white font-bold text-sm transition">Change Password</button>
-    </div>
-    ${reportsConfigHTML}
-    ${calendarConfigHTML}
-    ${fieldConfigHTML}
+    </details>
+
+    <!-- ============================================================
+         ACCORDION: SECURITY
+         ============================================================ -->
+    <details>
+      <summary class="cursor-pointer list-none flex flex-wrap items-center justify-between gap-1 sm:gap-2 p-3 sm:p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition">
+        <div class="flex items-center gap-2 sm:gap-3">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.8" stroke-linecap="round" d="M12 15v2m0 0v2m0-2h2m-2 0h-2m6-9a4 4 0 00-8 0v2H6v8h12V8h-2V7a4 4 0 00-4-4z" />
+          </svg>
+          <span class="font-black text-white text-sm sm:text-base">Security</span>
+        </div>
+        <span class="text-white/40 text-xs sm:text-sm transition-transform duration-200">▾</span>
+      </summary>
+      <div class="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5 mt-1">
+        <p class="text-xs sm:text-sm text-white/50">Change your admin password. This will be stored in the cloud (KV) and synced across devices.</p>
+        <button id="openChangePasswordBtn" class="w-full sm:w-auto mt-4 px-4 py-2.5 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white font-bold text-sm transition">Change Password</button>
+      </div>
+    </details>
+
+    <!-- ============================================================
+         ACCORDION: REPORTS CONFIGURATION
+         ============================================================ -->
+    <details>
+      <summary class="cursor-pointer list-none flex flex-wrap items-center justify-between gap-1 sm:gap-2 p-3 sm:p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition">
+        <div class="flex items-center gap-2 sm:gap-3">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.8" stroke-linecap="round" d="M4 19V9m5 10V5m5 14v-7m5 7V3" />
+          </svg>
+          <span class="font-black text-white text-sm sm:text-base">Reports Configuration</span>
+        </div>
+        <span class="text-white/40 text-xs sm:text-sm transition-transform duration-200">▾</span>
+      </summary>
+      <div class="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5 mt-1">
+        <p class="text-xs sm:text-sm text-white/50">Select the date field used for the "Weekly Completion" stat on Reports.</p>
+        <div class="mt-3">
+          <label class="block text-xs sm:text-sm text-white/70 mb-1">Completion Date Field</label>
+          <select id="completionDateSource" class="w-full sm:max-w-xs bg-black/30 text-white border border-white/20 rounded-xl px-3 py-2 text-sm">
+            ${buildCompletionDateOptions()}
+          </select>
+          <div class="mt-2 flex items-center gap-2">
+            <input type="checkbox" id="completionOnlyCompleted" ${displayConfig.completionOnlyCompleted !== false ? 'checked' : ''} />
+            <label class="text-xs sm:text-sm text-white/70" for="completionOnlyCompleted">Only count orders with status "Completed"</label>
+          </div>
+          <p class="text-[10px] text-white/30 mt-1">Fields marked "(date)" contain date values. You can select any field.</p>
+        </div>
+      </div>
+    </details>
+
+    <!-- ============================================================
+         ACCORDION: CALENDAR DATE FIELDS
+         ============================================================ -->
+    <details>
+      <summary class="cursor-pointer list-none flex flex-wrap items-center justify-between gap-1 sm:gap-2 p-3 sm:p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition">
+        <div class="flex items-center gap-2 sm:gap-3">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.8" stroke-linecap="round" d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 011 1v14H4V6a1 1 0 011-1z" />
+          </svg>
+          <span class="font-black text-white text-sm sm:text-base">Calendar Date Fields</span>
+        </div>
+        <span class="text-white/40 text-xs sm:text-sm transition-transform duration-200">▾</span>
+      </summary>
+      <div class="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5 mt-1">
+        <p class="text-xs sm:text-sm text-white/50">Select which fields appear in the Calendar dropdown. Only fields with date values are shown.</p>
+        <div id="calendarFieldCheckboxes" class="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3"></div>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button id="calendarSelectAllBtn" class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-brand-teal/20 text-brand-teal font-bold text-xs hover:bg-brand-teal/30 transition">Select All</button>
+          <button id="calendarClearAllBtn" class="flex-1 sm:flex-none px-3 py-1.5 rounded-lg bg-white/10 text-white/60 font-bold text-xs hover:bg-white/20 transition">Clear All</button>
+        </div>
+      </div>
+    </details>
+
+    <!-- ============================================================
+         ACCORDION: FIELD CONFIGURATION (THE TABLE)
+         ============================================================ -->
+    <details>
+      <summary class="cursor-pointer list-none flex flex-wrap items-center justify-between gap-1 sm:gap-2 p-3 sm:p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition">
+        <div class="flex items-center gap-2 sm:gap-3">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.8" stroke-linecap="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.4-6.4-1.4 1.4M7 17l-1.4 1.4m12.8 0L17 17M7 7 5.6 5.6M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          <span class="font-black text-white text-sm sm:text-base">Field Configuration</span>
+        </div>
+        <span class="text-white/40 text-xs sm:text-sm transition-transform duration-200">▾</span>
+      </summary>
+      <div class="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5 mt-1">
+        <p class="text-xs sm:text-sm text-white/50">Customize which fields appear on cards and in the All Work Orders table. Rename fields and map them to different headers.</p>
+        <div class="overflow-x-auto mt-4 -mx-2 sm:mx-0">
+          <!-- Table now has a minimum width so it scrolls horizontally on small screens -->
+          <table class="w-full text-xs sm:text-sm min-w-[700px]">
+            <thead><tr class="border-b border-white/10">
+              <th class="px-2 md:px-3 py-2 text-left text-white/60 font-bold">Field</th>
+              <th class="px-2 md:px-3 py-2 text-left text-white/60 font-bold">Label</th>
+              <th class="px-2 md:px-3 py-2 text-left text-white/60 font-bold">Source</th>
+              <th class="px-2 md:px-3 py-2 text-center text-white/60 font-bold">Card</th>
+              <th class="px-2 md:px-3 py-2 text-center text-white/60 font-bold">Table</th>
+              <th class="px-2 md:px-3 py-2 text-center text-white/60 font-bold">Action</th>
+            </tr></thead>
+            <tbody id="fieldConfigTable">
+              ${Object.keys(fieldConfigs).map(key => {
+                const cfg = fieldConfigs[key];
+                const isCustom = key.startsWith('custom_');
+                return `<tr class="border-b border-white/10">
+                  <td class="px-2 md:px-3 py-2 text-white/70 text-[10px] sm:text-xs font-semibold">${esc(cfg.label || key)}</td>
+                  <td class="px-2 md:px-3 py-2"><input class="w-full field-input-sm bg-black/20 text-white border-white/20 text-[10px] sm:text-xs" data-field-key="${esc(key)}" data-field-property="label" value="${esc(cfg.label || key)}" placeholder="Label"></td>
+                  <td class="px-2 md:px-3 py-2"><select class="w-full field-input-sm bg-black/30 text-white border-white/20 text-[10px] sm:text-xs" data-field-key="${esc(key)}" data-field-property="source"><option value="${esc(cfg.source)}" selected>${esc(cfg.source)}</option>${allHeaders.map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join('')}</select></td>
+                  <td class="px-2 md:px-3 py-2 text-center"><input type="checkbox" data-field-key="${esc(key)}" data-field-property="showOnCard" ${cfg.showOnCard !== false ? 'checked' : ''} class="rounded w-3.5 h-3.5 sm:w-4 sm:h-4"></td>
+                  <td class="px-2 md:px-3 py-2 text-center"><input type="checkbox" data-field-key="${esc(key)}" data-field-property="showInTable" ${cfg.showInTable !== false ? 'checked' : ''} class="rounded w-3.5 h-3.5 sm:w-4 sm:h-4"></td>
+                  <td class="px-2 md:px-3 py-2 text-center">${isCustom ? `<button data-remove-field="${esc(key)}" class="text-red-500 hover:text-red-400 text-sm">✕</button>` : '<span class="text-black/30 text-[10px]">—</span>'}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+            <tbody id="addFieldRow" style="display:none;">
+              <tr>
+                <td class="px-2 md:px-3 py-2 text-white/70 text-[10px] sm:text-xs">(new)</td>
+                <td class="px-2 md:px-3 py-2"><input id="newFieldLabelInline" class="w-full field-input-sm bg-black/20 text-white border-white/20 text-[10px] sm:text-xs" placeholder="Label" /></td>
+                <td class="px-2 md:px-3 py-2"><select id="newFieldSourceInline" class="w-full field-input-sm bg-black/30 text-white border-white/20 text-[10px] sm:text-xs"><option value="">— Not mapped —</option>${allHeaders.map(h => `<option value="${esc(h)}">${esc(h)}</option>`).join('')}</select></td>
+                <td class="px-2 md:px-3 py-2 text-center"><input type="checkbox" id="newFieldShowOnCardInline" checked class="rounded w-3.5 h-3.5 sm:w-4 sm:h-4" /></td>
+                <td class="px-2 md:px-3 py-2 text-center"><input type="checkbox" id="newFieldShowInTableInline" checked class="rounded w-3.5 h-3.5 sm:w-4 sm:h-4" /></td>
+                <td class="px-2 md:px-3 py-2 text-center"><button id="saveNewFieldInline" class="px-2 py-1 rounded bg-brand-teal text-white text-[10px] sm:text-xs font-bold hover:bg-[#2A5454] transition">Save</button><button id="cancelNewFieldInline" class="px-2 py-1 rounded bg-white/10 text-white text-[10px] sm:text-xs font-bold hover:bg-white/20 transition ml-1">Cancel</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button id="addFieldConfigBtn" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white font-bold text-xs sm:text-sm transition">+ Add Field</button>
+          <button id="saveFieldConfigBtn" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs sm:text-sm transition">Save Changes</button>
+          <button id="resetFieldConfigBtn" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl border border-red-500/30 text-red-400 font-bold text-xs sm:text-sm hover:bg-red-500/10 transition">Reset All</button>
+        </div>
+      </div>
+    </details>
   </div>`;
 
   // ---- Render calendar checkboxes ----

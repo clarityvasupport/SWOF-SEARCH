@@ -83,14 +83,14 @@ export function render() {
   const weeklyHTML = `
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
       <div class="bg-white/5 border border-white/10 rounded-2xl p-4">
-        <p class="text-xs text-white/40">📈 Weekly Activity</p>
-        <p class="text-2xl font-black text-white">${thisWeekCreated} orders added</p>
-        <p class="text-sm ${activityChange >= 0 ? 'text-green-400' : 'text-red-400'}">${activityTrend}${activityPercent}% from last week</p>
+        <p class="text-xs text-white">📈 Weekly Activity</p>
+        <p class="text-2xl font-black text-sky-400">${thisWeekCreated} orders added</p>
+        <p class="text-sm font-bold ${activityChange >= 0 ? 'text-blue-400' : 'text-rose-400'}">${activityTrend}${activityPercent}% from last week</p>
       </div>
       <div class="bg-white/5 border border-white/10 rounded-2xl p-4">
-        <p class="text-xs text-white/40">✅ Weekly Completion</p>
-        <p class="text-2xl font-black text-white">${thisWeekCompleted} orders completed</p>
-        <p class="text-sm ${completionChange >= 0 ? 'text-green-400' : 'text-red-400'}">${completionTrend}${completionPercent}% from last week</p>
+        <p class="text-xs text-white">✅ Weekly Completion</p>
+        <p class="text-2xl font-black text-emerald-400">${thisWeekCompleted} orders completed</p>
+        <p class="text-sm font-bold ${completionChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${completionTrend}${completionPercent}% from last week</p>
         <p class="text-[10px] text-white/30 mt-1">Using field: <span class="font-mono">${esc(completionSource)}</span></p>
       </div>
     </div>
