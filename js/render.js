@@ -15,6 +15,7 @@ import {
   pushHistory,
   isOnline,
   loadSharedState,
+  resolveDuplicateIds,
 } from './data.js';
 
 import {
@@ -125,6 +126,7 @@ export function render() {
     customFields: Array.isArray(o.customFields) ? o.customFields : [],
     _importHeaders: Array.isArray(o._importHeaders) ? o._importHeaders : [],
     _rawData: o._rawData || {},
+    _baseDisplayId: o._baseDisplayId || undefined,
   }));
 
   orders.length = 0;
@@ -252,6 +254,10 @@ export function render() {
 
       try {
         await loadSharedState();
+        const fixed = resolveDuplicateIds();
+        if (fixed > 0) {
+          toast(`🔧 Resolved ${fixed} duplicate ID(s) automatically.`, 'info');
+        }
         render();
         toast('Dashboard synced from cloud.', 'success');
       } catch (err) {

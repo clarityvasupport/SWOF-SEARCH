@@ -77,7 +77,8 @@ function handleRoute() {
   if (page === 'order' && id) {
     console.log(`[router] order detail for id: ${id}, selectedId: ${selectedId}`);
     if (selectedId === id) {
-      console.log('[router] already showing this order, skipping');
+      console.log('[router] already showing this order, but calling openDrawer to handle potential duplicates');
+      openDrawer(id);
       return;
     }
     closeDrawer();

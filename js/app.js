@@ -25,6 +25,7 @@ import {
   getStoredPassword,
   setStoredPassword,
   clearMappingConfig,
+  resolveDuplicateIds,
 } from './data.js';
 
 import {
@@ -390,6 +391,10 @@ async function initApp() {
   // ------------------------------------------------------------------
   // 1. Attempt to load from KV (cloud) – falls back to localStorage if needed
   await loadSharedState();
+  const fixed = resolveDuplicateIds();
+  if (fixed > 0) {
+    toast(`🔧 Resolved ${fixed} duplicate ID(s) automatically.`, 'info');
+  }
 
   // 2. Ensure displayConfig has defaults
   if (displayConfig.sidebarPinned === undefined) {

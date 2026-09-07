@@ -129,6 +129,62 @@ export function saveDisplayConfig() {
 }
 
 // =========================================================
+// DUPLICATE RESOLUTION – automatically fix duplicate IDs
+// =========================================================
+
+export function resolveDuplicateIds() {
+  if (!Array.isArray(orders) || orders.length === 0) return 0;
+
+  const idMap = new Map();
+  let duplicatesFixed = 0;
+
+  // Group orders by their current ID
+  orders.forEach(o => {
+    if (!idMap.has(o.id)) {
+      idMap.set(o.id, []);
+    }
+    idMap.get(o.id).push(o);
+  });
+
+  // Process each group that has more than one order
+  for (const [baseId, items] of idMap.entries()) {
+    if (items.length <= 1) continue;
+
+    // Keep the first order as the canonical one
+    const first = items[0];
+    if (!first._baseDisplayId) {
+      first._baseDisplayId = baseId;
+    }
+
+    let counter = 2;
+    for (let i = 1; i < items.length; i++) {
+      const dup = items[i];
+      let newId;
+      let found = false;
+      while (!found) {
+        newId = `${baseId}-${counter}`;
+        if (!orders.some(o => o.id === newId)) {
+          found = true;
+        } else {
+          counter++;
+        }
+      }
+      dup._baseDisplayId = baseId;
+      dup.id = newId;
+      duplicatesFixed++;
+      counter++;
+    }
+  }
+
+  if (duplicatesFixed > 0) {
+    saveOrders(); // This triggers sync to KV
+    console.log(`[resolveDuplicateIds] Fixed ${duplicatesFixed} duplicate ID(s).`);
+  }
+
+  return duplicatesFixed;
+}
+
+// =========================================================
 // SNAPSHOT & HISTORY PUSH
 // =========================================================
 

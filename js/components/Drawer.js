@@ -24,6 +24,52 @@ import { openEdit } from './EditModal.js';
 export let selectedId = null;
 
 export function openDrawer(id) {
+  // ---- DUPLICATE RESOLUTION: ensure the ID is unique ----
+  const matchingOrders = orders.filter(o => o.id === id);
+  if (matchingOrders.length > 1) {
+    // Keep the first order as the "canonical" one.
+    let duplicatesFixed = 0;
+    let counter = 2;
+    for (let i = 1; i < matchingOrders.length; i++) {
+      const dup = matchingOrders[i];
+      // Generate a clean unique ID: base-2, base-3, etc.
+      let newId;
+      let found = false;
+      while (!found) {
+        newId = `${id}-${counter}`;
+        if (!orders.some(o => o.id === newId)) {
+          found = true;
+        } else {
+          counter++;
+        }
+      }
+      // Store the base ID for display purposes
+      dup._baseDisplayId = id;
+      dup.id = newId;
+      duplicatesFixed++;
+      counter++; // increment for the next duplicate
+    }
+    if (duplicatesFixed > 0) {
+      saveOrders();
+      // ---- NEW: Refresh the dashboard grid to update data-open attributes ----
+      if (typeof window.render === 'function') {
+        window.render();
+      }
+      // ---- END NEW ----
+      if (typeof toast === 'function') {
+        toast(`🔧 Resolved ${duplicatesFixed} duplicate ID(s) by reassigning new unique IDs.`, 'info');
+      }
+      // Re‑fetch matching orders – now there should be only one (the first one)
+      const remaining = orders.filter(o => o.id === id);
+      if (remaining.length === 0) {
+        return;
+      }
+      // Continue with the drawer for the original id.
+    }
+  }
+  // ---- End duplicate resolution ----
+
+  // ---- Original openDrawer logic (unchanged) ----
   if (selectedId === id) {
     renderDrawer(id);
     return;
@@ -65,7 +111,7 @@ export function renderDrawer(id) {
   const getValue = (key) => displayValue(o, getSource(key));
 
   // ---- HEADER ----
-  document.getElementById('drawerNumber').textContent = o.id;
+  document.getElementById('drawerNumber').textContent = o._baseDisplayId || o.id;
   document.getElementById('drawerCategory').textContent = getValue('category') || 'Uncategorized';
   document.getElementById('drawerCreatedText').textContent =
     `Created ${formatDate(displayValue(o, getSource('created')))}` +

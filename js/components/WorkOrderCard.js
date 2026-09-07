@@ -67,7 +67,7 @@ export function cardHTML(o) {
   const descriptionConfig = fieldConfigs.description || { label: 'Description', source: 'description', showOnCard: true };
 
   // --- Get values using configured sources ---
-  const idVal = displayValue(o, idConfig.source) || o.id || '—';
+  const idVal = o._baseDisplayId || displayValue(o, idConfig.source) || o.id || '—';
   const titleVal = displayValue(o, titleConfig.source) || o.title || 'Untitled Work Order';
   const statusVal = o.status || 'Open';
   const categoryVal = displayValue(o, categoryConfig.source) || o.category || 'General';

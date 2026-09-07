@@ -3,7 +3,7 @@
 // (v1.3.12 – fixed filter bar text and rendering reliability)
 // =========================================================
 
-import { orders, displayConfig, saveDisplayConfig, loadOrders, loadSharedState } from '../data.js';
+import { orders, displayConfig, saveDisplayConfig, loadOrders, loadSharedState, resolveDuplicateIds } from '../data.js';
 import { esc, normalize, parseDateValue, formatDate, statusClass, getPriorityColor, getAssigneeColor, displayValue, toast } from '../utils.js';
 import { getAllFieldConfigs, getAvailableDateFields } from '../importHelpers.js';
 import { openDrawer } from '../components/Drawer.js';
@@ -11,6 +11,16 @@ import { attachRangeDatePicker } from '../components/DatePicker.js';
 
 let datePickerInstance = null;
 let expandedControlId = null;
+
+// ---- Persistent filter state (survives re-renders) ----
+let filterState = {
+  search: '',
+  status: 'all',
+  assignee: 'all',
+  dateFrom: '',
+  dateTo: '',
+  dateType: 'created'
+};
 
 // ---- Export a wrapper that ensures the DOM is ready ----
 export function render() {
@@ -264,12 +274,26 @@ function _doRender() {
     `;
   }
 
+  // ---- CAPTURE FILTER VALUES BEFORE RE-RENDER (from persistent state) ----
+  const prevSearch = filterState.search || '';
+  const prevStatus = filterState.status || 'all';
+  const prevAssignee = filterState.assignee || 'all';
+  const prevDateFrom = filterState.dateFrom || '';
+  const prevDateTo = filterState.dateTo || '';
+  const prevDateType = filterState.dateType || '';
+  // ---- END CAPTURE ----
+
   // ---- Main HTML ----
   container.innerHTML = `
-    <div id="allOrdersContainer" class="bg-white text-black rounded-2xl shadow-sm overflow-hidden">
-      <!-- Filter bar -->
-      <div class="p-3 border-b border-black/10 relative">
-        ${filterBarHTML}
+    <div id="allOrdersContainer" class="bg-white text-black rounded-2xl shadow-sm" style="overflow: visible;">
+      <!-- Sticky Filter Area -->
+      <div style="position: sticky; top: 0; z-index: 20; background: white; border-bottom: 1px solid rgba(0,0,0,0.1); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <!-- Filter bar with extra padding -->
+        <div class="p-4 pb-2">
+          ${filterBarHTML}
+        </div>
+        <!-- Filter summary with padding -->
+        <div id="allOrdersResultCount" class="px-4 pb-3 text-sm text-black/60"></div>
       </div>
 
       <!-- Table -->
@@ -298,15 +322,31 @@ function _doRender() {
   sectionPage.scrollTop = 0;
   container.focus({ preventScroll: false });
 
+  // ---- RESTORE FILTER VALUES ----
+  const searchEl = document.getElementById('allOrdersSearch');
+  const statusEl = document.getElementById('allOrdersStatus');
+  const assigneeEl = document.getElementById('allOrdersAssignee');
+  const dateTypeEl = document.getElementById('allOrdersDateType');
+
+  if (searchEl) searchEl.value = prevSearch;
+  if (statusEl) statusEl.value = prevStatus;
+  if (assigneeEl) assigneeEl.value = prevAssignee;
+  if (dateTypeEl) dateTypeEl.value = prevDateType;
+  // ---- END RESTORE ----
+
   // ---- Attach date picker ----
   const startInput = document.getElementById('allOrdersDateFrom');
   const endInput = document.getElementById('allOrdersDateTo');
   if (startInput && endInput) {
     datePickerInstance = attachRangeDatePicker(startInput, endInput, {
-      initialStart: '',
-      initialEnd: '',
+      initialStart: prevDateFrom || '',
+      initialEnd: prevDateTo || '',
       onChange: () => {}
     });
+    // If the date picker doesn't respect initial values, force them.
+    if (prevDateFrom || prevDateTo) {
+      datePickerInstance.setRange(prevDateFrom || '', prevDateTo || '');
+    }
   }
 
   // ---- Init mobile compact filter bar ----
@@ -324,6 +364,15 @@ function _doRender() {
     const dateFrom = document.getElementById('allOrdersDateFrom')?.value || '';
     const dateTo = document.getElementById('allOrdersDateTo')?.value || '';
     const dateType = document.getElementById('allOrdersDateType')?.value || 'created';
+
+    // ---- SAVE FILTER STATE (persistent) ----
+    filterState.search = q;
+    filterState.status = st;
+    filterState.assignee = assignee;
+    filterState.dateFrom = dateFrom;
+    filterState.dateTo = dateTo;
+    filterState.dateType = dateType;
+    // ---- END SAVE ----
 
     const filteredOrders = orders.filter(o => {
       const search = normalize([o.id, o.title, o.description, o.category, o.location, o.assignee].join(' '));
@@ -345,6 +394,28 @@ function _doRender() {
       return matchesSearch && matchesStatus && matchesAssignee && matchesDate;
     }).sort((a, b) => String(b.created || '').localeCompare(String(a.created || '')) || (a.sourceOrder ?? 0) - (b.sourceOrder ?? 0));
 
+    // ---- FILTER SUMMARY (same style as render.js) ----
+    const searchVal = document.getElementById('allOrdersSearch')?.value?.trim() || '';
+    const statusVal = document.getElementById('allOrdersStatus')?.value || 'all';
+    const assigneeVal = document.getElementById('allOrdersAssignee')?.value || 'all';
+    const dateFromVal = document.getElementById('allOrdersDateFrom')?.value || '';
+    const dateToVal = document.getElementById('allOrdersDateTo')?.value || '';
+    const dateTypeVal = document.getElementById('allOrdersDateType')?.value || 'created';
+
+    const filterParts = [];
+    if (searchVal) filterParts.push(`"${searchVal}"`);
+    if (statusVal !== 'all') filterParts.push(`Status: ${statusVal}`);
+    if (assigneeVal !== 'all') filterParts.push(`Assignee: ${assigneeVal}`);
+    if (dateFromVal || dateToVal) {
+      const dateLabel = document.querySelector(`#allOrdersDateType option[value="${dateTypeVal}"]`)?.textContent || dateTypeVal;
+      filterParts.push(`Date: ${dateFromVal || '...'} → ${dateToVal || '...'} (${dateLabel})`);
+    }
+    const filterSummary = filterParts.length > 0 ? ` • ${filterParts.join(' • ')}` : '';
+    const resultText = `🔍 Showing ${filteredOrders.length} results${filterSummary} • ${orders.length} total work orders`;
+    const resultCountEl = document.getElementById('allOrdersResultCount');
+    if (resultCountEl) resultCountEl.textContent = resultText;
+    // ---- END FILTER SUMMARY ----
+
     let rowsHTML = "";
     if (filteredOrders.length === 0) {
       rowsHTML = `<tr><td colspan="${tableColumns.length + 1}" class="p-12 text-center text-black/40">No work orders found.</td></tr>`;
@@ -354,6 +425,11 @@ function _doRender() {
         tableColumns.forEach(key => {
           const cfg = fieldConfigs[key];
           let val = displayValue(o, cfg.source);
+          // ---- DISPLAY BASE ID FOR DUPLICATES ----
+          if (key === 'id') {
+            val = o._baseDisplayId || val;
+          }
+          // ---- END ----
           if (key === 'status') {
             val = `<span class="px-2 py-1 rounded-full border ${statusClass(val)}">${esc(val)}</span>`;
           } else if (key === 'priority') {
@@ -508,6 +584,7 @@ function _doRender() {
   document.getElementById('allOrdersDateType')?.addEventListener('change', paint);
 
   // Clear filters
+    // Clear filters
   document.getElementById('allOrdersClearFilters')?.addEventListener('click', () => {
     const searchInput = document.getElementById('allOrdersSearch');
     const statusSelect = document.getElementById('allOrdersStatus');
@@ -527,7 +604,17 @@ function _doRender() {
       if (dateTo) dateTo.value = '';
     }
 
-    if (dateType && dateType.options.length) dateType.value = dateType.options[0].value;
+    const defaultDateType = dateType?.options?.[0]?.value || 'created';
+    if (dateType) dateType.value = defaultDateType;
+
+    // ---- Reset persistent state ----
+    filterState.search = '';
+    filterState.status = 'all';
+    filterState.assignee = 'all';
+    filterState.dateFrom = '';
+    filterState.dateTo = '';
+    filterState.dateType = defaultDateType;
+    // ---- END RESET ----
 
     collapseAll();
     paint();
@@ -551,6 +638,10 @@ function _doRender() {
 
     try {
       await loadSharedState();
+      const fixed = resolveDuplicateIds();
+      if (fixed > 0) {
+        toast(`🔧 Resolved ${fixed} duplicate ID(s) automatically.`, 'info');
+      }
       const freshOrders = orders;
       const newAssignees = [...new Set(freshOrders.map(o => o.assignee).filter(a => a && a !== "Unassigned"))];
       const sel = document.getElementById('allOrdersAssignee');
