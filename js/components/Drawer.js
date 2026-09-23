@@ -23,6 +23,335 @@ import { openEdit } from './EditModal.js';
 
 export let selectedId = null;
 
+// ---- Receipt print preferences ----
+const PRINT_PREFS_KEY = 'wo_receipt_print_prefs';
+const PAPER_SIZES = {
+  letter: { portrait: { w: 8.5, h: 11 }, landscape: { w: 11, h: 8.5 } },
+  legal:  { portrait: { w: 8.5, h: 14 }, landscape: { w: 14, h: 8.5 } },
+  a4:     { portrait: { w: 8.27, h: 11.69 }, landscape: { w: 11.69, h: 8.27 } }
+};
+
+function loadPrintPrefs() {
+  try { return JSON.parse(localStorage.getItem(PRINT_PREFS_KEY)) || {}; } catch { return {}; }
+}
+function savePrintPrefs(prefs) {
+  try { localStorage.setItem(PRINT_PREFS_KEY, JSON.stringify(prefs)); } catch {}
+}
+
+// ---- Live values that feed the PDF (the single source of truth) ----
+const receiptValues = {
+  receiptNo: '',
+  receiptDate: '',
+  receivedFrom: '',
+  address: '',
+  sumWords: '',
+  amount: '0.00',
+  purpose: '',
+  contractor: '',
+};
+
+let _receiptZoom = 80;
+let _receiptPdfBlob = null;
+let _receiptPdfUrl = null;
+
+function applyReceiptZoom(zoomPct) {
+  const slider = document.getElementById('receiptZoomSlider');
+  const label  = document.getElementById('receiptZoomValue');
+  const pct = Math.max(25, Math.min(200, Number(zoomPct) || 80));
+  _receiptZoom = pct;
+  if (slider) slider.value = String(pct);
+  if (label)  label.textContent = pct + '%';
+  sizeReceiptIframe();
+
+  // Persist zoom
+  const p = loadPrintPrefs();
+  p.zoom = pct;
+  savePrintPrefs(p);
+}
+
+function sizeReceiptIframe() {
+  const iframe = document.getElementById('receiptPdfPreview');
+  if (!iframe) return;
+  const paperSize   = document.getElementById('paperSizeSelect')?.value || 'letter';
+  const orientation = document.getElementById('orientationSelect')?.value || 'portrait';
+  const dims = PAPER_SIZES[paperSize]?.[orientation] || PAPER_SIZES.letter.portrait;
+  const dpi = 96;
+  iframe.style.width  = (dims.w * dpi * (_receiptZoom / 100)) + 'px';
+  iframe.style.height = (dims.h * dpi * (_receiptZoom / 100)) + 'px';
+}
+
+function applyReceiptLayout() {
+  const paperSize   = document.getElementById('paperSizeSelect')?.value || 'letter';
+  const orientation = document.getElementById('orientationSelect')?.value || 'portrait';
+  const margin      = document.getElementById('marginSelect')?.value || '0.5';
+  const font        = document.getElementById('fontFamilySelect')?.value || "'Times New Roman', Times, serif";
+  const fontSize    = document.getElementById('fontSizeSelect')?.value || '12';
+  const centerH     = document.getElementById('centerHorizontal')?.checked ?? true;
+  const centerV     = document.getElementById('centerVertical')?.checked ?? false;
+
+  const info = document.getElementById('receiptPageInfo');
+  if (info) {
+    const pretty = s => s.charAt(0).toUpperCase() + s.slice(1);
+    info.textContent = `${pretty(paperSize)} · ${pretty(orientation)} · ${margin}" margins`;
+  }
+
+  const zoomNow = document.getElementById('receiptZoomSlider')?.value || '80';
+  _receiptZoom = Number(zoomNow);
+  sizeReceiptIframe();
+
+  savePrintPrefs({ paperSize, orientation, margin, font, fontSize, centerH, centerV, zoom: Number(zoomNow) });
+
+  // Regenerate the PDF and refresh the iframe.
+  updateReceiptPdfPreview();
+}
+
+// ---- Build the PDF purely from text/vector primitives ----
+function buildReceiptPdf() {
+  if (!window.jspdf) return null;
+
+  const paperSize     = document.getElementById('paperSizeSelect')?.value || 'letter';
+  const orientation   = document.getElementById('orientationSelect')?.value || 'portrait';
+  const marginIn      = parseFloat(document.getElementById('marginSelect')?.value || '0.5');
+  const fontFamilyCSS = document.getElementById('fontFamilySelect')?.value || "'Times New Roman', Times, serif";
+  const fontSizePt    = parseFloat(document.getElementById('fontSizeSelect')?.value || '12');
+  const centerV       = document.getElementById('centerVertical')?.checked ?? false;
+
+      // jsPDF ships with three built-in families: times, helvetica, courier.
+    // Map every exposed CSS font to its nearest built-in counterpart.
+    let pdfFont = 'times';
+    if (/courier/i.test(fontFamilyCSS)) {
+      pdfFont = 'courier';
+    } else if (/arial|helvetica|verdana|trebuchet|segoe|calibri|tahoma|sans/i.test(fontFamilyCSS)) {
+      pdfFont = 'helvetica';
+    }
+    // Everything else (Times, Georgia, Garamond, Palatino, Book Antiqua, Cambria)
+    // falls through to 'times'.
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation, unit: 'in', format: paperSize });
+  pdf.setLineWidth(0.008);
+
+  const pdfW = pdf.internal.pageSize.getWidth();
+  const pdfH = pdf.internal.pageSize.getHeight();
+  const left = marginIn;
+  const right = pdfW - marginIn;
+  const contentW = right - left;
+  const contentH = pdfH - marginIn * 2;
+
+  const lineH  = fontSizePt / 72;
+  const labelPt = fontSizePt * 0.8;
+  const rowGap = lineH * 1.45;
+
+  const receiptNo      = receiptValues.receiptNo || '';
+  const receiptDate    = receiptValues.receiptDate || '';
+  const receivedFrom   = receiptValues.receivedFrom || '';
+  const addressText    = receiptValues.address || '';
+  const sumWords       = receiptValues.sumWords || '';
+  const amountText     = receiptValues.amount || '0.00';
+  const purposeText    = receiptValues.purpose || '';
+  const contractorText = receiptValues.contractor || '';
+
+  const headerH = lineH * 3.5;
+  const totalContentH =
+    headerH + 0.35 +
+    lineH * 2.4 + 0.2 +
+    rowGap * 4 +
+    0.5 + lineH * 3.5;
+
+  let y = marginIn + 0.15;
+  if (centerV && totalContentH < contentH) {
+    y = marginIn + (contentH - totalContentH) / 2;
+  }
+
+  // ---- Header box ----
+  const headerBoxW = 3.2;
+  const headerBoxH = headerH;
+  const headerX    = right - headerBoxW;
+
+  pdf.setFillColor(209, 213, 219);
+  pdf.setDrawColor(209, 213, 219);
+  pdf.rect(headerX, y, headerBoxW, headerBoxH, 'F');
+
+  pdf.setFont(pdfFont, 'bold');
+  pdf.setTextColor(0, 0, 0);
+
+  const headerLine1 = 'ACKNOWLEDGEMENT';
+  const headerLine2 = 'RECEIPT';
+  let headerFontSize = fontSizePt * 1.6;
+  pdf.setFontSize(headerFontSize);
+  while (
+    Math.max(pdf.getTextWidth(headerLine1), pdf.getTextWidth(headerLine2)) > headerBoxW - 0.2 &&
+    headerFontSize > 8
+  ) {
+    headerFontSize -= 0.5;
+    pdf.setFontSize(headerFontSize);
+  }
+  pdf.text(headerLine1, headerX + headerBoxW / 2, y + headerBoxH * 0.45, { align: 'center' });
+  pdf.text(headerLine2, headerX + headerBoxW / 2, y + headerBoxH * 0.82, { align: 'center' });
+
+  y += headerBoxH + 0.35;
+
+  // ---- NO / DATE ----
+  const metaW = 2.8;
+  const metaX = right - metaW;
+
+  pdf.setFont(pdfFont, 'normal');
+  pdf.setFontSize(fontSizePt);
+  pdf.text('NO:', metaX, y + lineH);
+  const noLineStart = metaX + 0.35;
+  pdf.setFont(pdfFont, 'bold');
+  pdf.text(String(receiptNo), (noLineStart + right) / 2, y + lineH, { align: 'center' });
+  pdf.setDrawColor(0, 0, 0);
+  pdf.line(noLineStart, y + lineH + 0.02, right, y + lineH + 0.02);
+
+  pdf.setFont(pdfFont, 'normal');
+  pdf.text('DATE:', metaX, y + lineH * 2.3);
+  const dateLineStart = metaX + 0.55;
+  pdf.setFont(pdfFont, 'bold');
+  pdf.text(String(receiptDate), (dateLineStart + right) / 2, y + lineH * 2.3, { align: 'center' });
+  pdf.line(dateLineStart, y + lineH * 2.3 + 0.02, right, y + lineH * 2.3 + 0.02);
+
+  y += lineH * 2.4 + 0.25;
+
+  // ---- Received from ... with address ----
+  pdf.setFont(pdfFont, 'italic');
+  pdf.setFontSize(labelPt);
+  const lblReceived = 'Received from';
+  pdf.text(lblReceived, left, y + lineH);
+  const wReceived = pdf.getTextWidth(lblReceived);
+
+  const lblWithAddr = 'with address';
+  pdf.text(lblWithAddr, right, y + lineH, { align: 'right' });
+  const wWithAddr = pdf.getTextWidth(lblWithAddr);
+
+  const recValX = left + wReceived + 0.15;
+  const recValW = right - wWithAddr - 0.15 - recValX;
+
+  pdf.setFont(pdfFont, 'bold');
+  pdf.setFontSize(fontSizePt);
+  pdf.text(String(receivedFrom).toUpperCase(), recValX + recValW / 2, y + lineH, { align: 'center', maxWidth: recValW });
+  pdf.line(recValX, y + lineH + 0.02, recValX + recValW, y + lineH + 0.02);
+
+  y += rowGap;
+
+  // ---- Address (full-width underline) ----
+  pdf.setFont(pdfFont, 'bold');
+  pdf.setFontSize(fontSizePt);
+  pdf.text(String(addressText).toUpperCase(), left + contentW / 2, y + lineH, { align: 'center', maxWidth: contentW });
+  pdf.line(left, y + lineH + 0.02, right, y + lineH + 0.02);
+
+  y += rowGap;
+
+  // ---- Sum of pesos ----
+  pdf.setFont(pdfFont, 'italic');
+  pdf.setFontSize(labelPt);
+  const lblSum = 'the sum of pesos';
+  pdf.text(lblSum, left, y + lineH);
+  const wSum = pdf.getTextWidth(lblSum);
+
+  const lblPhp = '(Php';
+  const wPhp   = pdf.getTextWidth(lblPhp);
+  const wClose = pdf.getTextWidth(')');
+
+  const amountW = 1.0;
+  const sumValX = left + wSum + 0.12;
+  const sumValW = right - amountW - wPhp - wClose - 0.3 - sumValX;
+
+  pdf.setFont(pdfFont, 'bold');
+  pdf.setFontSize(fontSizePt);
+  pdf.text(String(sumWords).toUpperCase(), sumValX + sumValW / 2, y + lineH, { align: 'center', maxWidth: sumValW });
+  pdf.line(sumValX, y + lineH + 0.02, sumValX + sumValW, y + lineH + 0.02);
+
+  const phpX = sumValX + sumValW + 0.12;
+  pdf.setFont(pdfFont, 'normal');
+  pdf.setFontSize(labelPt);
+  pdf.text(lblPhp, phpX, y + lineH);
+
+  const amtX = phpX + wPhp + 0.05;
+  pdf.setFont(pdfFont, 'bold');
+  pdf.setFontSize(fontSizePt);
+  pdf.text(String(amountText), amtX + amountW / 2, y + lineH, { align: 'center' });
+  pdf.line(amtX, y + lineH + 0.02, amtX + amountW, y + lineH + 0.02);
+
+  pdf.setFont(pdfFont, 'normal');
+  pdf.setFontSize(labelPt);
+  pdf.text(')', amtX + amountW + 0.05, y + lineH);
+
+  y += rowGap;
+
+  // ---- Purpose ----
+  pdf.setFont(pdfFont, 'italic');
+  pdf.setFontSize(labelPt);
+  const lblPurpose = 'in full / partial payment of';
+  pdf.text(lblPurpose, left, y + lineH);
+  const wPurpose = pdf.getTextWidth(lblPurpose);
+
+  const purposeX = left + wPurpose + 0.12;
+  const purposeW = right - purposeX;
+
+  pdf.setFont(pdfFont, 'bold');
+  pdf.setFontSize(fontSizePt);
+  pdf.text(String(purposeText).toUpperCase(), purposeX + purposeW / 2, y + lineH, { align: 'center', maxWidth: purposeW });
+  pdf.line(purposeX, y + lineH + 0.02, purposeX + purposeW, y + lineH + 0.02);
+
+  // ---- Footer ----
+  const footerY = y + rowGap * 4.85;
+  const boxSize = lineH * 0.9;
+
+  pdf.setFont(pdfFont, 'normal');
+  pdf.setFontSize(fontSizePt);
+  pdf.setDrawColor(0, 0, 0);
+  pdf.setTextColor(0, 0, 0);
+
+  ['CASH', 'CHECK', 'BANK'].forEach((label, i) => {
+    const cy = footerY + i * lineH * 1.9;
+    pdf.rect(left, cy, boxSize, boxSize, 'S');
+    pdf.text(label, left + boxSize + 0.1, cy + boxSize * 0.72);
+  });
+
+  const sigX = pdfW * 0.52;
+  const sigW = right - sigX;
+
+  pdf.setFont(pdfFont, 'italic');
+  pdf.setFontSize(labelPt);
+  pdf.text('By:', sigX, footerY + lineH * 1.4);
+  const wBy = pdf.getTextWidth('By:');
+
+  const conX = sigX + wBy + 0.12;
+  const conW = right - conX;
+  pdf.setFont(pdfFont, 'bold');
+  pdf.setFontSize(fontSizePt);
+  pdf.text(String(contractorText).toUpperCase(), conX + conW / 2, footerY + lineH * 1.4, { align: 'center', maxWidth: conW });
+  pdf.setDrawColor(0, 0, 0);
+  pdf.line(conX, footerY + lineH * 1.4 + 0.02, right, footerY + lineH * 1.4 + 0.02);
+
+  pdf.setFont(pdfFont, 'italic');
+  pdf.setFontSize(labelPt);
+  pdf.text('Authorized Signature', sigX + sigW / 2, footerY + lineH * 2.6, { align: 'center' });
+
+  return pdf;
+}
+
+// ---- Regenerate the PDF and update the iframe preview ----
+function updateReceiptPdfPreview() {
+  const pdf = buildReceiptPdf();
+  if (!pdf) return;
+
+  if (_receiptPdfUrl) {
+    try { URL.revokeObjectURL(_receiptPdfUrl); } catch {}
+    _receiptPdfUrl = null;
+  }
+
+  _receiptPdfBlob = pdf.output('blob');
+  _receiptPdfUrl = URL.createObjectURL(_receiptPdfBlob);
+
+  const iframe = document.getElementById('receiptPdfPreview');
+  if (iframe) {
+    // #toolbar=0 hides the PDF viewer chrome; view=Fit fits the whole page.
+    iframe.src = _receiptPdfUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=Fit';
+  }
+}
+
 export function openDrawer(id) {
   // ---- DUPLICATE RESOLUTION: ensure the ID is unique ----
   const matchingOrders = orders.filter(o => o.id === id);
@@ -330,8 +659,368 @@ export function renderDrawer(id) {
     }
   }, 2500);
 
-  if (typeof window.updateUndoButtons === 'function') window.updateUndoButtons();
+    if (typeof window.updateUndoButtons === 'function') window.updateUndoButtons();
+
+  // ---- PRINT RECEIPT ----
+  document.getElementById('drawerPrintBtn')?.addEventListener('click', () => openReceiptModal(id));
 }
+
+// ---- RECEIPT MODAL LOGIC ----
+// ---- RECEIPT MODAL LOGIC ----
+export function openReceiptModal(orderId) {
+  const o = orders.find(x => x.id === orderId);
+  if (!o) return;
+
+    const getCustomFieldValue = (order, fieldName) => {
+    if (!fieldName) return '';
+    const search = String(fieldName).toLowerCase().trim();
+
+    const lookup = (term) => {
+      if (!term) return '';
+      const t = String(term).toLowerCase().trim();
+      if (!t) return '';
+
+      // 1. customFields by label or _sourceHeader
+      const cf = (order.customFields || []).find(f => {
+        const l = String(f.label || '').toLowerCase().trim();
+        const s = String(f._sourceHeader || '').toLowerCase().trim();
+        return l === t || s === t;
+      });
+      if (cf && cf.value !== undefined && cf.value !== null && String(cf.value).trim() !== '') {
+        return String(cf.value).trim();
+      }
+
+      // 2. _rawData
+      if (order._rawData) {
+        const key = Object.keys(order._rawData).find(k => String(k).toLowerCase().trim() === t);
+        if (key && order._rawData[key] !== undefined && order._rawData[key] !== null && String(order._rawData[key]).trim() !== '') {
+          return String(order._rawData[key]).trim();
+        }
+      }
+      return '';
+    };
+
+    // Direct lookup
+    let v = lookup(search);
+    if (v) return v;
+
+    // Look up the field in fieldConfig and try its source/label/key
+    const fc = displayConfig.fieldConfig || {};
+    const key = Object.keys(fc).find(k => {
+      const c = fc[k];
+      const l = String(c.label || '').toLowerCase().trim();
+      const s = String(c.source || '').toLowerCase().trim();
+      return l === search || s === search || k.toLowerCase() === search;
+    });
+
+    if (key) {
+      const c = fc[key];
+      v = lookup(c.source) || lookup(c.label) || lookup(key);
+      if (v) return v;
+
+      // Last resort: use displayValue with the mapped source
+      if (c.source && typeof displayValue === 'function') {
+        const dv = displayValue(order, c.source);
+        if (dv !== undefined && dv !== null && String(dv).trim() !== '') {
+          return String(dv).trim();
+        }
+      }
+    }
+
+    return '';
+  };
+
+  const config = displayConfig.receiptConfig || { amountField: 'Amount', addressField: 'Address', contractorField: 'Contractor' };
+  const amountStr = getCustomFieldValue(o, config.amountField) || '0';
+  const amountNum = parseFloat(String(amountStr).replace(/,/g, '')) || 0;
+
+    receiptValues.receiptNo    = o._baseDisplayId || o.id;
+  receiptValues.receiptDate  = new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+  receiptValues.receivedFrom = o.location || '';
+  receiptValues.address      = getCustomFieldValue(o, config.addressField) || '';
+  receiptValues.sumWords     = numberToWords(amountNum);
+  receiptValues.amount       = amountNum.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  receiptValues.purpose      = o.title || '';
+  receiptValues.contractor   = getCustomFieldValue(o, config.contractorField) || '';
+
+  // ---- Restore previous print preferences ----
+  const prefs = loadPrintPrefs();
+  if (prefs.paperSize) document.getElementById('paperSizeSelect').value = prefs.paperSize;
+  if (prefs.orientation) document.getElementById('orientationSelect').value = prefs.orientation;
+  if (prefs.margin) document.getElementById('marginSelect').value = prefs.margin;
+  if (prefs.font) document.getElementById('fontFamilySelect').value = prefs.font;
+  if (prefs.fontSize) document.getElementById('fontSizeSelect').value = prefs.fontSize;
+    document.getElementById('centerHorizontal').checked = prefs.centerH !== false;
+  document.getElementById('centerVertical').checked = prefs.centerV === true;
+
+  // ---- Zoom controls wiring ----
+  const zoomSliderEl  = document.getElementById('receiptZoomSlider');
+  const zoomOutEl     = document.getElementById('zoomOutReceiptBtn');
+  const zoomInEl      = document.getElementById('zoomInReceiptBtn');
+  const zoomResetEl   = document.getElementById('resetReceiptZoomBtn');
+
+  if (zoomSliderEl) {
+    const fresh = zoomSliderEl.cloneNode(true);
+    zoomSliderEl.parentNode.replaceChild(fresh, zoomSliderEl);
+        fresh.value = String(prefs.zoom || 80);
+    fresh.addEventListener('input', () => applyReceiptZoom(fresh.value));
+  }
+  if (zoomOutEl) {
+    const fresh = zoomOutEl.cloneNode(true);
+    zoomOutEl.parentNode.replaceChild(fresh, zoomOutEl);
+        fresh.addEventListener('click', () => {
+      const cur = Number(document.getElementById('receiptZoomSlider')?.value || 80);
+      applyReceiptZoom(Math.max(25, cur - 10));
+    });
+  }
+  if (zoomInEl) {
+    const fresh = zoomInEl.cloneNode(true);
+    zoomInEl.parentNode.replaceChild(fresh, zoomInEl);
+    fresh.addEventListener('click', () => {
+      const cur = Number(document.getElementById('receiptZoomSlider')?.value || 80);
+      applyReceiptZoom(Math.min(200, cur + 10));
+    });
+  }
+  if (zoomResetEl) {
+    const fresh = zoomResetEl.cloneNode(true);
+    zoomResetEl.parentNode.replaceChild(fresh, zoomResetEl);
+    fresh.addEventListener('click', () => applyReceiptZoom(100));
+  }
+
+  // ---- Attach layout listeners (idempotent, replaced each time) ----
+  const attachChange = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const fresh = el.cloneNode(true);
+    el.parentNode.replaceChild(fresh, el);
+    fresh.addEventListener('change', applyReceiptLayout);
+    fresh.addEventListener('input', applyReceiptLayout);
+  };
+  ['paperSizeSelect', 'orientationSelect', 'marginSelect', 'fontFamilySelect', 'fontSizeSelect', 'centerHorizontal', 'centerVertical'].forEach(attachChange);
+
+  // ---- Address modal wiring ----
+  const openAddrBtn = document.getElementById('openAddressModalBtn');
+  if (openAddrBtn) {
+    const fresh = openAddrBtn.cloneNode(true);
+    openAddrBtn.parentNode.replaceChild(fresh, openAddrBtn);
+    fresh.addEventListener('click', () => openAddressModal());
+  }
+
+  const saveAddrBtn = document.getElementById('saveAddressBtn');
+  if (saveAddrBtn) {
+    const fresh = saveAddrBtn.cloneNode(true);
+    saveAddrBtn.parentNode.replaceChild(fresh, saveAddrBtn);
+    fresh.addEventListener('click', () => handleSaveAddress(false));
+  }
+
+    const applyAddrBtn = document.getElementById('applyAddressToAllBtn');
+  if (applyAddrBtn) {
+    const fresh = applyAddrBtn.cloneNode(true);
+    applyAddrBtn.parentNode.replaceChild(fresh, applyAddrBtn);
+    fresh.addEventListener('click', () => handleSaveAddress(true));
+  }
+
+  // ---- Save Preferences button ----
+  const savePrefsBtn = document.getElementById('saveReceiptPrefsBtn');
+  if (savePrefsBtn) {
+    const fresh = savePrefsBtn.cloneNode(true);
+    savePrefsBtn.parentNode.replaceChild(fresh, savePrefsBtn);
+    fresh.addEventListener('click', () => {
+      // applyReceiptLayout already persists every setting through savePrintPrefs().
+      applyReceiptLayout();
+      if (typeof window.toast === 'function') {
+        window.toast('Receipt preferences saved.', 'success');
+      }
+    });
+  }
+
+  // ---- Reset to Defaults button ----
+  const resetPrefsBtn = document.getElementById('resetReceiptPrefsBtn');
+  if (resetPrefsBtn) {
+    const fresh = resetPrefsBtn.cloneNode(true);
+    resetPrefsBtn.parentNode.replaceChild(fresh, resetPrefsBtn);
+    fresh.addEventListener('click', () => {
+      // Wipe the stored preferences and restore every control to its default.
+      try { localStorage.removeItem(PRINT_PREFS_KEY); } catch {}
+
+      const setVal = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.value = val;
+      };
+      setVal('paperSizeSelect', 'letter');
+      setVal('orientationSelect', 'portrait');
+      setVal('marginSelect', '0.5');
+      setVal('fontFamilySelect', "'Times New Roman', Times, serif");
+      setVal('fontSizeSelect', '12');
+
+      const chkH = document.getElementById('centerHorizontal');
+      if (chkH) chkH.checked = true;
+      const chkV = document.getElementById('centerVertical');
+      if (chkV) chkV.checked = false;
+
+      const zs = document.getElementById('receiptZoomSlider');
+      if (zs) zs.value = '80';
+      const zv = document.getElementById('receiptZoomValue');
+      if (zv) zv.textContent = '80%';
+      _receiptZoom = 80;
+
+      applyReceiptLayout();
+      if (typeof window.toast === 'function') {
+        window.toast('Receipt preferences reset to defaults.', 'info');
+      }
+    });
+  }
+
+  applyReceiptLayout();
+
+  document.getElementById('receiptModal').classList.remove('hidden');
+}
+
+// ---- Address inner modal ----
+export function openAddressModal() {
+  const modal = document.getElementById('addressModal');
+  const input = document.getElementById('addressModalInput');
+  const current = document.getElementById('receiptAddress')?.textContent || '';
+  if (input) input.value = current;
+  modal?.classList.remove('hidden');
+  setTimeout(() => input?.focus(), 80);
+}
+
+export function closeAddressModal() {
+  document.getElementById('addressModal')?.classList.add('hidden');
+}
+
+function handleSaveAddress(applyToAll) {
+  const address = document.getElementById('addressModalInput')?.value?.trim() || '';
+  const o = orders.find(x => x.id === selectedId);
+  if (!o) { closeAddressModal(); return; }
+
+  const config = displayConfig.receiptConfig || { addressField: 'Address' };
+  const fieldName = config.addressField || 'Address';
+
+  // Update this order
+  if (!o.customFields) o.customFields = [];
+  const norm = fieldName.toLowerCase();
+  let f = o.customFields.find(cf =>
+    String(cf.label || '').toLowerCase() === norm ||
+    String(cf._sourceHeader || '').toLowerCase() === norm
+  );
+  if (f) f.value = address;
+  else o.customFields.push({ label: fieldName, value: address, _sourceHeader: '' });
+
+  if (o._rawData && fieldName) o._rawData[fieldName] = address;
+
+    // Update the live value that feeds the PDF, then re-render the preview.
+  receiptValues.address = address;
+  updateReceiptPdfPreview();
+
+  if (applyToAll) {
+    const location = o.location;
+    let count = 0;
+    orders.forEach(order => {
+      if (order.id === o.id || order.location !== location) return;
+      if (!order.customFields) order.customFields = [];
+      let cf = order.customFields.find(c =>
+        String(c.label || '').toLowerCase() === norm ||
+        String(c._sourceHeader || '').toLowerCase() === norm
+      );
+      if (cf) cf.value = address;
+      else order.customFields.push({ label: fieldName, value: address, _sourceHeader: '' });
+      if (order._rawData && fieldName) order._rawData[fieldName] = address;
+      count++;
+    });
+    saveOrders();
+    if (typeof window.toast === 'function') window.toast(`Address applied to ${count} other order(s) in "${location}".`, 'success');
+  } else {
+    saveOrders();
+    if (typeof window.toast === 'function') window.toast('Address saved.', 'success');
+  }
+
+  closeAddressModal();
+}
+
+export function closeReceiptModal() {
+  document.getElementById('receiptModal').classList.add('hidden');
+  if (_receiptPdfUrl) {
+    try { URL.revokeObjectURL(_receiptPdfUrl); } catch {}
+    _receiptPdfUrl = null;
+    _receiptPdfBlob = null;
+  }
+  const iframe = document.getElementById('receiptPdfPreview');
+  if (iframe) iframe.src = 'about:blank';
+}
+
+export function printReceipt() {
+  const paperSize = document.getElementById('paperSizeSelect')?.value || 'letter';
+  const orientation = document.getElementById('orientationSelect')?.value || 'portrait';
+
+  const style = document.createElement('style');
+  style.id = 'receipt-print-page-rule';
+  style.innerHTML = `@page { size: ${paperSize} ${orientation}; margin: 0; }`;
+  document.head.appendChild(style);
+
+  window.print();
+
+  setTimeout(() => {
+    const el = document.getElementById('receipt-print-page-rule');
+    if (el) el.remove();
+  }, 1500);
+}
+
+export async function downloadReceiptPDF() {
+  // Make sure the cached blob is fresh.
+  if (!_receiptPdfBlob) {
+    updateReceiptPdfPreview();
+  }
+  if (!_receiptPdfBlob) {
+    toast('PDF is still generating. Please try again in a moment.', 'error');
+    return;
+  }
+
+  const a = document.createElement('a');
+  a.href = _receiptPdfUrl;
+  a.download = `Acknowledgement_Receipt_${selectedId || 'Order'}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  toast('Receipt downloaded as PDF.', 'success');
+}
+
+// ---- NUMBER TO WORDS CONVERTER ----
+function numberToWords(num) {
+  if (isNaN(num) || num === 0) return 'ZERO PHILIPPINE PESOS';
+  const a = ['', 'ONE ', 'TWO ', 'THREE ', 'FOUR ', 'FIVE ', 'SIX ', 'SEVEN ', 'EIGHT ', 'NINE ', 'TEN ', 'ELEVEN ', 'TWELVE ', 'THIRTEEN ', 'FOURTEEN ', 'FIFTEEN ', 'SIXTEEN ', 'SEVENTEEN ', 'EIGHTEEN ', 'NINETEEN '];
+  const b = ['', '', 'TWENTY ', 'THIRTY ', 'FORTY ', 'FIFTY ', 'SIXTY ', 'SEVENTY ', 'EIGHTY ', 'NINETY '];
+  const g = ['', 'THOUSAND ', 'MILLION ', 'BILLION ', 'TRILLION '];
+  let n = Math.floor(num);
+  let str = '';
+  let group = 0;
+  while (n > 0) {
+    let temp = n % 1000;
+    let currentGroup = '';
+    if (temp > 0) {
+      let hundred = Math.floor(temp / 100);
+      let rest = temp % 100;
+      if (hundred > 0) currentGroup += a[hundred] + 'HUNDRED ';
+      if (rest > 0) {
+        if (rest < 20) currentGroup += a[rest];
+        else currentGroup += b[Math.floor(rest / 10)] + a[rest % 10];
+      }
+      str = currentGroup + g[group] + str;
+    }
+    n = Math.floor(n / 1000);
+    group++;
+  }
+  return str.trim() + ' PHILIPPINE PESOS';
+}
+
+// Expose to window for inline onclick
+window.openReceiptModal = openReceiptModal;
+window.closeReceiptModal = closeReceiptModal;
+window.printReceipt = printReceipt;
+window.downloadReceiptPDF = downloadReceiptPDF;
+window.openAddressModal = openAddressModal;
+window.closeAddressModal = closeAddressModal;
 
 /**
  * Refresh only the custom fields section of the drawer

@@ -113,6 +113,7 @@ export function loadDisplayConfig() {
       cardExtraFields: [],
       calendarDateSource: 'created',
       fieldConfig: fromStorage.fieldConfig || {},
+      receiptConfig: fromStorage.receiptConfig || { amountField: '', addressField: '', contractorField: '' },
       ...fromStorage,
     };
   } catch {

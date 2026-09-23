@@ -697,6 +697,94 @@ body {
   color: #000;
 }
 
+/* ===== RECEIPT PAPER & LAYOUT STYLES ===== */
+#receiptPrintArea {
+  transition: width 0.3s ease, min-height 0.3s ease, margin 0.3s ease;
+}
+#receiptPrintArea.paper-letter {
+  width: 8.5in;
+  min-height: 11in;
+}
+#receiptPrintArea.paper-legal {
+  width: 8.5in;
+  min-height: 14in;
+}
+#receiptPrintArea.center-h {
+  margin-left: auto;
+  margin-right: auto;
+}
+#receiptPrintArea.center-v {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* Keep the paper itself at the top of the scrollable canvas
+     so the top is never clipped when the paper is taller than
+     the viewport. Only the paper's inner content centers. */
+  align-self: flex-start;
+}
+
+/* ===== RECEIPT PRINT PREVIEW ===== */
+.receipt-page {
+  --page-width: 8.5in;
+  --page-height: 11in;
+  --page-margin: 0.5in;
+  width: var(--page-width);
+  min-height: var(--page-height);
+  padding: var(--page-margin);
+  background: #ffffff;
+  box-sizing: border-box;
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.18);
+  font-size: 12pt;
+  line-height: 1.5;
+    transition: width 0.2s ease, min-height 0.2s ease, padding 0.2s ease, font-size 0.2s ease;
+  flex-shrink: 0;
+}
+
+/* Override Tailwind's rem-based text utilities inside the receipt so
+   changing the base font-size on .receipt-page scales every label and
+   value proportionally (live preview + print + PDF). */
+.receipt-page .text-\[10px\] { font-size: 0.625em  !important; }
+.receipt-page .text-\[11px\] { font-size: 0.6875em !important; }
+.receipt-page .text-\[12px\] { font-size: 0.75em   !important; }
+.receipt-page .text-xs       { font-size: 0.75em   !important; }
+.receipt-page .text-sm       { font-size: 0.875em  !important; }
+.receipt-page .text-base     { font-size: 1em      !important; }
+.receipt-page .text-lg       { font-size: 1.125em  !important; }
+.receipt-page .text-xl       { font-size: 1.25em   !important; }
+.receipt-page .text-2xl      { font-size: 1.5em    !important; }
+.receipt-page .text-3xl      { font-size: 1.875em  !important; }
+
+/* ===== RECEIPT PRINT STYLES ===== */
+@media print {
+  body * { visibility: hidden !important; }
+  #receiptPrintArea, #receiptPrintArea * { visibility: visible !important; }
+  #receiptPrintArea {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: var(--page-margin) !important;
+    width: var(--page-width) !important;
+    min-height: var(--page-height) !important;
+  }
+    .no-print { display: none !important; }
+  #receiptPrintArea.paper-letter {
+    width: 8.5in !important;
+    min-height: 11in !important;
+  }
+  #receiptPrintArea.paper-legal {
+    width: 8.5in !important;
+    min-height: 14in !important;
+  }
+  #receiptPrintArea.center-v {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+  }
+}
+
+
 /* Toast top-right */
 #toastStack {
   top: 80px;

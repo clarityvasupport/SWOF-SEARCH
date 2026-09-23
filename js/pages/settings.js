@@ -43,6 +43,47 @@ export function render() {
     return (dateCount / totalCount) >= 0.3;
   }
 
+    // ---- Helper: build dropdown for receipt fields (shows source/header) ----
+  function buildReceiptFieldOptions(selectedValue = '') {
+    const allConfigs = getAllFieldConfigs();
+    const allHeaders = allAvailableHeaders();
+    
+    const options = new Map(); // Map<value, displayText>
+    
+    // 1. Core fields
+    const coreFields = ['id','title','status','priority','category','location','assignee','requester','created','dueDate','description'];
+    coreFields.forEach(key => {
+      const cfg = allConfigs[key];
+      const label = cfg.label || key;
+      const source = cfg.source || key;
+      options.set(source, `${source} (${label})`);
+    });
+
+    // 2. Custom fields
+    const customKeys = Object.keys(allConfigs).filter(k => k.startsWith('custom_'));
+    customKeys.forEach(key => {
+      const cfg = allConfigs[key];
+      const label = cfg.label || key;
+      const source = cfg.source || label;
+      if (source) options.set(source, `${source} (${label})`);
+    });
+
+    // 3. All available headers (from imports)
+    allHeaders.forEach(h => {
+      if (!options.has(h)) {
+        options.set(h, h);
+      }
+    });
+
+    let html = '';
+    options.forEach((text, value) => {
+      const isSelected = selectedValue === value ? 'selected' : '';
+      html += `<option value="${esc(value)}" ${isSelected}>${esc(text)}</option>`;
+    });
+
+    return html;
+  }
+
   // ---- NEW: build dropdown from ALL field configs ----
   function buildCompletionDateOptions() {
     const allConfigs = getAllFieldConfigs();
@@ -361,8 +402,48 @@ export function render() {
         <div class="mt-4 flex flex-wrap gap-2">
           <button id="addFieldConfigBtn" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white font-bold text-xs sm:text-sm transition">+ Add Field</button>
           <button id="saveFieldConfigBtn" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs sm:text-sm transition">Save Changes</button>
-          <button id="resetFieldConfigBtn" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl border border-red-500/30 text-red-400 font-bold text-xs sm:text-sm hover:bg-red-500/10 transition">Reset All</button>
+                    <button id="resetFieldConfigBtn" class="flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl border border-red-500/30 text-red-400 font-bold text-xs sm:text-sm hover:bg-red-500/10 transition">Reset All</button>
         </div>
+      </div>
+    </details>
+
+    <!-- ============================================================
+         ACCORDION: RECEIPT CONFIGURATION
+         ============================================================ -->
+    <details id="receiptConfigDetails">
+      <summary class="cursor-pointer list-none flex flex-wrap items-center justify-between gap-1 sm:gap-2 p-3 sm:p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition">
+        <div class="flex items-center gap-2 sm:gap-3">
+          <svg class="w-4 h-4 sm:w-5 sm:h-5 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-width="1.8" stroke-linecap="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span class="font-black text-white text-sm sm:text-base">Receipt Configuration</span>
+        </div>
+        <span class="text-white/40 text-xs sm:text-sm transition-transform duration-200">▾</span>
+      </summary>
+      <div class="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5 mt-1 space-y-4">
+        <p class="text-xs sm:text-sm text-white/50">Map the fields used in the Acknowledgement Receipt printout.</p>
+        <div>
+          <label class="block text-xs font-bold text-white/70 mb-1">Amount Field</label>
+          <select id="receiptAmountField" class="w-full bg-black/30 text-white border border-white/20 rounded-xl px-3 py-2 text-sm">
+            <option value="">— None —</option>
+            ${buildReceiptFieldOptions(displayConfig.receiptConfig?.amountField)}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-white/70 mb-1">Address Field</label>
+          <select id="receiptAddressField" class="w-full bg-black/30 text-white border border-white/20 rounded-xl px-3 py-2 text-sm">
+            <option value="">— None —</option>
+            ${buildReceiptFieldOptions(displayConfig.receiptConfig?.addressField)}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-white/70 mb-1">Contractor Field</label>
+          <select id="receiptContractorField" class="w-full bg-black/30 text-white border border-white/20 rounded-xl px-3 py-2 text-sm">
+            <option value="">— None —</option>
+            ${buildReceiptFieldOptions(displayConfig.receiptConfig?.contractorField)}
+          </select>
+        </div>
+        <button id="saveReceiptConfigBtn" class="px-4 py-2 rounded-xl bg-brand-teal hover:bg-[#2A5454] text-white font-bold text-sm transition">Save Receipt Configuration</button>
       </div>
     </details>
   </div>`;
@@ -727,8 +808,24 @@ export function render() {
     if (details) {
       details.removeAttribute('open');
     }
-    setTimeout(() => delete this.dataset.saving, 1000);
+        setTimeout(() => delete this.dataset.saving, 1000);
   });
+
+  // ---- Receipt Configuration events ----
+  const saveReceiptBtn = document.getElementById('saveReceiptConfigBtn');
+  if (saveReceiptBtn) {
+    saveReceiptBtn.addEventListener('click', function() {
+      if (!window.requireLogin || !window.requireLogin()) return;
+      
+      if (!displayConfig.receiptConfig) displayConfig.receiptConfig = {};
+      displayConfig.receiptConfig.amountField = document.getElementById('receiptAmountField')?.value || '';
+      displayConfig.receiptConfig.addressField = document.getElementById('receiptAddressField')?.value || '';
+      displayConfig.receiptConfig.contractorField = document.getElementById('receiptContractorField')?.value || '';
+      
+      saveDisplayConfig();
+      toast('Receipt configuration saved.', 'success');
+    });
+  }
 }
 
 // ---- Render calendar checkboxes (unchanged) ----
