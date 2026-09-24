@@ -72,6 +72,34 @@ function applyReceiptZoom(zoomPct) {
   savePrintPrefs(p);
 }
 
+// Pin the receipt modal to the *visible* viewport rect. On mobile,
+// browser chrome (Chrome's address bar, Safari's bottom toolbar, etc.)
+// shrinks the visible area but `position: fixed` still stretches to the
+// layout viewport — leaving the top toolbar hidden under the address bar
+// and the bottom bar hidden under the on-screen keyboard or search bar.
+// The visualViewport API reports the exact visible rect, which we mirror
+// onto the modal via inline styles.
+function fitReceiptModalToViewport() {
+  const modal = document.getElementById('receiptModal');
+  if (!modal || modal.classList.contains('hidden')) return;
+
+  const vv = window.visualViewport;
+  if (vv) {
+    modal.style.top    = vv.offsetTop + 'px';
+    modal.style.left   = '0px';
+    modal.style.right  = '0px';
+    modal.style.bottom = 'auto';
+    modal.style.height = vv.height + 'px';
+  } else {
+    // Fallback for browsers without visualViewport.
+    modal.style.top    = '0px';
+    modal.style.left   = '0px';
+    modal.style.right  = '0px';
+    modal.style.bottom = 'auto';
+    modal.style.height = window.innerHeight + 'px';
+  }
+}
+
 function sizeReceiptIframe() {
   const iframe = document.getElementById('receiptPdfPreview');
   const canvas = document.getElementById('receiptPdfCanvas');
@@ -269,9 +297,12 @@ function buildReceiptPdf() {
   // ---- Helper: draw centered text with a per-line underline.
   //      Uses splitTextToSize so each wrapped line gets its own
   //      underline instead of a single underline under only line 1.
-  //      Returns the number of lines drawn (>= 1).
+  //      The FIRST line starts at lineStartX (aligns with its label);
+  //      continuation lines start at wrapStartX (defaults to
+  //      lineStartX) so they can extend to the far-left margin or the
+  //      signature column. Returns the number of lines drawn (>= 1).
   //      Font family / size / style must be set by the caller first.
-  const drawWrappedCentered = (text, xCenter, yBaseline, maxWidth, lineStartX, lineEndX) => {
+  const drawWrappedCentered = (text, xCenter, yBaseline, maxWidth, lineStartX, lineEndX, wrapStartX) => {
     const str = String(text == null ? '' : text);
     let lines;
     if (!str.trim()) {
@@ -281,10 +312,14 @@ function buildReceiptPdf() {
       lines = Array.isArray(split) ? split : [split];
       if (!lines.length) lines = [''];
     }
+    const wrapStart = (wrapStartX === undefined || wrapStartX === null) ? lineStartX : wrapStartX;
     lines.forEach((line, i) => {
       const yy = yBaseline + lineH * i;
       if (line) pdf.text(line, xCenter, yy, { align: 'center' });
-      pdf.line(lineStartX, yy + 0.02, lineEndX, yy + 0.02);
+      // First visual line: underline from the label edge.
+      // Continuation lines: underline from the wrap-start edge.
+      const sX = i === 0 ? lineStartX : wrapStart;
+      pdf.line(sX, yy + 0.02, lineEndX, yy + 0.02);
     });
     return lines.length;
   };
@@ -381,8 +416,9 @@ function buildReceiptPdf() {
     recValX + recValW / 2,
     y + lineH,
     recValW,
-    recValX,
-    recValX + recValW
+    recValX,          // first line: after "Received from"
+    recValX + recValW,
+    left              // continuation: from the far-left margin
   );
 
   y += rowGap + (recLines - 1) * lineH;
@@ -423,8 +459,9 @@ function buildReceiptPdf() {
     sumValX + sumValW / 2,
     y + lineH,
     sumValW,
-    sumValX,
-    sumValX + sumValW
+    sumValX,          // first line: after "the sum of pesos"
+    sumValX + sumValW,
+    left              // continuation: from the far-left margin
   );
 
   const phpX = sumValX + sumValW + 0.12;
@@ -461,8 +498,9 @@ function buildReceiptPdf() {
     purposeX + purposeW / 2,
     y + lineH,
     purposeW,
-    purposeX,
-    purposeX + purposeW
+    purposeX,         // first line: after "in full / partial payment of"
+    purposeX + purposeW,
+    left              // continuation: from the far-left margin
   );
 
   // Advance y past any extra wrapped lines so the footer sits below them.
@@ -495,18 +533,23 @@ function buildReceiptPdf() {
   const conW = right - conX;
   pdf.setFont(pdfFont, 'bold');
   pdf.setFontSize(fontSizePt);
-  drawWrappedCentered(
+  const conLines = drawWrappedCentered(
     String(contractorText).toUpperCase(),
     conX + conW / 2,
     footerY + lineH * 1.4,
     conW,
-    conX,
-    right
+    conX,             // first line: after "By:"
+    right,
+    sigX              // continuation: from the signature column's left
   );
+
+  // Push the "Authorized Signature" label down past every wrapped line
+  // the contractor text produced, then keep the original 1.2-line gap.
+  const sigLabelBaseline = footerY + lineH * 1.4 + (conLines - 1) * lineH + lineH * 1.2;
 
   pdf.setFont(pdfFont, 'italic');
   pdf.setFontSize(labelPt);
-  pdf.text('Authorized Signature', sigX + sigW / 2, footerY + lineH * 2.6, { align: 'center' });
+  pdf.text('Authorized Signature', sigX + sigW / 2, sigLabelBaseline, { align: 'center' });
 
   return pdf;
 }
@@ -1103,7 +1146,12 @@ export function openReceiptModal(orderId) {
 
   applyReceiptLayout();
 
-  document.getElementById('receiptModal').classList.remove('hidden');
+    document.getElementById('receiptModal').classList.remove('hidden');
+
+  // Pin the modal to the visible viewport rect (fixes overlap with
+  // mobile browser chrome: address bar at the top, search bar /
+  // keyboard at the bottom).
+  fitReceiptModalToViewport();
 
   // After the modal is painted, re-fit the preview. This is what
   // makes the paper fit the viewport on phones (clientWidth was 0
@@ -1316,9 +1364,13 @@ window.closeAddressModal = closeAddressModal;
 
 // Re-fit the receipt preview whenever the viewport changes size
 // (phone rotation, browser resize, on-screen keyboard, etc.).
-window.addEventListener('resize', () => {
+// Also re-pin the modal to the visible viewport rect so its top and
+// bottom never slip under mobile browser chrome.
+function refitReceiptPreview() {
   const modal = document.getElementById('receiptModal');
   if (!modal || modal.classList.contains('hidden')) return;
+
+  fitReceiptModalToViewport();
 
   const isMobile = window.matchMedia('(max-width: 767px)').matches;
 
@@ -1332,7 +1384,14 @@ window.addEventListener('resize', () => {
   const iframe = document.getElementById('receiptPdfPreview');
   if (!iframe || !iframe.src || iframe.src === 'about:blank') return;
   sizeReceiptIframe();
-});
+}
+
+window.addEventListener('resize', refitReceiptPreview);
+window.addEventListener('orientationchange', refitReceiptPreview);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', refitReceiptPreview);
+  window.visualViewport.addEventListener('scroll', refitReceiptPreview);
+}
 
 /**
  * Refresh only the custom fields section of the drawer
