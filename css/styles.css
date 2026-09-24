@@ -828,3 +828,77 @@ body {
 #allOrdersTable th.resizing {
   border-right: 2px solid #326363;
 }
+
+/* ============================================================
+   RECEIPT PRINT PREVIEW – MOBILE (≤767px)
+   - Settings sidebar becomes an off-canvas slide-in panel
+   - Backdrop closes the sidebar when tapped
+   - Preview canvas uses smaller padding
+   ============================================================ */
+
+.receipt-sidebar-backdrop {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  #receiptSidebar.receipt-sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    max-width: 85vw;
+    z-index: 30;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: 6px 0 24px rgba(0, 0, 0, 0.18);
+  }
+  #receiptSidebar.receipt-sidebar.open {
+    transform: translateX(0);
+  }
+  #receiptSidebarBackdrop.receipt-sidebar-backdrop.open {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 20;
+  }
+    #receiptPreviewCanvas {
+    padding: 16px !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+  }
+}
+
+/* ============================================================
+   RECEIPT PREVIEW – PAN / ZOOM BEHAVIOUR
+   The iframe is a display-only preview. Disabling pointer events
+   lets every touch / click fall through to the scrollable canvas
+   so MASTER can drag to pan at any zoom level.
+   ============================================================ */
+#receiptPdfPreview {
+  pointer-events: none;
+}
+
+/* ============================================================
+   RECEIPT FIELD-EDITOR ACCORDION
+   ============================================================ */
+#receiptFieldsAccordion summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+}
+#receiptFieldsAccordion summary::-webkit-details-marker {
+  display: none;
+}
+#receiptFieldsAccordion summary::marker {
+  content: '';
+}
+#receiptFieldsAccordion .receipt-accordion-chevron {
+  transition: transform 0.2s ease;
+}
+#receiptFieldsAccordion[open] .receipt-accordion-chevron {
+  transform: rotate(180deg);
+}

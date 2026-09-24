@@ -53,6 +53,8 @@ const receiptValues = {
 let _receiptZoom = 80;
 let _receiptPdfBlob = null;
 let _receiptPdfUrl = null;
+let _originalReceiptValues = { ...receiptValues };
+let _receiptPreviewTimer = null;
 
 function applyReceiptZoom(zoomPct) {
   const slider = document.getElementById('receiptZoomSlider');
@@ -76,8 +78,75 @@ function sizeReceiptIframe() {
   const orientation = document.getElementById('orientationSelect')?.value || 'portrait';
   const dims = PAPER_SIZES[paperSize]?.[orientation] || PAPER_SIZES.letter.portrait;
   const dpi = 96;
-  iframe.style.width  = (dims.w * dpi * (_receiptZoom / 100)) + 'px';
-  iframe.style.height = (dims.h * dpi * (_receiptZoom / 100)) + 'px';
+  const effZoom = _receiptZoom / 100;
+  iframe.style.width  = (dims.w * dpi * effZoom) + 'px';
+  iframe.style.height = (dims.h * dpi * effZoom) + 'px';
+}
+
+// Debounced refresh of the receipt PDF preview. Called on every
+// keystroke in the field-editor accordion so the preview updates
+// "live" without thrashing the blob / iframe on each character.
+function scheduleReceiptPreviewRefresh(delay = 120) {
+  if (_receiptPreviewTimer) clearTimeout(_receiptPreviewTimer);
+  if (delay <= 0) {
+    _receiptPreviewTimer = null;
+    updateReceiptPdfPreview();
+    return;
+  }
+  _receiptPreviewTimer = setTimeout(() => {
+    _receiptPreviewTimer = null;
+    updateReceiptPdfPreview();
+  }, delay);
+}
+
+// Wire the receipt-field editor accordion. Every input writes into
+// receiptValues (the single source of truth for the PDF) and triggers
+// a debounced preview refresh. It NEVER touches the Work Order itself.
+function wireReceiptFieldEditors() {
+  const fieldMap = {
+    receiptEditNo:         'receiptNo',
+    receiptEditDate:       'receiptDate',
+    receiptEditReceived:   'receivedFrom',
+    receiptEditAddress:    'address',
+    receiptEditAmount:     'amount',
+    receiptEditPurpose:    'purpose',
+    receiptEditContractor: 'contractor',
+  };
+
+  Object.entries(fieldMap).forEach(([elId, key]) => {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    const fresh = el.cloneNode(true);
+    el.parentNode.replaceChild(fresh, el);
+    fresh.value = receiptValues[key] || '';
+    fresh.addEventListener('input', () => {
+      receiptValues[key] = fresh.value;
+      // Amount is the source of truth; the "sum of pesos" line is
+      // always derived from it, so recompute on every keystroke.
+      if (key === 'amount') {
+        const amountNum = parseFloat(String(fresh.value).replace(/,/g, '')) || 0;
+        receiptValues.sumWords = numberToWords(amountNum);
+      }
+      scheduleReceiptPreviewRefresh();
+    });
+  });
+
+  const resetBtn = document.getElementById('receiptResetEditsBtn');
+  if (resetBtn) {
+    const fresh = resetBtn.cloneNode(true);
+    resetBtn.parentNode.replaceChild(fresh, resetBtn);
+    fresh.addEventListener('click', () => {
+      Object.assign(receiptValues, _originalReceiptValues);
+      Object.entries(fieldMap).forEach(([elId, key]) => {
+        const el = document.getElementById(elId);
+        if (el) el.value = receiptValues[key] || '';
+      });
+      scheduleReceiptPreviewRefresh(0);
+      if (typeof window.toast === 'function') {
+        window.toast('Receipt fields reset to Work Order values.', 'info');
+      }
+    });
+  }
 }
 
 function applyReceiptLayout() {
@@ -734,7 +803,7 @@ export function openReceiptModal(orderId) {
   const amountStr = getCustomFieldValue(o, config.amountField) || '0';
   const amountNum = parseFloat(String(amountStr).replace(/,/g, '')) || 0;
 
-    receiptValues.receiptNo    = o._baseDisplayId || o.id;
+      receiptValues.receiptNo    = o._baseDisplayId || o.id;
   receiptValues.receiptDate  = new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
   receiptValues.receivedFrom = o.location || '';
   receiptValues.address      = getCustomFieldValue(o, config.addressField) || '';
@@ -742,6 +811,10 @@ export function openReceiptModal(orderId) {
   receiptValues.amount       = amountNum.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   receiptValues.purpose      = o.title || '';
   receiptValues.contractor   = getCustomFieldValue(o, config.contractorField) || '';
+
+  // Snapshot the original Work-Order-derived values so the
+  // "Reset to Work Order Values" button can restore them.
+  _originalReceiptValues = { ...receiptValues };
 
   // ---- Restore previous print preferences ----
   const prefs = loadPrintPrefs();
@@ -871,17 +944,78 @@ export function openReceiptModal(orderId) {
     });
   }
 
+    // ---- Mobile settings sidebar wiring ----
+  const sidebarEl       = document.getElementById('receiptSidebar');
+  const sidebarBackdrop = document.getElementById('receiptSidebarBackdrop');
+  const sidebarToggle   = document.getElementById('receiptSidebarToggle');
+
+  const setSidebarOpen = (open) => {
+    sidebarEl?.classList.toggle('open', open);
+    sidebarBackdrop?.classList.toggle('open', open);
+  };
+  // Always start closed so the preview is what MASTER sees first.
+  setSidebarOpen(false);
+
+  if (sidebarToggle) {
+    const fresh = sidebarToggle.cloneNode(true);
+    sidebarToggle.parentNode.replaceChild(fresh, sidebarToggle);
+    fresh.addEventListener('click', () => {
+      setSidebarOpen(!sidebarEl?.classList.contains('open'));
+    });
+  }
+  if (sidebarBackdrop) {
+    const fresh = sidebarBackdrop.cloneNode(true);
+    sidebarBackdrop.parentNode.replaceChild(fresh, sidebarBackdrop);
+    fresh.addEventListener('click', () => setSidebarOpen(false));
+  }
+
+    // ---- Wire the receipt-field editor accordion ----
+  wireReceiptFieldEditors();
+
   applyReceiptLayout();
 
   document.getElementById('receiptModal').classList.remove('hidden');
+
+  // After the modal is painted, re-fit the preview. This is what
+  // makes the paper fit the viewport on phones (clientWidth was 0
+  // while the modal was still display:none). The initial zoom on
+  // mobile is display-only — it is NOT persisted, and MASTER can
+  // still freely zoom / pan afterwards.
+  requestAnimationFrame(() => {
+    if (window.matchMedia('(max-width: 767px)').matches) {
+      const canvas = document.getElementById('receiptPreviewCanvas');
+      if (canvas && canvas.clientWidth > 0) {
+        const paperSize   = document.getElementById('paperSizeSelect')?.value || 'letter';
+        const orientation = document.getElementById('orientationSelect')?.value || 'portrait';
+        const dims = PAPER_SIZES[paperSize]?.[orientation] || PAPER_SIZES.letter.portrait;
+        const cs   = window.getComputedStyle(canvas);
+        const padL = parseFloat(cs.paddingLeft) || 0;
+        const padR = parseFloat(cs.paddingRight) || 0;
+        const availW = canvas.clientWidth - padL - padR;
+        const fitZoom = Math.max(25, Math.min(200, Math.floor((availW / (dims.w * 96)) * 100)));
+        if (fitZoom > 0) {
+          _receiptZoom = fitZoom;
+          const slider = document.getElementById('receiptZoomSlider');
+          if (slider) slider.value = String(fitZoom);
+          const label = document.getElementById('receiptZoomValue');
+          if (label) label.textContent = fitZoom + '%';
+        }
+      }
+    }
+    sizeReceiptIframe();
+  });
 }
 
 // ---- Address inner modal ----
 export function openAddressModal() {
   const modal = document.getElementById('addressModal');
   const input = document.getElementById('addressModalInput');
-  const current = document.getElementById('receiptAddress')?.textContent || '';
-  if (input) input.value = current;
+  // Pull the current value from receiptValues — the single source of
+  // truth for the PDF preview — so the modal always reflects what the
+  // receipt currently shows (from the Work Order, the sidebar
+  // accordion, or a previous save here). This replaces the stale
+  // `receiptAddress` element lookup that no longer exists in the DOM.
+  if (input) input.value = receiptValues.address || '';
   modal?.classList.remove('hidden');
   setTimeout(() => input?.focus(), 80);
 }
@@ -910,8 +1044,12 @@ function handleSaveAddress(applyToAll) {
 
   if (o._rawData && fieldName) o._rawData[fieldName] = address;
 
-    // Update the live value that feeds the PDF, then re-render the preview.
+        // Update the live value that feeds the PDF, then re-render the preview.
   receiptValues.address = address;
+  // Keep the sidebar "Edit Fields → Address" input in sync so the
+  // accordion reflects the new value the moment the modal is saved.
+  const sidebarAddr = document.getElementById('receiptEditAddress');
+  if (sidebarAddr) sidebarAddr.value = address;
   updateReceiptPdfPreview();
 
   if (applyToAll) {
@@ -941,6 +1079,17 @@ function handleSaveAddress(applyToAll) {
 
 export function closeReceiptModal() {
   document.getElementById('receiptModal').classList.add('hidden');
+  // Reset the mobile settings sidebar so it always starts closed next time.
+  document.getElementById('receiptSidebar')?.classList.remove('open');
+  document.getElementById('receiptSidebarBackdrop')?.classList.remove('open');
+
+  // Kill any pending debounced preview refresh so it can't fire
+  // after the modal has been dismissed.
+  if (_receiptPreviewTimer) {
+    clearTimeout(_receiptPreviewTimer);
+    _receiptPreviewTimer = null;
+  }
+
   if (_receiptPdfUrl) {
     try { URL.revokeObjectURL(_receiptPdfUrl); } catch {}
     _receiptPdfUrl = null;
@@ -1021,6 +1170,16 @@ window.printReceipt = printReceipt;
 window.downloadReceiptPDF = downloadReceiptPDF;
 window.openAddressModal = openAddressModal;
 window.closeAddressModal = closeAddressModal;
+
+// Re-fit the receipt preview whenever the viewport changes size
+// (phone rotation, browser resize, on-screen keyboard, etc.).
+window.addEventListener('resize', () => {
+  const modal = document.getElementById('receiptModal');
+  if (!modal || modal.classList.contains('hidden')) return;
+  const iframe = document.getElementById('receiptPdfPreview');
+  if (!iframe || !iframe.src || iframe.src === 'about:blank') return;
+  sizeReceiptIframe();
+});
 
 /**
  * Refresh only the custom fields section of the drawer
