@@ -266,6 +266,29 @@ function buildReceiptPdf() {
   const labelPt = fontSizePt * 0.8;
   const rowGap = lineH * 1.45;
 
+  // ---- Helper: draw centered text with a per-line underline.
+  //      Uses splitTextToSize so each wrapped line gets its own
+  //      underline instead of a single underline under only line 1.
+  //      Returns the number of lines drawn (>= 1).
+  //      Font family / size / style must be set by the caller first.
+  const drawWrappedCentered = (text, xCenter, yBaseline, maxWidth, lineStartX, lineEndX) => {
+    const str = String(text == null ? '' : text);
+    let lines;
+    if (!str.trim()) {
+      lines = [''];
+    } else {
+      const split = pdf.splitTextToSize(str, maxWidth);
+      lines = Array.isArray(split) ? split : [split];
+      if (!lines.length) lines = [''];
+    }
+    lines.forEach((line, i) => {
+      const yy = yBaseline + lineH * i;
+      if (line) pdf.text(line, xCenter, yy, { align: 'center' });
+      pdf.line(lineStartX, yy + 0.02, lineEndX, yy + 0.02);
+    });
+    return lines.length;
+  };
+
   const receiptNo      = receiptValues.receiptNo || '';
   const receiptDate    = receiptValues.receiptDate || '';
   const receivedFrom   = receiptValues.receivedFrom || '';
@@ -353,18 +376,30 @@ function buildReceiptPdf() {
 
   pdf.setFont(pdfFont, 'bold');
   pdf.setFontSize(fontSizePt);
-  pdf.text(String(receivedFrom).toUpperCase(), recValX + recValW / 2, y + lineH, { align: 'center', maxWidth: recValW });
-  pdf.line(recValX, y + lineH + 0.02, recValX + recValW, y + lineH + 0.02);
+  const recLines = drawWrappedCentered(
+    String(receivedFrom).toUpperCase(),
+    recValX + recValW / 2,
+    y + lineH,
+    recValW,
+    recValX,
+    recValX + recValW
+  );
 
-  y += rowGap;
+  y += rowGap + (recLines - 1) * lineH;
 
   // ---- Address (full-width underline) ----
   pdf.setFont(pdfFont, 'bold');
   pdf.setFontSize(fontSizePt);
-  pdf.text(String(addressText).toUpperCase(), left + contentW / 2, y + lineH, { align: 'center', maxWidth: contentW });
-  pdf.line(left, y + lineH + 0.02, right, y + lineH + 0.02);
+  const addrLines = drawWrappedCentered(
+    String(addressText).toUpperCase(),
+    left + contentW / 2,
+    y + lineH,
+    contentW,
+    left,
+    right
+  );
 
-  y += rowGap;
+  y += rowGap + (addrLines - 1) * lineH;
 
   // ---- Sum of pesos ----
   pdf.setFont(pdfFont, 'italic');
@@ -383,8 +418,14 @@ function buildReceiptPdf() {
 
   pdf.setFont(pdfFont, 'bold');
   pdf.setFontSize(fontSizePt);
-  pdf.text(String(sumWords).toUpperCase(), sumValX + sumValW / 2, y + lineH, { align: 'center', maxWidth: sumValW });
-  pdf.line(sumValX, y + lineH + 0.02, sumValX + sumValW, y + lineH + 0.02);
+  const sumLines = drawWrappedCentered(
+    String(sumWords).toUpperCase(),
+    sumValX + sumValW / 2,
+    y + lineH,
+    sumValW,
+    sumValX,
+    sumValX + sumValW
+  );
 
   const phpX = sumValX + sumValW + 0.12;
   pdf.setFont(pdfFont, 'normal');
@@ -401,7 +442,7 @@ function buildReceiptPdf() {
   pdf.setFontSize(labelPt);
   pdf.text(')', amtX + amountW + 0.05, y + lineH);
 
-  y += rowGap;
+  y += rowGap + (sumLines - 1) * lineH;
 
   // ---- Purpose ----
   pdf.setFont(pdfFont, 'italic');
@@ -415,8 +456,17 @@ function buildReceiptPdf() {
 
   pdf.setFont(pdfFont, 'bold');
   pdf.setFontSize(fontSizePt);
-  pdf.text(String(purposeText).toUpperCase(), purposeX + purposeW / 2, y + lineH, { align: 'center', maxWidth: purposeW });
-  pdf.line(purposeX, y + lineH + 0.02, purposeX + purposeW, y + lineH + 0.02);
+  const purposeLines = drawWrappedCentered(
+    String(purposeText).toUpperCase(),
+    purposeX + purposeW / 2,
+    y + lineH,
+    purposeW,
+    purposeX,
+    purposeX + purposeW
+  );
+
+  // Advance y past any extra wrapped lines so the footer sits below them.
+  y += (purposeLines - 1) * lineH;
 
   // ---- Footer ----
   const footerY = y + rowGap * 4.85;
@@ -445,9 +495,14 @@ function buildReceiptPdf() {
   const conW = right - conX;
   pdf.setFont(pdfFont, 'bold');
   pdf.setFontSize(fontSizePt);
-  pdf.text(String(contractorText).toUpperCase(), conX + conW / 2, footerY + lineH * 1.4, { align: 'center', maxWidth: conW });
-  pdf.setDrawColor(0, 0, 0);
-  pdf.line(conX, footerY + lineH * 1.4 + 0.02, right, footerY + lineH * 1.4 + 0.02);
+  drawWrappedCentered(
+    String(contractorText).toUpperCase(),
+    conX + conW / 2,
+    footerY + lineH * 1.4,
+    conW,
+    conX,
+    right
+  );
 
   pdf.setFont(pdfFont, 'italic');
   pdf.setFontSize(labelPt);
