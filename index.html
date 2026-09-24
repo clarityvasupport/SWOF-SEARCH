@@ -56,8 +56,20 @@
         <!-- XLSX for Excel import -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-                                <!-- jsPDF for text-based PDF receipt generation -->
+                                                                <!-- jsPDF for text-based PDF receipt generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <!-- PDF.js – used to render the receipt PDF blob to a <canvas> on
+         mobile, where browsers refuse to inline-render PDFs inside an
+         <iframe> and show an "Open PDF" card instead. -->
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <script>
+      // Point PDF.js at its worker on the same CDN.
+      if (window.pdfjsLib) {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+      }
+    </script>
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/styles.css" />
@@ -1107,10 +1119,11 @@
           </div>
         </aside>
 
-        <!-- Preview canvas -->
+                <!-- Preview canvas -->
                                                                 <div id="receiptPreviewCanvas" class="flex-1 overflow-auto bg-gray-300 flex items-start" style="padding: 50px;">
           <div id="receiptIframeWrapper" style="box-shadow: 0 6px 28px rgba(0,0,0,0.18); background:#ffffff; display:inline-block; line-height:0; margin: 0 auto;">
             <iframe id="receiptPdfPreview" title="Receipt PDF Preview" style="border:none; display:block; background:#ffffff;"></iframe>
+            <canvas id="receiptPdfCanvas" style="display:none; border:none; background:#ffffff;"></canvas>
           </div>
         </div>
       </div>

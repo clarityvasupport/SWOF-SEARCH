@@ -55,6 +55,7 @@ let _receiptPdfBlob = null;
 let _receiptPdfUrl = null;
 let _originalReceiptValues = { ...receiptValues };
 let _receiptPreviewTimer = null;
+let _receiptPdfRenderTask = null;
 
 function applyReceiptZoom(zoomPct) {
   const slider = document.getElementById('receiptZoomSlider');
@@ -73,14 +74,68 @@ function applyReceiptZoom(zoomPct) {
 
 function sizeReceiptIframe() {
   const iframe = document.getElementById('receiptPdfPreview');
-  if (!iframe) return;
+  const canvas = document.getElementById('receiptPdfCanvas');
   const paperSize   = document.getElementById('paperSizeSelect')?.value || 'letter';
   const orientation = document.getElementById('orientationSelect')?.value || 'portrait';
   const dims = PAPER_SIZES[paperSize]?.[orientation] || PAPER_SIZES.letter.portrait;
   const dpi = 96;
   const effZoom = _receiptZoom / 100;
-  iframe.style.width  = (dims.w * dpi * effZoom) + 'px';
-  iframe.style.height = (dims.h * dpi * effZoom) + 'px';
+  const w = (dims.w * dpi * effZoom) + 'px';
+  const h = (dims.h * dpi * effZoom) + 'px';
+  if (iframe) { iframe.style.width = w; iframe.style.height = h; }
+  if (canvas) { canvas.style.width = w; canvas.style.height = h; }
+
+  // On mobile the visible preview is the <canvas>. Repaint it at the
+  // new size. PDF.js cancels any in-flight render, so a rapid zoom
+  // drag doesn't queue up a dozen paints.
+  const isMobile = window.matchMedia('(max-width: 767px)').matches;
+  if (isMobile && _receiptPdfBlob && canvas && canvas.style.display !== 'none') {
+    renderReceiptPdfToCanvas();
+  }
+}
+
+// Render the current receipt PDF blob onto the canvas element. This
+// is the mobile fallback path — mobile browsers show an "Open PDF"
+// card instead of inline-rendering the PDF, so we paint the first
+// page with PDF.js into a canvas at the current zoom / DPR.
+async function renderReceiptPdfToCanvas() {
+  const canvas = document.getElementById('receiptPdfCanvas');
+  if (!canvas || !_receiptPdfBlob || !window.pdfjsLib) return;
+
+  // Cancel any in-flight render so consecutive calls don't race.
+  if (_receiptPdfRenderTask) {
+    try { _receiptPdfRenderTask.cancel(); } catch {}
+    _receiptPdfRenderTask = null;
+  }
+
+  try {
+    const buf = await _receiptPdfBlob.arrayBuffer();
+    const pdfDoc = await window.pdfjsLib.getDocument({ data: buf }).promise;
+    if (!pdfDoc || pdfDoc.numPages < 1) return;
+    const page = await pdfDoc.getPage(1);
+
+    // Read the CSS display size that sizeReceiptIframe() just set.
+    const cssW = parseFloat(canvas.style.width)  || 816;
+    const dpr  = window.devicePixelRatio || 1;
+
+    const baseVp = page.getViewport({ scale: 1 });
+    const scale  = (cssW * dpr) / baseVp.width;
+    const viewport = page.getViewport({ scale });
+
+    canvas.width  = Math.floor(viewport.width);
+    canvas.height = Math.floor(viewport.height);
+
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    _receiptPdfRenderTask = page.render({ canvasContext: ctx, viewport });
+    await _receiptPdfRenderTask.promise;
+    _receiptPdfRenderTask = null;
+  } catch (err) {
+    if (err && err.name === 'RenderingCancelledException') return;
+    console.error('PDF canvas render failed:', err);
+  }
 }
 
 // Debounced refresh of the receipt PDF preview. Called on every
@@ -415,9 +470,28 @@ function updateReceiptPdfPreview() {
   _receiptPdfUrl = URL.createObjectURL(_receiptPdfBlob);
 
   const iframe = document.getElementById('receiptPdfPreview');
-  if (iframe) {
-    // #toolbar=0 hides the PDF viewer chrome; view=Fit fits the whole page.
-    iframe.src = _receiptPdfUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=Fit';
+  const canvas = document.getElementById('receiptPdfCanvas');
+  const isMobile = window.matchMedia('(max-width: 767px)').matches;
+
+  if (isMobile && canvas) {
+    // Mobile browsers refuse to inline-render PDFs inside an <iframe>.
+    // Hide the iframe and paint the blob onto a canvas with PDF.js.
+    if (iframe) {
+      iframe.style.display = 'none';
+      iframe.src = 'about:blank';
+    }
+    canvas.style.display = 'block';
+    // sizeReceiptIframe will trigger the canvas paint on mobile
+    // (its mobile branch calls renderReceiptPdfToCanvas).
+    sizeReceiptIframe();
+  } else {
+    // Desktop: the browser's native PDF viewer inside the iframe.
+    if (canvas) canvas.style.display = 'none';
+    if (iframe) {
+      iframe.style.display = 'block';
+      // #toolbar=0 hides the PDF viewer chrome; view=Fit fits the whole page.
+      iframe.src = _receiptPdfUrl + '#toolbar=0&navpanes=0&scrollbar=0&view=Fit';
+    }
   }
 }
 
@@ -1090,6 +1164,12 @@ export function closeReceiptModal() {
     _receiptPreviewTimer = null;
   }
 
+  // Cancel any in-flight canvas render.
+  if (_receiptPdfRenderTask) {
+    try { _receiptPdfRenderTask.cancel(); } catch {}
+    _receiptPdfRenderTask = null;
+  }
+
   if (_receiptPdfUrl) {
     try { URL.revokeObjectURL(_receiptPdfUrl); } catch {}
     _receiptPdfUrl = null;
@@ -1097,6 +1177,14 @@ export function closeReceiptModal() {
   }
   const iframe = document.getElementById('receiptPdfPreview');
   if (iframe) iframe.src = 'about:blank';
+
+  // Wipe the canvas buffer so stale pixels don't flash on the next open.
+  const canvas = document.getElementById('receiptPdfCanvas');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    canvas.style.display = 'none';
+  }
 }
 
 export function printReceipt() {
@@ -1176,6 +1264,16 @@ window.closeAddressModal = closeAddressModal;
 window.addEventListener('resize', () => {
   const modal = document.getElementById('receiptModal');
   if (!modal || modal.classList.contains('hidden')) return;
+
+  const isMobile = window.matchMedia('(max-width: 767px)').matches;
+
+  if (isMobile && _receiptPdfBlob) {
+    // Mobile canvas path: re-fit and repaint at the new viewport size.
+    sizeReceiptIframe();
+    return;
+  }
+
+  // Desktop iframe path.
   const iframe = document.getElementById('receiptPdfPreview');
   if (!iframe || !iframe.src || iframe.src === 'about:blank') return;
   sizeReceiptIframe();

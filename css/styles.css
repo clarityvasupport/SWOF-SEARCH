@@ -881,6 +881,17 @@ body {
   pointer-events: none;
 }
 
+/* The mobile preview canvas mirrors the iframe's role: display-only,
+   full-bleed, and no pointer events so touch-drag pans the wrapper.
+   Visibility is toggled by JS — shown on mobile, hidden on desktop. */
+#receiptPdfCanvas {
+  display: none;
+  border: none;
+  background: #ffffff;
+  pointer-events: none;
+  line-height: 0;
+}
+
 /* ============================================================
    RECEIPT FIELD-EDITOR ACCORDION
    ============================================================ */
