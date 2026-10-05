@@ -317,10 +317,15 @@ async function autoSyncFromStoredApi(retryCount = 0) {
   const url = loadApiUrl();
   if (!url) return;
   try {
-    const success = await fetchAndApplyWithSavedMapping(url);
-    if (!success && retryCount < 2) {
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      return autoSyncFromStoredApi(retryCount + 1);
+    const result = await fetchAndApplyWithSavedMapping(url);
+    if (!result.ok) {
+      // Do NOT retry after an abort (timeout). The endpoint just proved it is
+      // unresponsive; retrying within seconds only spams the user with toasts.
+      if (result.aborted) return;
+      if (retryCount < 2) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        return autoSyncFromStoredApi(retryCount + 1);
+      }
     }
   } catch (err) {
     console.error('AutoSync error:', err);
@@ -333,11 +338,18 @@ async function autoSyncFromStoredApi(retryCount = 0) {
 }
 
 async function fetchAndApplyWithSavedMapping(apiUrl) {
-  if (!apiUrl) return false;
+  if (!apiUrl) return { ok: false, aborted: false };
+  // Abort the fetch at 20s. Apps Script Web Apps can hang on cold starts or
+  // slow sheet reads; the client gives up cleanly rather than waiting on the
+  // server's own 30s execution ceiling.
+  const API_TIMEOUT_MS = 20000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
   try {
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: { Accept: 'application/json, text/csv, text/plain, */*' },
+      signal: controller.signal,
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const contentType = (response.headers.get('content-type') || '').toLowerCase();
@@ -373,11 +385,17 @@ async function fetchAndApplyWithSavedMapping(apiUrl) {
     saveOrders();
     render();
     toast(`✅ API sync complete: ${orders.length} orders loaded.`, 'success');
-    return true;
+    return { ok: true, aborted: false };
   } catch (err) {
     console.error('API sync failed:', err);
+    if (err && err.name === 'AbortError') {
+      toast('❌ API sync timed out after 20s — sheet may be slow or unreachable.', 'error');
+      return { ok: false, aborted: true };
+    }
     toast('❌ API sync failed: ' + err.message, 'error');
-    return false;
+    return { ok: false, aborted: false };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -591,7 +609,21 @@ function attachEventListeners() {
     const icon = document.getElementById('refreshIcon');
     btn.disabled = true;
     if (icon) icon.classList.add('animate-spin');
-    showLoadingToast('đź”„ Refreshing dashboard...');
+    showLoadingToast('Refreshing dashboard...');
+
+    // UI watchdog: release the loading toast, button, and spinner at 25s even
+    // if the sync is still in flight. The underlying work is NOT cancelled —
+    // if it eventually resolves, its success/error toast still fires. This is
+    // a safety net so a hung KV or fetch call can never strand the UI.
+    const watchdogTimer = setTimeout(() => {
+      hideLoadingToast();
+      const liveBtn = document.getElementById('refreshBtn');
+      const liveIcon = document.getElementById('refreshIcon');
+      if (liveBtn) liveBtn.disabled = false;
+      if (liveIcon) liveIcon.classList.remove('animate-spin');
+      toast('Sync is taking longer than expected — please check your connection and try again.', 'info');
+    }, 25000);
+
     try {
       await loadSharedState();
       await autoSyncFromStoredApi();
@@ -610,11 +642,12 @@ function attachEventListeners() {
       if (selectedId && orders.some(o => o.id === selectedId)) renderDrawer(selectedId);
       else if (selectedId) closeDrawer();
       hideLoadingToast();
-      toast('âś… Dashboard refreshed successfully.', 'success');
+      toast('Dashboard refreshed successfully.', 'success');
     } catch (err) {
       hideLoadingToast();
       toast('âťŚ Refresh failed: ' + err.message, 'error');
     } finally {
+      clearTimeout(watchdogTimer);
       // Re-query in case render() replaced the node mid-flight.
       const liveBtn = document.getElementById('refreshBtn') || btn;
       const liveIcon = document.getElementById('refreshIcon') || icon;
