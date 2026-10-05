@@ -231,45 +231,11 @@ export function render() {
   updateStorageBadge();
 
   // =========================================================
-  // REFRESH BUTTON – sync from KV
+  // REFRESH BUTTON – wiring lives in app.js (attachEventListeners).
+  // Do NOT re-wire or clone it here. Cloning on every render replaces
+  // the DOM node mid-handler, which detaches the in-flight button and
+  // leaves the visible clone stuck in its loading state.
   // =========================================================
-  const refreshBtn = document.getElementById('refreshBtn');
-  if (refreshBtn) {
-    // Remove old listener to avoid duplicates
-    const newRefreshBtn = refreshBtn.cloneNode(true);
-    refreshBtn.parentNode.replaceChild(newRefreshBtn, refreshBtn);
-    
-    let isSyncing = false;
-    newRefreshBtn.addEventListener('click', async function() {
-      if (isSyncing) return;
-      isSyncing = true;
-      const originalText = this.innerHTML;
-      this.innerHTML = `
-        <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-width="1.8" stroke-linecap="round" d="M20 11a8 8 0 0 0-15.3-3M4 5v4h4M4 13a8 8 0 0 0 15.3 3M20 19v-4h-4" />
-        </svg>
-        <span class="hidden sm:inline">Syncing…</span>
-      `;
-      this.disabled = true;
-
-      try {
-        await loadSharedState();
-        const fixed = resolveDuplicateIds();
-        if (fixed > 0) {
-          toast(`🔧 Resolved ${fixed} duplicate ID(s) automatically.`, 'info');
-        }
-        render();
-        toast('Dashboard synced from cloud.', 'success');
-      } catch (err) {
-        console.warn('Dashboard sync error:', err);
-        toast('Sync failed – using local data.', 'error');
-      } finally {
-        this.innerHTML = originalText;
-        this.disabled = false;
-        isSyncing = false;
-      }
-    });
-  }
 
   // =========================================================
   // MOBILE COMPACT FILTER BAR

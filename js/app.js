@@ -587,10 +587,11 @@ function attachEventListeners() {
   // Refresh
   document.getElementById('refreshBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('refreshBtn');
+    if (!btn || btn.disabled) return;
     const icon = document.getElementById('refreshIcon');
     btn.disabled = true;
-    icon.classList.add('animate-spin');
-    showLoadingToast('🔄 Refreshing dashboard...');
+    if (icon) icon.classList.add('animate-spin');
+    showLoadingToast('đź”„ Refreshing dashboard...');
     try {
       await loadSharedState();
       await autoSyncFromStoredApi();
@@ -609,13 +610,16 @@ function attachEventListeners() {
       if (selectedId && orders.some(o => o.id === selectedId)) renderDrawer(selectedId);
       else if (selectedId) closeDrawer();
       hideLoadingToast();
-      toast('✅ Dashboard refreshed successfully.', 'success');
+      toast('âś… Dashboard refreshed successfully.', 'success');
     } catch (err) {
       hideLoadingToast();
-      toast('❌ Refresh failed: ' + err.message, 'error');
+      toast('âťŚ Refresh failed: ' + err.message, 'error');
     } finally {
-      btn.disabled = false;
-      icon.classList.remove('animate-spin');
+      // Re-query in case render() replaced the node mid-flight.
+      const liveBtn = document.getElementById('refreshBtn') || btn;
+      const liveIcon = document.getElementById('refreshIcon') || icon;
+      if (liveBtn) liveBtn.disabled = false;
+      if (liveIcon) liveIcon.classList.remove('animate-spin');
     }
   });
 
